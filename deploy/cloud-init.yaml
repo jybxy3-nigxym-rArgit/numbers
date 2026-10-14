@@ -5,7 +5,7 @@ write_files:
   - path: /root/numbers.conf
     permissions: '0600'
     content: |
-      ADMIN_PHONE=0500000000
+      ADMIN_PHONE=0599900079
       REQUIRE_APPROVAL=false
 runcmd:
   - [ bash, -c, "curl -fsSL https://raw.githubusercontent.com/jybxy3-nigxym-rArgit/numbers/main/deploy/install.sh -o /root/install-numbers.sh && bash /root/install-numbers.sh" ]
