@@ -1,0 +1,14 @@
+{
+  "name": "numbers-market",
+  "version": "0.1.0",
+  "description": "Free classifieds site for premium phone numbers (Arabic and English). No external dependencies.",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "test": "node --disable-warning=ExperimentalWarning test/e2e.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
