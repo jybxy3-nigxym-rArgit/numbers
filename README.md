@@ -40,7 +40,8 @@ ADMIN_PHONE=0555123456 node --disable-warning=ExperimentalWarning server.js
 
 الموقع يحتاج مكان يشغّل Node 22 ويحفظ ملف قاعدة البيانات (مجلد `DATA_DIR`). الخيارات:
 
-- سيرفر صغير (VPS) مع Docker: الملف `Dockerfile` جاهز.
+- سيرفر صغير (VPS) بنظام Ubuntu: مجلد `deploy/` فيه سكربت تثبيت يسوي كل شي لوحده (Node و HTTPS وخدمة تشتغل دايم ونسخ احتياطي يومي). الملف `deploy/cloud-init.yaml` تلصقه وقت إنشاء السيرفر ويثبّت الموقع بدون ما تفتح terminal.
+- أو Docker: الملف `Dockerfile` جاهز.
 - منصة مثل Render أو Railway: لازم تضيف قرص دائم (Disk/Volume) وتوجّه `DATA_DIR` له.
 
 ## الاختبارات
