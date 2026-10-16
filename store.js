@@ -203,6 +203,15 @@ function createStore(d) {
     return r.lastId;
   }
 
+  async function updateListing(l) {
+    return (
+      await d.run(
+        'UPDATE listings SET network = ?, city = ?, price = ?, contact = ?, description = ?, status = ? WHERE id = ? AND user_id = ?',
+        [l.network, l.city, l.price ?? null, l.contact, l.description, l.status, l.id, l.userId]
+      )
+    ).changes;
+  }
+
   const userListings = (userId) =>
     d.all(`${LISTING_SELECT} WHERE l.user_id = ? ORDER BY l.created_at DESC, l.id DESC`, [userId]);
 
@@ -299,6 +308,7 @@ function createStore(d) {
     countActiveByUser,
     numberIsListed,
     insertListing,
+    updateListing,
     userListings,
     setListingStatus,
     setOwnListingStatus,

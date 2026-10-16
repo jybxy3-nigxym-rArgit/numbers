@@ -304,18 +304,10 @@ route('POST', '/n/:id/report', async (ctx) => {
 
 // ---- Post an ad ----
 
-route('GET', '/post', (ctx) => {
-  if (!requireLogin(ctx)) return;
-  html(ctx, 200, views.postPage(ctx));
-});
-
-route('POST', '/post', async (ctx) => {
-  if (!requireLogin(ctx)) return;
-  if (!(await ctx.store.allow(`post:${ctx.ip}`, 30, 3600 * 1000))) return tooMany(ctx);
-
+// Reads and checks the fields shared by "post" and "edit" (everything except the number).
+function readAdFields(ctx) {
   const b = ctx.body;
   const v = {
-    number: str(b.number, 25).trim(),
     network: str(b.network, 20),
     city: str(b.city, 20),
     price: str(b.price, 15).trim(),
@@ -323,9 +315,6 @@ route('POST', '/post', async (ctx) => {
     description: str(b.description, 1000).replace(/\r\n?/g, '\n').trim(),
   };
   const errors = {};
-
-  const nat = util.normPhone(v.number);
-  if (!nat) errors.number = 'err_number';
   if (!NETWORK_BY_KEY[v.network]) errors.network = 'err_network';
   if (!CITY_BY_KEY[v.city]) errors.city = 'err_city';
 
@@ -342,6 +331,24 @@ route('POST', '/post', async (ctx) => {
     else errors.contact = 'err_contact';
   }
   if ([...v.description].length > 300) errors.description = 'err_desc';
+  return { v, errors, price, contact };
+}
+
+
+route('GET', '/post', (ctx) => {
+  if (!requireLogin(ctx)) return;
+  html(ctx, 200, views.postPage(ctx));
+});
+
+route('POST', '/post', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!(await ctx.store.allow(`post:${ctx.ip}`, 30, 3600 * 1000))) return tooMany(ctx);
+
+  const { v, errors, price, contact } = readAdFields(ctx);
+  v.number = str(ctx.body.number, 25).trim();
+
+  const nat = util.normPhone(v.number);
+  if (!nat) errors.number = 'err_number';
 
   if (nat && !errors.number) {
     const number = util.toLocal(nat);
@@ -367,6 +374,53 @@ route('POST', '/post', async (ctx) => {
   });
   flash(ctx, 'ok', status === 'pending' ? 'pending_notice' : 'published_notice');
   redirect(ctx, `/n/${id}`);
+});
+
+// ---- Edit an ad (owner only) ----
+
+async function ownListing(ctx) {
+  const id = Number(ctx.params.id);
+  const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
+  return l && l.user_id === ctx.user.id ? l : null;
+}
+
+route('GET', '/n/:id/edit', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const l = await ownListing(ctx);
+  if (!l) return notFound(ctx);
+  const v = {
+    network: l.network,
+    city: l.city,
+    price: l.price == null ? '' : String(l.price),
+    contact: util.intlToLocal(l.contact),
+    description: l.description,
+  };
+  html(ctx, 200, views.editPage(ctx, l, v));
+});
+
+route('POST', '/n/:id/edit', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!(await ctx.store.allow(`edit:${ctx.ip}`, 60, 3600 * 1000))) return tooMany(ctx);
+  const l = await ownListing(ctx);
+  if (!l) return notFound(ctx);
+
+  const { v, errors, price, contact } = readAdFields(ctx);
+  if (Object.keys(errors).length) return html(ctx, 400, views.editPage(ctx, l, v, errors));
+
+  // With approval mode on, a changed live ad goes back to review so contact details cannot be swapped after approval.
+  const status = config.requireApproval && !ctx.user.is_admin && l.status === 'active' ? 'pending' : l.status;
+  await ctx.store.updateListing({
+    id: l.id,
+    userId: ctx.user.id,
+    network: v.network,
+    city: v.city,
+    price,
+    contact,
+    description: v.description,
+    status,
+  });
+  flash(ctx, 'ok', status === 'pending' ? 'pending_notice' : 'updated');
+  redirect(ctx, `/n/${l.id}`);
 });
 
 // ---- Accounts ----
@@ -459,14 +513,14 @@ route('POST', '/my/:id/sold', async (ctx) => {
   if (!requireLogin(ctx)) return;
   await ctx.store.setOwnListingStatus(Number(ctx.params.id), ctx.user.id, 'sold');
   flash(ctx, 'ok', 'updated');
-  redirect(ctx, '/my');
+  redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/my');
 });
 
 route('POST', '/my/:id/delete', async (ctx) => {
   if (!requireLogin(ctx)) return;
   await ctx.store.deleteOwnListing(Number(ctx.params.id), ctx.user.id);
   flash(ctx, 'ok', 'deleted');
-  redirect(ctx, '/my');
+  redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/my');
 });
 
 // ---- Admin ----

@@ -23,8 +23,8 @@ function qs(obj) {
 function ageText(ctx, createdAt) {
   const d = daysSince(createdAt);
   if (d === 0) return ctx.t('today');
-  if (d === 1) return ctx.t('yesterday');
-  return ctx.t('days_ago', { n: d });
+  if (d === 1 && ctx.lang !== 'ar') return ctx.t('yesterday');
+  return ctx.t('days_ago', { n: ctx.lang === 'ar' ? String(d).replace(/\d/g, (c) => '٠١٢٣٤٥٦٧٨٩'[c]) : d });
 }
 
 function csrfInput(ctx) {
@@ -118,7 +118,7 @@ ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Lalezar&amp;family=Tajawal:wght@800;900&amp;display=swap">
 <link rel="stylesheet" href="/style.css?v=${esc(ASSET_V)}">
 </head>
 <body>
@@ -149,13 +149,41 @@ ${body}
 
 // ---- Plate card ------------------------------------------------------------
 
+function ownerActions(ctx, l, { deleteNext } = {}) {
+  if (!ctx.user || ctx.user.id !== l.user_id) return '';
+  const { t } = ctx;
+  const next = `<input type="hidden" name="next" value="${esc(ctx.path)}">`;
+  const delNext = `<input type="hidden" name="next" value="${esc(deleteNext || ctx.path)}">`;
+  return `
+  <div class="plate-actions">
+    <a class="btn btn-ghost btn-small" href="/n/${l.id}/edit">${esc(t('edit'))}</a>
+    ${
+      l.status === 'active'
+        ? `<form method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}${next}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
+        : ''
+    }
+    <form method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}${delNext}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>
+  </div>`;
+}
+
+// The number plate: network on top, big number, then city, price and age in one row.
+function plateFace(ctx, l, tag = 'span') {
+  return `
+    <span class="p-net">${esc(netName(ctx, l.network))}</span>
+    <${tag} class="p-num" dir="ltr" aria-label="${esc(formatNumberPlain(l.number))}">${esc(l.number)}</${tag}>
+    <span class="p-foot">
+      <span class="p-city">${esc(cityName(ctx, l.city))}</span>
+      ${priceHtml(ctx, l.price)}
+      <span class="p-age">${esc(ageText(ctx, l.created_at))}</span>
+    </span>`;
+}
+
 function plate(ctx, l) {
   return `
-  <a class="plate" href="/n/${l.id}" aria-label="${esc(formatNumberPlain(l.number))}">
-    <span class="plate-meta"><span class="net">${esc(netName(ctx, l.network))}</span><span class="city">${esc(cityName(ctx, l.city))}</span></span>
-    <span class="digits" dir="ltr">${plateDigits(l.number)}</span>
-    <span class="plate-foot">${priceHtml(ctx, l.price)}<span class="age">${esc(ageText(ctx, l.created_at))}</span></span>
-  </a>`;
+  <div class="plate-card">
+    <a class="plate" href="/n/${l.id}">${plateFace(ctx, l)}</a>
+    ${ownerActions(ctx, l)}
+  </div>`;
 }
 
 // ---- Home / search ---------------------------------------------------------
@@ -163,44 +191,22 @@ function plate(ctx, l) {
 function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
   const { t } = ctx;
   const f = filters;
-  const base = { q: f.qRaw, network: f.network, city: f.city, min: f.minRaw, max: f.maxRaw, starts: f.startsRaw, ends: f.endsRaw, sort: f.sort === 'new' ? '' : f.sort, pattern: f.pattern };
-  const advancedActive = !!(f.network || f.city || f.minRaw || f.maxRaw || f.startsRaw || f.endsRaw || (f.sort && f.sort !== 'new'));
-  const anyFilter = !!(f.qRaw || f.pattern || advancedActive);
-
-  const chips = PATTERN_KEYS.map((k) => {
-    const active = f.pattern === k;
-    const href = '/' + qs({ ...base, pattern: active ? '' : k, page: '' });
-    return `<a class="chip" href="${esc(href)}"${active ? ' aria-current="true"' : ''}>${esc(t('pat_' + k))}</a>`;
-  }).join('');
-
-  const sortOptions = [
-    { value: 'new', label: t('sort_new') },
-    { value: 'price_asc', label: t('sort_low') },
-    { value: 'price_desc', label: t('sort_high') },
-  ];
+  const base = { q: f.qRaw, city: f.city, max: f.maxRaw };
+  const anyFilter = !!(f.qRaw || f.city || f.maxRaw);
 
   const form = `
   <form class="search" method="get" action="/" role="search">
-    <label for="q">${esc(t('search_label'))}</label>
-    <div class="search-row">
+    <div class="search-bar">
       <input id="q" name="q" type="search" inputmode="numeric" autocomplete="off" dir="auto"
-        value="${esc(f.qRaw)}" placeholder="${esc(t('search_ph'))}">
+        aria-label="${esc(t('search_label'))}" value="${esc(f.qRaw)}" placeholder="${esc(t('search_ph'))}">
+      <select id="f-city" name="city" aria-label="${esc(t('city'))}">
+        <option value="">${esc(t('all_cities'))}</option>
+        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.value === f.city ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
+      </select>
+      <input id="f-max" name="max" type="text" inputmode="numeric" autocomplete="off" dir="auto"
+        aria-label="${esc(t('max_price'))}" value="${esc(f.maxRaw)}" placeholder="${esc(t('max_price'))}">
       <button class="btn" type="submit">${esc(t('search'))}</button>
     </div>
-    ${f.pattern ? `<input type="hidden" name="pattern" value="${esc(f.pattern)}">` : ''}
-    <details class="more"${advancedActive ? ' open' : ''}>
-      <summary>${esc(t('more_filters'))}</summary>
-      <div class="more-grid">
-        ${selectField(ctx, { id: 'f-network', name: 'network', label: t('network'), options: networkOptions(ctx), value: f.network, placeholder: t('all_networks') })}
-        ${selectField(ctx, { id: 'f-city', name: 'city', label: t('city'), options: cityOptions(ctx), value: f.city, placeholder: t('all_cities') })}
-        ${field(ctx, { id: 'f-min', name: 'min', label: t('min_price'), value: f.minRaw, attrs: 'inputmode="numeric"' })}
-        ${field(ctx, { id: 'f-max', name: 'max', label: t('max_price'), value: f.maxRaw, attrs: 'inputmode="numeric"' })}
-        ${field(ctx, { id: 'f-starts', name: 'starts', label: t('starts'), value: f.startsRaw, attrs: 'inputmode="numeric"' })}
-        ${field(ctx, { id: 'f-ends', name: 'ends', label: t('ends'), value: f.endsRaw, attrs: 'inputmode="numeric"' })}
-        ${selectField(ctx, { id: 'f-sort', name: 'sort', label: t('sort'), options: sortOptions, value: f.sort || 'new' })}
-      </div>
-      <button class="btn btn-ghost" type="submit">${esc(t('search'))}</button>
-    </details>
   </form>`;
 
   let results;
@@ -229,7 +235,6 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
     <h1>${esc(t('search_title'))}</h1>
     <p class="lede">${esc(t('tagline'))}</p>
     ${form}
-    <div class="chips" role="group" aria-label="${esc(t('quick'))}">${chips}</div>
   </section>
   <section class="results" aria-live="polite">
     <div class="results-head">
@@ -262,10 +267,9 @@ function listingPage(ctx, l, { canManage }) {
   const body = `
   <article class="listing">
     ${notices.join('')}
-    <div class="listing-plate">
-      <p class="plate-meta"><span class="net">${esc(netName(ctx, l.network))}</span><span class="city">${esc(cityName(ctx, l.city))}</span></p>
-      <h1 class="digits digits-lg" dir="ltr" aria-label="${esc(formatNumberPlain(l.number))}">${plateDigits(l.number)}</h1>
-      <p class="listing-price">${priceHtml(ctx, l.price, true)}</p>
+    <div class="plate-card plate-big">
+      <div class="plate">${plateFace(ctx, l, 'h1')}</div>
+      ${ownerActions(ctx, l, { deleteNext: '/my' })}
     </div>
 
     <div class="listing-side">
@@ -346,6 +350,36 @@ function postPage(ctx, v = {}, errors = {}) {
     </aside>
   </section>`;
   return layout(ctx, { title: t('post_title'), body, noindex: true });
+}
+
+function editPage(ctx, l, v = {}, errors = {}) {
+  const { t } = ctx;
+  const hasErrors = Object.keys(errors).length > 0;
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('edit_title'))}</h1>
+    <div class="plate-card"><div class="plate">${plateFace(ctx, l)}</div></div>
+    <p class="lede">${esc(t('edit_intro'))}</p>
+    ${hasErrors ? `<div class="notice error" role="alert">${esc(t('err_fix'))}</div>` : ''}
+    <form method="post" action="/n/${l.id}/edit" class="form" novalidate>
+      ${csrfInput(ctx)}
+      ${selectField(ctx, { id: 'network', name: 'network', label: t('f_network'), options: networkOptions(ctx), value: v.network, error: errors.network, placeholder: t('f_choose') })}
+      ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose') })}
+      ${field(ctx, { id: 'price', name: 'price', label: t('f_price'), hint: t('f_price_hint'), value: v.price, error: errors.price, attrs: 'inputmode="numeric" autocomplete="off"' })}
+      ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="tel" autocomplete="off"' })}
+      <div class="field${errors.description ? ' has-error' : ''}">
+        <label for="description">${esc(t('f_desc'))}</label>
+        <p class="hint" id="description-hint">${esc(t('f_desc_hint'))}</p>
+        <textarea id="description" name="description" rows="4" maxlength="400" dir="auto" aria-describedby="description-hint">${esc(v.description)}</textarea>
+        ${errors.description ? `<p class="error-text">${esc(t(errors.description))}</p>` : ''}
+      </div>
+      <div class="form-actions">
+        <button class="btn" type="submit">${esc(t('save'))}</button>
+        <a class="btn btn-ghost" href="/n/${l.id}">${esc(t('cancel'))}</a>
+      </div>
+    </form>
+  </section>`;
+  return layout(ctx, { title: t('edit_title'), body, noindex: true });
 }
 
 // ---- Auth ------------------------------------------------------------------
@@ -523,6 +557,7 @@ module.exports = {
   homePage,
   listingPage,
   postPage,
+  editPage,
   registerPage,
   loginPage,
   myPage,
