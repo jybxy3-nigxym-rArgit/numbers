@@ -274,6 +274,33 @@ async function main() {
     r = await admin.post('/admin/l/2/delete', { tab: 'all' });
     check('admin deletes ad', (await anon.get('/n/2')).status === 404);
 
+    console.log('\nPassword help');
+    r = await anon.get('/login');
+    check('login page tells people to contact the admin', r.text.includes('contact the admin') && r.text.includes('0500000001'));
+    r = await b.post('/admin/u/1/reset', {});
+    check('non-admin cannot reset passwords', r.status === 404, r.status);
+    r = await admin.post('/admin/u/999/reset', {});
+    check('resetting a missing user is a 404', r.status === 404, r.status);
+    r = await admin.post('/admin/u/1/reset', {});
+    const tmp = (r.text.match(/class="temp-pass" dir="ltr">([a-z0-9]+)</) || [])[1];
+    check('admin gets a one-time temporary password', r.status === 200 && tmp && tmp.length === 10 && r.text.includes('wa.me/966555000111'), r.status);
+    check('reset page is never cached', (r.headers.get('cache-control') || '').includes('no-store'));
+    let pc = await newClient(base);
+    r = await pc.post('/login', { phone: '0555000111', password: 'secret-pass-1' });
+    check('old password stops working', r.status === 401, r.status);
+    r = await pc.post('/login', { phone: '0555000111', password: tmp });
+    check('temporary password logs in', r.status === 303, r.status);
+    pc.auth = true;
+    r = await pc.post('/password', { current: 'wrong-one-1', next: 'new-pass-9999' });
+    check('changing password needs the right current one', r.status === 400, r.status);
+    r = await pc.post('/password', { current: tmp, next: 'short' });
+    check('new password must be 8+ characters', r.status === 400, r.status);
+    r = await pc.post('/password', { current: tmp, next: 'new-pass-9999' });
+    check('user changes the password', r.status === 303, r.status);
+    r = await pc.post('/password', { current: 'new-pass-9999', next: 'secret-pass-1' });
+    check('and can set it back', r.status === 303, r.status);
+    check('visitors cannot open the password page', (await anon.get('/password')).status === 303);
+
     console.log('\nMy ads actions');
     const a3 = await newClient(base);
     await a3.post('/login', { phone: '0555000111', password: 'secret-pass-1' });

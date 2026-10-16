@@ -123,6 +123,10 @@ function createStore(d) {
     return r.lastId;
   }
 
+  async function setUserPassword(id, passHash) {
+    await d.run('UPDATE users SET pass_hash = ? WHERE id = ?', [passHash, id]);
+  }
+
   // ---- Listings ----
 
   const getListing = (id) => d.first(`${LISTING_SELECT} WHERE l.id = ?`, [id]);
@@ -303,6 +307,7 @@ function createStore(d) {
     getUser,
     getUserByPhone,
     createUser,
+    setUserPassword,
     getListing,
     searchListings,
     countActiveByUser,

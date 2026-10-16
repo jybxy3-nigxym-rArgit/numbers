@@ -27,6 +27,18 @@ function randomToken(bytes = 18) {
   return toB64u(globalThis.crypto.getRandomValues(new Uint8Array(bytes)));
 }
 
+// A short password people can read out loud: no 0/O, 1/l/I confusion.
+function randomPassword(length = 10) {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  while (out.length < length) {
+    for (const b of globalThis.crypto.getRandomValues(new Uint8Array(32))) {
+      if (b < 248 && out.length < length) out += alphabet[b % alphabet.length]; // 248 = 31 * 8, so no bias
+    }
+  }
+  return out;
+}
+
 // Constant-time comparison of two strings.
 function safeEqual(a, b) {
   a = String(a);
@@ -86,6 +98,7 @@ module.exports = {
   textToB64u,
   b64uToText,
   randomToken,
+  randomPassword,
   safeEqual,
   hmac,
   sha256Hex,

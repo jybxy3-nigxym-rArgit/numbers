@@ -507,6 +507,27 @@ route('GET', '/lang/:code', (ctx) => {
   redirect(ctx, safeNext(ctx.query.next), 302);
 });
 
+// ---- Change own password ----
+
+route('GET', '/password', (ctx) => {
+  if (!requireLogin(ctx)) return;
+  html(ctx, 200, views.passwordPage(ctx));
+});
+
+route('POST', '/password', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!(await ctx.store.allow(`pw:${ctx.ip}`, 10, 15 * 60 * 1000))) return tooMany(ctx);
+  const current = str(ctx.body.current, 200);
+  const next = str(ctx.body.next, 200);
+  const errors = {};
+  if (!(await wc.verifyPassword(current, ctx.user.pass_hash, config.pbkdf2Iterations))) errors.current = 'err_pass_current';
+  if (next.length < 8) errors.next = 'err_pass';
+  if (Object.keys(errors).length) return html(ctx, 400, views.passwordPage(ctx, errors));
+  await ctx.store.setUserPassword(ctx.user.id, await wc.hashPassword(next, config.pbkdf2Iterations));
+  flash(ctx, 'ok', 'pw_changed');
+  redirect(ctx, '/my');
+});
+
 // ---- My ads ----
 
 route('GET', '/my', async (ctx) => {
@@ -557,6 +578,17 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   const tab = ADMIN_TABS.includes(ctx.body.tab) ? ctx.body.tab : 'pending';
   flash(ctx, 'ok', 'updated');
   redirect(ctx, `/admin?tab=${tab}`);
+});
+
+// The admin gives a user a temporary password (shown once, nothing is stored in clear text).
+route('POST', '/admin/u/:id/reset', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  if (!(await ctx.store.allow(`reset:${ctx.user.id}`, 30, 3600 * 1000))) return tooMany(ctx);
+  const user = await ctx.store.getUser(Number(ctx.params.id));
+  if (!user || user.is_admin) return notFound(ctx);
+  const pass = wc.randomPassword(10);
+  await ctx.store.setUserPassword(user.id, await wc.hashPassword(pass, config.pbkdf2Iterations));
+  html(ctx, 200, views.adminResetPage(ctx, user, pass), { 'Cache-Control': 'no-store' });
 });
 
 route('POST', '/admin/u/:id/:action', async (ctx) => {

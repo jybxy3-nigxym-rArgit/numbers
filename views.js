@@ -1,6 +1,7 @@
 'use strict';
 
 const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY } = require('./data');
+const util = require('./util');
 const { esc, plateDigits, formatNumberPlain, intlToLocal, daysSince, formatPrice } = require('./util');
 const config = require('./config');
 
@@ -417,6 +418,12 @@ function loginPage(ctx, v = {}, errors = {}) {
       <button class="btn" type="submit">${esc(t('login'))}</button>
     </form>
     <p class="alt">${esc(t('no_account'))} <a href="/register">${esc(t('register'))}</a></p>
+    ${
+      config.adminLocal
+        ? `<p class="forgot">${esc(t('forgot_pass'))} <bdi dir="ltr">${esc(config.adminLocal)}</bdi>
+      <a href="https://wa.me/${esc(util.toIntl(config.adminLocal.slice(1)))}" target="_blank" rel="noopener">${esc(t('forgot_wa'))}</a></p>`
+        : ''
+    }
   </section>`;
   return layout(ctx, { title: t('login'), body, noindex: true });
 }
@@ -449,8 +456,44 @@ function myPage(ctx, rows) {
         .join('')}</ul>`
     : `<div class="empty"><p>${esc(t('no_ads'))}</p><p><a class="btn" href="/post">${esc(t('post_ad'))}</a></p></div>`;
 
-  const body = `<section><h1>${esc(t('my_title'))}</h1>${list}</section>`;
+  const body = `<section><h1>${esc(t('my_title'))}</h1>${list}<p class="alt"><a href="/password">${esc(t('change_password'))}</a></p></section>`;
   return layout(ctx, { title: t('my_title'), body, noindex: true });
+}
+
+function adminResetPage(ctx, user, pass) {
+  const { t } = ctx;
+  const intl = util.toIntl(user.phone);
+  const wa = `https://wa.me/${intl}?text=${encodeURIComponent(t('reset_wa_msg', { pass }))}`;
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('reset_title'))}</h1>
+    <p>${esc(t('reset_for', { name: user.name }))} · <bdi dir="ltr">0${esc(user.phone)}</bdi></p>
+    <p class="temp-pass" dir="ltr">${esc(pass)}</p>
+    <div class="notice">${esc(t('reset_note'))}</div>
+    <p class="form-actions">
+      <a class="btn btn-wa" href="${esc(wa)}" target="_blank" rel="noopener">${esc(t('reset_send'))}</a>
+      <a class="btn btn-ghost" href="/admin?tab=users">${esc(t('back_users'))}</a>
+    </p>
+  </section>`;
+  return layout(ctx, { title: t('reset_title'), body, noindex: true });
+}
+
+function passwordPage(ctx, errors = {}) {
+  const { t } = ctx;
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('pw_title'))}</h1>
+    <form method="post" action="/password" class="form" novalidate>
+      ${csrfInput(ctx)}
+      ${field(ctx, { id: 'current', name: 'current', label: t('f_pass_current'), type: 'password', error: errors.current, attrs: 'autocomplete="current-password" required' })}
+      ${field(ctx, { id: 'next', name: 'next', label: t('f_pass_new'), type: 'password', error: errors.next, attrs: 'autocomplete="new-password" required' })}
+      <div class="form-actions">
+        <button class="btn" type="submit">${esc(t('save'))}</button>
+        <a class="btn btn-ghost" href="/my">${esc(t('cancel'))}</a>
+      </div>
+    </form>
+  </section>`;
+  return layout(ctx, { title: t('pw_title'), body, noindex: true });
 }
 
 // ---- Admin -----------------------------------------------------------------
@@ -491,7 +534,8 @@ function adminPage(ctx, tab, data) {
           <td>${
             u.is_admin
               ? ''
-              : `<form method="post" action="/admin/u/${u.id}/${u.banned ? 'unban' : 'ban'}">${csrfInput(ctx)}<input type="hidden" name="tab" value="users"><button class="btn btn-ghost btn-small" type="submit">${esc(t(u.banned ? 'unban' : 'ban'))}</button></form>`
+              : `<div class="actions"><form method="post" action="/admin/u/${u.id}/${u.banned ? 'unban' : 'ban'}">${csrfInput(ctx)}<input type="hidden" name="tab" value="users"><button class="btn btn-ghost btn-small" type="submit">${esc(t(u.banned ? 'unban' : 'ban'))}</button></form>
+              <form method="post" action="/admin/u/${u.id}/reset">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('a_reset_pass'))}</button></form></div>`
           }</td></tr>`
           )
           .join('')}</tbody></table></div>`
@@ -558,6 +602,8 @@ module.exports = {
   listingPage,
   postPage,
   editPage,
+  adminResetPage,
+  passwordPage,
   registerPage,
   loginPage,
   myPage,
