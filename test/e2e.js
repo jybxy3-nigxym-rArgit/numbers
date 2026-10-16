@@ -847,6 +847,11 @@ async function main() {
       check('sold page hides the last two digits', sp.text.includes('05558881**') && !sp.text.includes('0555888111') && !sp.text.includes('0555 888 111'));
       check('sold page shows the sold stamp', sp.text.includes('class="sold-stamp"'));
       check('home page has the newest link under the search', hm.includes('class="new-link" href="/new"'));
+      check('search has network and type filters', home.text.includes('name="network"') && home.text.includes('name="pattern"'));
+      check('home shows count and last update', /numbers listed · last update/.test(home.text));
+      check('ad page shows the ad number', (await g.get('/n/' + soldId)).text.includes('Ad number'));
+      check('network filter in the search works', (await g.get('/?network=zain')).text.includes('0555 888 222') && !(await g.get('/?network=zain')).text.includes('0555 998 111'));
+      check('under 20000 page exists', (await g.get('/under/20000')).status === 200);
       check('sold page shows similar numbers', sp.text.includes('class="similar"') && sp.text.includes('0555 998 111'));
       check('sold number is out of the lists', !(await g.get('/')).text.includes('0555 888 111'));
       const nw = await g.get('/new');

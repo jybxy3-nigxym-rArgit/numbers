@@ -48,7 +48,7 @@ const PATTERN_KEYS = ['triple', 'quad', 'ends_same', 'mirror', 'sequence', 'pair
 const REPORT_REASONS = ['scam', 'sold', 'price', 'spam', 'other'];
 
 // Price ceilings that get their own indexed page ("numbers under 500 riyals").
-const UNDER_PRICES = [200, 300, 500, 1000, 2000, 3000, 5000, 10000];
+const UNDER_PRICES = [200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000];
 const PRICE_TYPES = ['negotiable', 'final'];
 // Public links of the store (used on the contact page).
 const LINKS = {

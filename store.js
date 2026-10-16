@@ -672,6 +672,7 @@ function createStore(d) {
       { sql: `SELECT city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY city`, params: [] },
       { sql: `SELECT ${unders} FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
       { sql: `SELECT network || '/' || city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY network, city`, params: [] },
+      { sql: `SELECT COUNT(*) AS c, MAX(COALESCE(NULLIF(renewed_at, ''), created_at)) AS latest FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
     ]);
     const toMap = (rows) => Object.fromEntries(rows.map((r) => [r.k, r.c]));
     const u = rs[2].rows[0] || {};
@@ -680,6 +681,8 @@ function createStore(d) {
       city: toMap(rs[1].rows),
       under: Object.fromEntries(UNDER_PRICES.map((n) => [n, Number(u['u' + n] || 0)])),
       combo: toMap(rs[3].rows),
+      total: Number((rs[4].rows[0] || {}).c || 0),
+      latest: (rs[4].rows[0] || {}).latest || '',
     };
     countsCache = { at: Date.now(), value };
     return value;

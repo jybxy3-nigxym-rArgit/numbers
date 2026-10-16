@@ -255,8 +255,11 @@ form.inline {
 
 .search-bar {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 0.6rem;
+}
+.search-bar input:first-child {
+  grid-column: 1 / -1;
 }
 .search-bar input,
 .search-bar select {
@@ -274,6 +277,14 @@ form.inline {
   min-height: 58px;
   padding-inline: 1.8rem;
   font-size: 1.15rem;
+}
+@media (max-width: 900px) {
+  .search-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .search-bar .btn {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 640px) {
   .search-bar {
@@ -2200,4 +2211,11 @@ a.adv:focus-visible {
   .my-number .digits {
     text-align: center;
   }
+}
+
+.hero-stats {
+  margin: 0.7rem 0 0;
+  text-align: center;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.78);
 }

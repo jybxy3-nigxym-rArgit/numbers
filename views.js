@@ -393,17 +393,25 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
   const { t } = ctx;
   const f = filters;
   const info = landingInfo(ctx, landing);
-  const base = { q: f.qRaw, city: landing ? '' : f.city, max: landing && landing.type === 'under' ? '' : f.maxRaw };
-  const anyFilter = !!(f.qRaw || (f.maxRaw && !(landing && landing.type === 'under')) || (!landing && f.city));
+  const base = { q: f.qRaw, city: landing ? '' : f.city, network: landing ? '' : f.network, pattern: landing ? '' : f.pattern, max: landing && landing.type === 'under' ? '' : f.maxRaw };
+  const anyFilter = !!(f.qRaw || (f.maxRaw && !(landing && landing.type === 'under')) || (!landing && (f.city || f.network || f.pattern)));
 
   const form = `
   <form class="search" method="get" action="/" role="search">
     <div class="search-bar">
       <input id="q" name="q" type="search" inputmode="numeric" autocomplete="off" dir="auto"
         aria-label="${esc(t('search_label'))}" value="${esc(f.qRaw)}" placeholder="${esc(t('search_ph'))}">
+      <select id="f-net" name="network" aria-label="${esc(t('network'))}">
+        <option value="">${esc(t('all_networks'))}</option>
+        ${NETWORKS.map((n) => `<option value="${esc(n.key)}"${n.key === f.network && (!landing || landing.type === 'network') ? ' selected' : ''}>${esc(n[ctx.lang])}</option>`).join('')}
+      </select>
+      <select id="f-pat" name="pattern" aria-label="${esc(t('number_type'))}">
+        <option value="">${esc(t('all_types'))}</option>
+        ${PATTERN_KEYS.map((k) => `<option value="${esc(k)}"${k === f.pattern && (!landing || landing.type === 'type') ? ' selected' : ''}>${esc(t('pat_' + k))}</option>`).join('')}
+      </select>
       <select id="f-city" name="city" aria-label="${esc(t('city'))}">
         <option value="">${esc(t('all_cities'))}</option>
-        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.value === f.city && !landing ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
+        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.value === f.city && (!landing || landing.type === 'city') ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
       </select>
       <input id="f-max" name="max" type="text" inputmode="numeric" autocomplete="off" dir="auto"
         aria-label="${esc(t('max_price'))}" value="${esc(f.maxRaw)}" placeholder="${esc(t('max_price'))}">
@@ -439,6 +447,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
       <p class="lede">${esc(info.lede.length > 140 ? t('home_lede') : info.lede)}</p>
       ${form}
       ${landing && landing.type === 'new' ? '' : `<a class="new-link" href="/new">${ICON.clock}<span>${esc(t('page_new'))}</span></a>`}
+      ${counts && counts.total ? `<p class="hero-stats">${esc(t('hero_stats', { n: formatPrice(counts.total), when: ageText(ctx, counts.latest) }))}</p>` : ''}
     </section>
   </div>`;
 
@@ -569,6 +578,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
         ${l.price != null && l.price_type ? `<div><dt>${esc(t('price_word'))}</dt><dd>${esc(t('pt_' + l.price_type))}</dd></div>` : ''}
         <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}</dd></div>
+        <div><dt>${esc(t('ad_ref'))}</dt><dd dir="ltr">#${esc(l.id)}</dd></div>
         <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
       </dl>
