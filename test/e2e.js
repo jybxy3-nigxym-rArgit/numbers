@@ -117,14 +117,14 @@ async function main() {
     const anon = new HttpClient(base); // a brand-new visitor: no language chosen yet
     let r = await anon.get('/');
     check('home loads', r.status === 200);
-    check('default language is Arabic and RTL', r.text.includes('dir="rtl"') && r.text.includes('سوق الأرقام'));
+    check('default language is Arabic and RTL', r.text.includes('dir="rtl"') && r.text.includes('بصمة عميل'));
     check('empty site message shown', r.text.includes('ما فيه إعلانات للحين'));
     check('CSP header set', (r.headers.get('content-security-policy') || '').includes("script-src 'none'"));
     check('no external scripts in page', !/<script/i.test(r.text));
     r = await anon.get('/lang/en?next=/');
     check('language switch redirects', r.status === 302 && r.location === '/');
     r = await anon.get('/');
-    check('English page is LTR', r.text.includes('dir="ltr"') && r.text.includes('Numbers Market'));
+    check('English page is LTR', r.text.includes('dir="ltr"') && r.text.includes('Basmat Ameel'));
     r = await anon.get('/lang/en?next=//evil.example');
     check('open redirect blocked', r.location === '/');
     check('404 page', (await anon.get('/nope')).status === 404);

@@ -2,7 +2,7 @@
 
 const dict = {
   en: {
-    site_name: 'Numbers Market',
+    site_name: 'Basmat Ameel',
     tagline: 'Premium phone numbers. Free to list.',
     meta_desc:
       'Buy and sell premium Saudi mobile numbers. Search by pattern, network and price, then contact the seller on WhatsApp. Free to post.',
@@ -59,7 +59,7 @@ const dict = {
     price_ask: 'Ask for price',
     sar: 'SAR',
     whatsapp: 'Message on WhatsApp',
-    wa_message: 'Hi, I saw the number {number} on Numbers Market. Is it still available?',
+    wa_message: 'Hi, I saw the number {number} on Basmat Ameel. Is it still available?',
     seller: 'Seller',
     posted: 'Posted',
     views: 'Views',
@@ -205,7 +205,7 @@ const dict = {
   },
 
   ar: {
-    site_name: 'سوق الأرقام',
+    site_name: 'بصمة عميل',
     tagline: 'أرقام مميزة. الإعلان فيها مجاني.',
     meta_desc:
       'بيع وشراء الأرقام المميزة السعودية. ابحث بالنمط والشبكة والسعر، وتواصل مع البائع عبر واتساب. النشر مجاني.',
@@ -259,7 +259,7 @@ const dict = {
     price_ask: 'اسأل عن السعر',
     sar: 'ريال',
     whatsapp: 'راسل على واتساب',
-    wa_message: 'السلام عليكم، شفت الرقم {number} في سوق الأرقام. هل هو متوفر؟',
+    wa_message: 'السلام عليكم، شفت الرقم {number} في بصمة عميل. هل هو متوفر؟',
     seller: 'البائع',
     posted: 'تاريخ النشر',
     views: 'المشاهدات',
