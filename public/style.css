@@ -1816,3 +1816,102 @@ a.adv:hover,
 a.adv:focus-visible {
   text-decoration: underline;
 }
+
+/* ---- Plate designs the admin can choose: light and pro (the classic one is the default above) ---- */
+
+/* Light: flat, no shadows, no motion. */
+[data-plate="light"] .plate {
+  border-width: 2px;
+  border-radius: 14px;
+  box-shadow: none;
+  transition: none;
+}
+[data-plate="light"] a.plate:hover {
+  transform: none;
+  box-shadow: none;
+}
+[data-plate="light"] .adv {
+  margin-top: 0;
+  border-radius: 0 0 10px 10px;
+}
+[data-plate="light"] .is-pinned .plate {
+  box-shadow: none;
+}
+[data-plate="light"] .is-featured .plate {
+  background: #fffaf0;
+  border-color: #d99a22;
+  box-shadow: none;
+  animation: none;
+}
+[data-plate="light"] .is-featured .plate::after {
+  display: none;
+}
+[data-plate="light"] .is-featured .feat-badge {
+  animation: none;
+}
+
+/* Pro: a formal card, a dark band with the network on top, a thin line above the footer. */
+[data-plate="pro"] .plate {
+  gap: 0;
+  padding: 0 0 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--plate);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(42, 28, 68, 0.18);
+}
+[data-plate="pro"] a.plate:hover {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(42, 28, 68, 0.28);
+}
+[data-plate="pro"] .p-net,
+[data-plate="pro"] .p-net a {
+  display: block;
+  width: 100%;
+  padding: 0.3rem 0.8rem;
+  background: var(--plate);
+  color: #fff !important;
+  font-size: clamp(1rem, 5.5cqw, 1.3rem);
+  text-decoration: none;
+}
+[data-plate="pro"] .p-net a {
+  padding: 0;
+}
+[data-plate="pro"] .p-num {
+  padding: 0.6rem 0.6rem 0.35rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+[data-plate="pro"] .p-foot {
+  width: calc(100% - 1.6rem);
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(61, 43, 92, 0.25);
+  font-family: "Tajawal", var(--font);
+  font-weight: 700;
+}
+[data-plate="pro"] .adv {
+  margin-top: 0;
+  border-radius: 0 0 10px 10px;
+}
+[data-plate="pro"] .is-featured .plate {
+  border: 2px solid transparent;
+}
+
+/* Admin page that previews the three designs. */
+.design-opt {
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--line, #ddd);
+  border-radius: 14px;
+}
+.design-opt.is-on {
+  border-color: var(--gold, #d99a22);
+}
+.design-opt h2 {
+  margin: 0 0 0.2rem;
+}
+.design-prev {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin-block: 0.8rem;
+}

@@ -199,6 +199,7 @@ async function buildContext(request, url, ip, store, waitUntil) {
     waitUntil,
     theme: cookies.theme === 'dark' ? 'dark' : 'light',
     ack: cookies.ack === '1',
+    plateStyle: await store.getPlateStyle(),
   });
   if (user && util.rankOf(user) >= 1) {
     const a = await store.adminAlerts();
@@ -1181,6 +1182,20 @@ route('POST', '/admin/sync', async (ctx) => {
   await audit(ctx, 'sync', `${r.added}`, `${r.hidden}`);
   flash(ctx, 'ok', 'sync_done', r);
   redirect(ctx, '/admin?tab=all');
+});
+
+// The look of the number plates: the admin picks one of three and every page follows.
+route('GET', '/admin/design', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  html(ctx, 200, views.designPage(ctx));
+});
+route('POST', '/admin/design', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  const v = str(ctx.body.style, 12);
+  if (!(await ctx.store.setPlateStyle(v))) return redirect(ctx, '/admin/design');
+  await audit(ctx, 'design', v, '');
+  flash(ctx, 'ok', 'design_done');
+  redirect(ctx, '/admin/design');
 });
 
 // ---- Static pages and SEO files ----
