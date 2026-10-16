@@ -1138,3 +1138,11 @@ main,
     font-size: 0.9rem;
   }
 }
+
+/* Search box text sits in the middle */
+.search-bar input {
+  text-align: center;
+}
+.search-bar input::placeholder {
+  text-align: center;
+}
