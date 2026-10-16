@@ -23,7 +23,7 @@ async function startServer(port, env = {}) {
     process.execPath,
     ['--disable-warning=ExperimentalWarning', path.join(__dirname, process.env.TARGET === 'worker' ? 'worker-sim.js' : '../server.js')],
     {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', ...env },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', REGISTER_PER_HOUR: '100', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   );
@@ -270,7 +270,14 @@ async function main() {
     const bannedClient = await newClient(base);
     const banned = await bannedClient.post('/login', { phone: '0555000111', password: 'secret-pass-1' });
     check('banned user cannot log in and ads are hidden', banned.status === 403 && (await anon.get('/n/1')).status === 404);
+    const evader = await newClient(base);
+    r = await register(evader, 'Evader', '0566000999');
+    check('banned device cannot register a new number', r.status === 403, r.status);
+    r = await admin.get('/admin?tab=users');
+    check('admin sees the saved address and device ban', r.text.includes('127.0.0.1') && r.text.includes('device blocked'));
     await admin.post('/admin/u/1/unban', { tab: 'users' });
+    r = await register(await newClient(base), 'Evader', '0566000999');
+    check('after unban the device can register again', r.status === 303, r.status);
     r = await admin.post('/admin/l/2/delete', { tab: 'all' });
     check('admin deletes ad', (await anon.get('/n/2')).status === 404);
 

@@ -53,7 +53,7 @@ const DB = {
   },
 };
 
-const env = { DB, ADMIN_PHONE: process.env.ADMIN_PHONE || '', REQUIRE_APPROVAL: process.env.REQUIRE_APPROVAL || '' };
+const env = { DB, ADMIN_PHONE: process.env.ADMIN_PHONE || '', REQUIRE_APPROVAL: process.env.REQUIRE_APPROVAL || '', REGISTER_PER_HOUR: '100' };
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 (async () => {

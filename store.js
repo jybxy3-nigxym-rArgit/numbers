@@ -48,6 +48,20 @@ const SCHEMA = [
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (listing_id, reporter_key)
   )`,
+  `CREATE TABLE IF NOT EXISTS user_devices (
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind      TEXT NOT NULL,
+    val       TEXT NOT NULL,
+    last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, kind, val)
+  )`,
+  `CREATE TABLE IF NOT EXISTS banned_devices (
+    kind       TEXT NOT NULL,
+    val        TEXT NOT NULL,
+    user_id    INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (kind, val)
+  )`,
   'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS rate_events (k TEXT NOT NULL, ts INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_rate_k ON rate_events(k, ts)',
@@ -133,6 +147,28 @@ function createStore(d) {
   }
 
   const setUserName = (id, name) => d.run('UPDATE users SET name = ? WHERE id = ?', [name, id]);
+
+  // ---- Devices: the phone's browser id (kind 'dev') and the internet address (kind 'ip') ----
+
+  async function recordDevice(userId, ip, dev) {
+    const stmts = [];
+    for (const [kind, val] of [['ip', ip], ['dev', dev]]) {
+      if (!val) continue;
+      stmts.push({
+        sql: `INSERT INTO user_devices (user_id, kind, val) VALUES (?, ?, ?)
+              ON CONFLICT (user_id, kind, val) DO UPDATE SET last_seen = datetime('now')`,
+        params: [userId, kind, val],
+      });
+    }
+    if (stmts.length) await d.batch(stmts);
+  }
+
+  async function isDeviceBanned(ip, dev) {
+    return !!(await d.first(
+      "SELECT 1 AS x FROM banned_devices WHERE (kind = 'ip' AND val = ?) OR (kind = 'dev' AND val = ?) LIMIT 1",
+      [ip || '', dev || '']
+    ));
+  }
 
   // ---- Listings ----
 
@@ -286,7 +322,9 @@ function createStore(d) {
 
   const adminUsers = () =>
     d.all(
-      `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads
+      `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads,
+              (SELECT val FROM user_devices x WHERE x.user_id = u.id AND x.kind = 'ip' ORDER BY x.last_seen DESC LIMIT 1) AS last_ip,
+              (SELECT COUNT(*) FROM banned_devices b WHERE b.user_id = u.id) AS banned_devices
        FROM users u ORDER BY u.created_at DESC, u.id DESC LIMIT 300`
     );
 
@@ -304,6 +342,7 @@ function createStore(d) {
     return { active: rs[0].rows[0].c, pending: rs[1].rows[0].c, users: rs[2].rows[0].c, reports: rs[3].rows[0].c };
   }
 
+  // Banning a user also bans every device (browser id and internet address) he used; unbanning lifts them.
   async function setUserBanned(id, banned) {
     const stmts = [{ sql: 'UPDATE users SET banned = ? WHERE id = ? AND is_admin = 0', params: [banned ? 1 : 0, id] }];
     if (banned) {
@@ -311,6 +350,14 @@ function createStore(d) {
         sql: "UPDATE listings SET status = 'hidden' WHERE user_id = ? AND status IN ('active','pending') AND (SELECT is_admin FROM users WHERE id = ?) = 0",
         params: [id, id],
       });
+      stmts.push({
+        sql: `INSERT OR IGNORE INTO banned_devices (kind, val, user_id)
+              SELECT kind, val, user_id FROM user_devices
+              WHERE user_id = ? AND (SELECT is_admin FROM users WHERE id = ?) = 0`,
+        params: [id, id],
+      });
+    } else {
+      stmts.push({ sql: 'DELETE FROM banned_devices WHERE user_id = ?', params: [id] });
     }
     await d.batch(stmts);
   }
@@ -386,6 +433,8 @@ function createStore(d) {
     adminUsers,
     adminStats,
     setUserBanned,
+    recordDevice,
+    isDeviceBanned,
     sitemapListings,
     landingCounts,
     importListings,

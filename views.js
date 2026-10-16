@@ -207,8 +207,13 @@ function plateFace(ctx, l, tag = 'span') {
 }
 
 // Dark tab under the plate with the advertiser's name.
+// Long names get a smaller class so the name always fits inside the tab.
+const advSize = (name) => {
+  const n = [...String(name)].length;
+  return n <= 16 ? '' : n <= 22 ? ' adv-m' : n <= 30 ? ' adv-s' : ' adv-xs';
+};
 const advTab = (ctx, l) =>
-  l.seller ? `<span class="adv" title="${esc(ctx.t('sold_by'))}">${esc(l.seller)}</span>` : '';
+  l.seller ? `<span class="adv${advSize(l.seller)}" title="${esc(l.seller)}">${esc(l.seller)}</span>` : '';
 
 const plateBadges = (ctx, l) =>
   (l.pinned && l.status === 'active' ? `<span class="pin-badge">${esc(ctx.t('pinned_badge'))}</span>` : '') +
@@ -754,8 +759,8 @@ function adminPage(ctx, tab, data) {
         <tbody>${data.users
           .map(
             (u) => `<tr>
-          <td><form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}</td>
-          <td dir="ltr">0${esc(u.phone)}</td>
+          <td><form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}</td>
+          <td dir="ltr">0${esc(u.phone)}${u.last_ip ? `<br><small>${esc(u.last_ip)}</small>` : ''}</td>
           <td>${u.ads}</td>
           <td>${esc(String(u.created_at).slice(0, 10))}</td>
           <td>${

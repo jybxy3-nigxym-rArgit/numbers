@@ -148,9 +148,11 @@ async function buildContext(request, url, ip, store) {
     dirty = true;
   }
 
-  const lp = parseCookies(request.headers.get('cookie')).lp;
+  const cookies = parseCookies(request.headers.get('cookie'));
+  const lp = cookies.lp;
   const ctx = makeCtx(request, url, {
     lastPhone: /^5\d{8}$/.test(lp || '') ? lp : '',
+    device: /^[A-Za-z0-9_-]{16,40}$/.test(cookies.did || '') ? cookies.did : '',
     store,
     secret,
     session,
@@ -200,6 +202,15 @@ function requireAdmin(ctx) {
 function rememberPhone(ctx, nat) {
   ctx.extraCookies.push(
     `lp=${nat}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${365 * 24 * 3600}` + (ctx.secure ? '; Secure' : '')
+  );
+}
+
+// Every browser gets a random id the first time it opens the login or register page.
+function ensureDevice(ctx) {
+  if (ctx.device) return;
+  ctx.device = wc.randomToken(18);
+  ctx.extraCookies.push(
+    `did=${ctx.device}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${2 * 365 * 24 * 3600}` + (ctx.secure ? '; Secure' : '')
   );
 }
 
@@ -473,12 +484,13 @@ route('POST', '/n/:id/edit', async (ctx) => {
 // ---- Accounts ----
 
 route('GET', '/register', (ctx) => {
+  ensureDevice(ctx);
   if (ctx.user) return redirect(ctx, '/');
   html(ctx, 200, views.registerPage(ctx));
 });
 
 route('POST', '/register', async (ctx) => {
-  if (!(await ctx.store.allow(`register:${ctx.ip}`, 8, 3600 * 1000))) return tooMany(ctx);
+  if (!(await ctx.store.allow(`register:${ctx.ip}`, config.registerPerHour, 3600 * 1000))) return tooMany(ctx);
   const name = str(ctx.body.name, 80).replace(/\s+/g, ' ').trim();
   const phoneRaw = str(ctx.body.phone, 25).trim();
   const password = str(ctx.body.password, 200);
@@ -492,6 +504,11 @@ route('POST', '/register', async (ctx) => {
   if (password.length < 8) errors.password = 'err_pass';
   if (Object.keys(errors).length) return html(ctx, 400, views.registerPage(ctx, v, errors));
 
+  ensureDevice(ctx);
+  if (await ctx.store.isDeviceBanned(ctx.ip, ctx.device)) {
+    return html(ctx, 403, views.registerPage(ctx, v, { phone: 'err_banned' }));
+  }
+
   const passHash = await wc.hashPassword(password, config.pbkdf2Iterations);
   let id;
   try {
@@ -500,6 +517,7 @@ route('POST', '/register', async (ctx) => {
     // Someone registered the same phone at the same moment.
     return html(ctx, 400, views.registerPage(ctx, v, { phone: 'err_phone_taken' }));
   }
+  await ctx.store.recordDevice(id, ctx.ip, ctx.device);
   logIn(ctx, id);
   rememberPhone(ctx, nat);
   flash(ctx, 'ok', 'welcome');
@@ -510,6 +528,7 @@ route('POST', '/register', async (ctx) => {
 
 route('GET', '/login', (ctx) => {
   if (ctx.user) return redirect(ctx, '/');
+  ensureDevice(ctx);
   html(ctx, 200, views.loginPage(ctx));
 });
 
@@ -521,11 +540,17 @@ route('POST', '/login', async (ctx) => {
   if (!(await ctx.store.allow(`login:${ctx.ip}`, 20, 15 * 60 * 1000))) return tooMany(ctx);
   if (nat && !(await ctx.store.allow(`login-phone:${nat}:${ctx.ip}`, 10, 15 * 60 * 1000))) return tooMany(ctx);
 
+  ensureDevice(ctx);
+  if (await ctx.store.isDeviceBanned(ctx.ip, ctx.device)) {
+    return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
+  }
+
   const user = nat ? await ctx.store.getUserByPhone(nat) : undefined;
   const ok = await wc.verifyPassword(password, user ? user.pass_hash : dummyHash(), config.pbkdf2Iterations);
   if (!user || !ok) return html(ctx, 401, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_login' }));
   if (user.banned) return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
 
+  await ctx.store.recordDevice(user.id, ctx.ip, ctx.device);
   logIn(ctx, user.id);
   rememberPhone(ctx, nat);
   flash(ctx, 'ok', 'welcome_back');

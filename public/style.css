@@ -1157,3 +1157,28 @@ main,
   width: 11rem;
   padding: 0.2rem 0.6rem;
 }
+
+/* Long advertiser names shrink to stay inside the tab. */
+.adv {
+  width: 62%;
+  max-width: 62%;
+  min-width: 0;
+}
+.adv-m {
+  font-size: 0.94rem;
+}
+.adv-s {
+  font-size: 0.84rem;
+}
+.adv-xs {
+  font-size: 0.74rem;
+}
+.plate-big .adv.adv-m {
+  font-size: 1.1rem;
+}
+.plate-big .adv.adv-s {
+  font-size: 0.95rem;
+}
+.plate-big .adv.adv-xs {
+  font-size: 0.8rem;
+}
