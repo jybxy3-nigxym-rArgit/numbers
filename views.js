@@ -201,13 +201,22 @@ function cardActions(ctx, l, { deleteNext } = {}) {
 }
 
 // The number plate: network on top, big number, then city, price and age in one row.
-function plateFace(ctx, l, tag = 'span') {
+// With `links`, the network, city and price are links to the matching results; `numHref` makes the whole card open the ad.
+function plateFace(ctx, l, tag = 'span', { links = false, numHref = '' } = {}) {
+  const net = esc(netName(ctx, l.network));
+  const city = esc(cityName(ctx, l.city));
+  const label = esc(formatNumberPlain(l.number));
+  const price = priceHtml(ctx, l.price);
+  const numAttrs = `class="p-num" dir="ltr" aria-label="${label}"`;
+  const numEl = numHref
+    ? `<a ${numAttrs} href="${esc(numHref)}">${esc(l.number)}</a>`
+    : `<${tag} ${numAttrs}>${esc(l.number)}</${tag}>`;
   return `
-    <span class="p-net">${esc(netName(ctx, l.network))}</span>
-    <${tag} class="p-num" dir="ltr" aria-label="${esc(formatNumberPlain(l.number))}">${esc(l.number)}</${tag}>
+    ${links ? `<a class="p-net" href="/network/${esc(l.network)}">${net}</a>` : `<span class="p-net">${net}</span>`}
+    ${numEl}
     <span class="p-foot">
-      <span class="p-city">${esc(cityName(ctx, l.city))}</span>
-      ${priceHtml(ctx, l.price)}
+      ${links ? `<a class="p-city" href="/city/${esc(l.city)}">${city}</a>` : `<span class="p-city">${city}</span>`}
+      ${links && l.price != null ? `<a class="price-link" href="/price/${esc(l.price)}">${price}</a>` : price}
       <span class="p-age">${esc(ageText(ctx, l.created_at))}</span>
     </span>`;
 }
@@ -232,7 +241,7 @@ function plate(ctx, l) {
   return `
   <div class="${cardClass(l)}">
     ${plateBadges(ctx, l)}
-    <a class="plate" href="/n/${l.id}">${plateFace(ctx, l)}</a>
+    <div class="plate">${plateFace(ctx, l, 'span', { links: true, numHref: `/n/${l.id}` })}</div>
     ${advTab(ctx, l)}
     ${cardActions(ctx, l)}
   </div>`;
@@ -248,6 +257,11 @@ function landingInfo(ctx, landing) {
     return { path: '/', h1: t('home_h1'), fullTitle: t('home_title'), desc: t('meta_desc'), lede: t('home_lede') };
   }
   const key = landing.key;
+  if (landing.type === 'price') {
+    const p = `${formatPrice(Number(key))} ${t('sar')}`;
+    const title = t('price_title', { name: p });
+    return { path: `/price/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc: t('price_desc', { name: p }), lede: t('price_desc', { name: p }), name: p };
+  }
   const name = landing.type === 'network' ? netName(ctx, key) : landing.type === 'city' ? cityName(ctx, key) : t('pat_' + key);
   const prefix = landing.type;
   const title = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_title`, { name });
@@ -395,7 +409,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
     hero,
     body,
     canonical: anyFilter ? selfUrl : canonical,
-    robots: anyFilter || thin ? 'noindex, follow' : '',
+    robots: anyFilter || thin || (landing && landing.type === 'price') ? 'noindex, follow' : '',
     ld,
   });
 }
@@ -421,7 +435,7 @@ function listingPage(ctx, l, { canManage }) {
     ${notices.join('')}
     <div class="${cardClass(l, ' plate-big')}">
       ${plateBadges(ctx, l)}
-      <div class="plate">${plateFace(ctx, l, 'h1')}</div>
+      <div class="plate">${plateFace(ctx, l, 'h1', { links: true })}</div>
       ${advTab(ctx, l)}
       ${cardActions(ctx, l, { deleteNext: '/my' })}
     </div>

@@ -315,6 +315,12 @@ route('GET', '/city/:key', async (ctx) => {
   const f = { ...parseFilters(ctx.query), city: ctx.params.key, network: '', q: '', qRaw: '', maxRaw: '', max: null };
   await renderHome(ctx, f, { type: 'city', key: ctx.params.key });
 });
+route('GET', '/price/:key', async (ctx) => {
+  const price = /^\d{1,8}$/.test(ctx.params.key) ? Number(ctx.params.key) : null;
+  if (price === null) return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), min: price, max: price, minRaw: '', maxRaw: '', network: '', city: '', q: '', qRaw: '' };
+  await renderHome(ctx, f, { type: 'price', key: String(price) });
+});
 route('GET', '/type/:key', async (ctx) => {
   if (!PATTERN_KEYS.includes(ctx.params.key)) return notFound(ctx);
   const f = { ...parseFilters(ctx.query), pattern: ctx.params.key, city: '', network: '', q: '', qRaw: '', maxRaw: '', max: null };

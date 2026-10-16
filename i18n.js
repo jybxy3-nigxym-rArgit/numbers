@@ -271,6 +271,8 @@ const dict = {
     a_review_ads: 'Hidden ads',
     a_review_users: 'Suspended members',
     err_suspended: 'This account is suspended for now.',
+    price_title: 'Premium numbers priced at {name}',
+    price_desc: 'Numbers listed for exactly {name}. Contact the owner on WhatsApp.',
     footer_note: 'The site is not responsible for buying and selling. Not affiliated with any mobile operator.',
   },
 
@@ -533,6 +535,8 @@ const dict = {
     a_review_ads: 'إعلانات مخفية',
     a_review_users: 'أعضاء موقوفون',
     err_suspended: 'هذا الحساب موقوف مؤقتاً.',
+    price_title: 'أرقام مميزة بسعر {name}',
+    price_desc: 'الأرقام المعروضة بسعر {name} بالضبط. تواصل مع صاحب الرقم عبر واتساب.',
     footer_note: 'الموقع غير مسؤول عن البيع والشراء. والموقع غير تابع لأي شركة اتصالات.',
   },
 };

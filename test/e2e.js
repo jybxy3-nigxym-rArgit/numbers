@@ -414,6 +414,15 @@ async function main() {
     r = await (await newClient(base)).get('/login');
     check('new device sees an empty phone box', !r.text.includes('Last time you signed in'));
 
+    console.log('\nClickable plate parts');
+    r = await anon.get('/');
+    check('plate has links for network, city and price', r.text.includes('class="p-net" href="/network/') && r.text.includes('class="p-city" href="/city/') && r.text.includes('class="price-link" href="/price/'));
+    r = await anon.get('/price/15000');
+    check('price page lists ads with that exact price', r.status === 200 && r.text.includes('0555 777 888') === false && r.text.includes('<h1>'));
+    check('price page rejects junk', (await anon.get('/price/abc')).status === 404);
+    r = await anon.get('/price/900');
+    check('price page is not indexed', r.text.includes('noindex'));
+
     console.log('\nModerators');
     const idOf = async (phone) => {
       const rr = await admin.get('/admin?tab=users');
