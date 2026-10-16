@@ -108,6 +108,7 @@ function layout(ctx, { title, desc, body, canonical, noindex }) {
 <title>${esc(fullTitle)}</title>
 <meta name="description" content="${esc(description)}">
 <meta name="theme-color" content="#F3F5F4">
+<meta name="google-site-verification" content="MykcqJrPEQKzSv2c53joA0i9o4uopSuBMZASOHI4mpE">
 ${noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
 <meta property="og:type" content="website">
