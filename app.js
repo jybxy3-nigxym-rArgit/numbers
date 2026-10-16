@@ -317,6 +317,8 @@ function parseFilters(query) {
 }
 
 async function renderHome(ctx, f, landing) {
+  // Now and then a visit also runs the upkeep, in case the scheduled job is not set up.
+  if (Math.random() < 0.03) later(ctx, ctx.store.maintenance());
   const size = config.pageSize;
   let { total, rows } = await ctx.store.searchListings({ ...f, limit: size, offset: (f.page - 1) * size });
   const pages = Math.max(1, Math.ceil(total / size));
@@ -532,6 +534,7 @@ route('POST', '/post', async (ctx) => {
     contact,
     description: v.description,
     priceType: v.priceType,
+    auto: !!ctx.user.verified,
     status,
   });
   if (!ctx.user.is_admin) {
@@ -759,6 +762,15 @@ route('POST', '/my/:id/renew', async (ctx) => {
   redirect(ctx, '/my');
 });
 
+// Verified advertisers: switch the automatic refresh on for one more month.
+route('POST', '/my/:id/auto', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!ctx.user.verified) return notFound(ctx);
+  const ok = await ctx.store.setAutoRenew(Number(ctx.params.id), ctx.user.id);
+  flash(ctx, ok ? 'ok' : 'error', ok ? 'auto_enabled' : 'err_renew_state');
+  redirect(ctx, '/my');
+});
+
 // Verified advertisers add up to 5 numbers at a time (same free-text format as the admin import).
 const BULK_MAX = 5;
 route('GET', '/my/bulk', (ctx) => {
@@ -785,7 +797,7 @@ route('POST', '/my/bulk', async (ctx) => {
     flash(ctx, 'error', room ? 'import_none' : 'err_limit_bulk', { n: config.maxActiveAdsPerUser });
     return redirect(ctx, '/my/bulk');
   }
-  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true });
+  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true, auto: !!ctx.user.verified });
   const extra = parsed.items.length - r.added;
   flash(ctx, 'ok', 'bulk_done', { added: r.added, skipped: Math.max(0, extra) });
   redirect(ctx, '/my');
@@ -1143,6 +1155,7 @@ route('GET', '/robots.txt', (ctx) => {
 });
 
 route('GET', '/sitemap.xml', async (ctx) => {
+  await ctx.store.maintenance();
   const urls = [{ loc: `${ctx.base}/` }];
   const counts = await ctx.store.landingCounts();
   for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });

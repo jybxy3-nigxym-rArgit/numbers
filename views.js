@@ -742,6 +742,12 @@ function myPage(ctx, rows) {
     }
     return `<form method="post" action="/my/${l.id}/renew">${csrfInput(ctx)}<button class="btn btn-gold btn-small" type="submit">${esc(t('renew'))}</button></form>`;
   };
+  const autoInfo = (l) => {
+    if (!ctx.user.verified || l.status !== 'active') return '';
+    const left = l.auto_until ? util.parseDbDate(l.auto_until).getTime() - Date.now() : 0;
+    if (left > 0) return `<span class="auto-on">${esc(t('auto_on', { n: Math.max(1, Math.ceil(left / DAY)) }))}</span>`;
+    return `<form method="post" action="/my/${l.id}/auto">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('auto_enable'))}</button></form>`;
+  };
   const list = rows.length
     ? `<ul class="my-list">${rows
         .map(
@@ -753,6 +759,7 @@ function myPage(ctx, rows) {
           <span>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))}</span>
           ${priceHtml(ctx, l.price)}
           <span class="views-inline" title="${esc(t('views'))}">${ICON.eye}<bdi>${esc(l.views || 0)}</bdi></span>
+          ${autoInfo(l)}
         </div>
         <div class="my-actions">
           ${
@@ -774,6 +781,8 @@ function myPage(ctx, rows) {
   const canBulk = ctx.user.verified || util.rankOf(ctx.user) >= 2;
   const body = `<section><h1>${esc(t('my_title'))}${ctx.user.verified ? ` ${verifiedMark(ctx)}` : ''}</h1>
     <p class="hint-line">${esc(t('renew_rule', { n: config.renewDays }))}</p>
+    <p class="hint-line">${esc(t('stale_rule'))}</p>
+    ${ctx.user.verified ? `<p class="hint-line">${esc(t('auto_rule', { n: config.autoRenewDays }))}</p>` : ''}
     ${canBulk ? `<p><a class="btn btn-ghost btn-small" href="/my/bulk">${esc(t('bulk_link'))}</a></p>` : ''}
     ${list}<p class="alt"><a href="/profile">${esc(t('profile_title'))}</a> · <a href="/password">${esc(t('change_password'))}</a></p>
     <form method="post" action="/logout" class="logout-form">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('logout'))}</button></form></section>`;

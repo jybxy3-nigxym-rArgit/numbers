@@ -746,6 +746,51 @@ async function main() {
     mock.close();
   }
 
+  console.log('\nAuto refresh and year-old ads');
+  const srv5 = await startServer(port + 4, { AUTO_RENEW_DAYS: '0' });
+  try {
+    const adm = await newClient(srv5.base);
+    await register(adm, 'Boss', '0500000001');
+    const v = await newClient(srv5.base);
+    const w = await newClient(srv5.base);
+    await register(v, 'Vera', '0555000111');
+    await register(w, 'Wael', '0555000222');
+    const idA = (await v.post('/post', { ...AD, number: '0555111001' })).location.split('/').pop();
+    check('a member who is not verified has no auto refresh', !(await v.get('/my')).text.includes('Auto refresh'));
+    const users = await adm.get('/admin?tab=users');
+    const vid = new RegExp(`action="/admin/u/(\\d+)/name"(?:(?!<tr>)[\\s\\S])*?dir="ltr">0555000111`).exec(users.text)[1];
+    await adm.post(`/admin/u/${vid}/verify`, { tab: 'users' });
+    check('verifying gives the live ads one month of auto refresh', (await v.get('/my')).text.includes('Auto refresh: 30 day'));
+    await new Promise((r) => setTimeout(r, 1100));
+    const idB = (await w.post('/post', { ...AD, number: '0555111002' })).location.split('/').pop();
+    const order = async () => [...(await (await newClient(srv5.base)).get('/')).text.matchAll(/class="p-num" dir="ltr"[^>]*href="\/n\/(\d+)"|href="\/n\/(\d+)"[^>]*class="p-num"/g)].map((m) => m[1] || m[2]);
+    const firstId = async () => /href="\/n\/(\d+)"/.exec((await (await newClient(srv5.base)).get('/')).text.split('class="plate-card')[1])[1];
+    check('newest ad is first before the refresh', (await firstId()) === idB);
+    await new Promise((r) => setTimeout(r, 1100));
+    await (await newClient(srv5.base)).get('/sitemap.xml');
+    check('the verified advertiser ad goes back to the top by itself', (await firstId()) === idA);
+    const idC = (await v.post('/post', { ...AD, number: '0555111003' })).location.split('/').pop();
+    check('new ads of a verified advertiser start with auto refresh', (await v.get('/my')).text.split('Auto refresh').length >= 3);
+    void idC; void order;
+  } finally {
+    srv5.stop();
+  }
+
+  const srv6 = await startServer(port + 5, { STALE_DAYS: '0' });
+  try {
+    const u = await newClient(srv6.base);
+    await register(u, 'Salem', '0555000333');
+    const keep = (await u.post('/post', { ...AD, number: '0555222001' })).location.split('/').pop();
+    const gone = (await u.post('/post', { ...AD, number: '0555222002' })).location.split('/').pop();
+    await u.post(`/my/${keep}/sold`);
+    check('before the upkeep both ads are there', (await u.get('/n/' + gone)).status === 200);
+    await (await newClient(srv6.base)).get('/sitemap.xml');
+    check('an ad nobody refreshed for the set time is removed', (await u.get('/n/' + gone)).status === 404);
+    check('a sold ad stays as a record', (await u.get('/n/' + keep)).status === 200);
+  } finally {
+    srv6.stop();
+  }
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
   process.exit(failures ? 1 : 0);
 }

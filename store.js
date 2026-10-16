@@ -126,6 +126,7 @@ function createStore(d) {
     if (!cols.includes('hidden_by')) await addCol('listings', 'hidden_by', 'INTEGER NOT NULL DEFAULT 0');
     if (!cols.includes('renewed_at')) await addCol('listings', 'renewed_at', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('price_type')) await addCol('listings', 'price_type', "TEXT NOT NULL DEFAULT ''");
+    if (!cols.includes('auto_until')) await addCol('listings', 'auto_until', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('featured')) await addCol('listings', 'featured', 'INTEGER NOT NULL DEFAULT 0');
     if (!cols.includes('pinned')) await addCol('listings', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
     if (config.adminNational) {
@@ -192,7 +193,14 @@ function createStore(d) {
     dropCounts();
     return d.run('UPDATE users SET suspended = 0 WHERE id = ?', [id]);
   };
-  const setVerified = (id, on) => d.run('UPDATE users SET verified = ? WHERE id = ?', [on ? 1 : 0, id]);
+  // A newly verified advertiser gets one month of automatic refreshing on his live ads.
+  const setVerified = (id, on) =>
+    d.batch([
+      { sql: 'UPDATE users SET verified = ? WHERE id = ?', params: [on ? 1 : 0, id] },
+      ...(on
+        ? [{ sql: `UPDATE listings SET auto_until = datetime('now','+${config.autoMonthDays} days') WHERE user_id = ? AND status = 'active'`, params: [id] }]
+        : []),
+    ]);
   const setUserNote = (id, note) => d.run('UPDATE users SET note = ? WHERE id = ?', [note, id]);
   const suspendedUsers = () =>
     d.all(
@@ -293,8 +301,8 @@ function createStore(d) {
 
   async function insertListing(l) {
     const r = await d.run(
-      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, price_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, price_type, auto_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${l.auto ? `datetime('now','+${config.autoMonthDays} days')` : "''"})`,
       [l.userId, l.number, l.network, l.city, l.price ?? null, l.contact, l.description, l.status, patternTags(l.number), l.priceType || '']
     );
     dropCounts();
@@ -379,6 +387,48 @@ function createStore(d) {
         params: [],
       },
     ]);
+  }
+
+  // Verified advertiser switches the automatic refresh on again for one more month.
+  async function setAutoRenew(id, userId) {
+    return (
+      await d.run(
+        `UPDATE listings SET auto_until = datetime('now','+${config.autoMonthDays} days') WHERE id = ? AND user_id = ? AND status = 'active'`,
+        [id, userId]
+      )
+    ).changes;
+  }
+
+  // ---- Upkeep (runs from the scheduled job, and now and then from visits) ----
+
+  // Live ads of verified advertisers go back to the top every few days while their month lasts.
+  async function autoRenew() {
+    const r = await d.run(
+      `UPDATE listings SET created_at = datetime('now'), renewed_at = datetime('now')
+       WHERE status = 'active' AND auto_until > datetime('now')
+         AND COALESCE(NULLIF(renewed_at, ''), created_at) <= datetime('now', '-${Number(config.autoRenewDays)} days')
+         AND user_id IN (SELECT id FROM users WHERE verified = 1 AND banned = 0 AND suspended = 0)`
+    );
+    if (r.changes) dropCounts();
+    return r.changes;
+  }
+
+  // An ad nobody refreshed for a whole year is removed (sold ads stay as records).
+  async function purgeStale() {
+    const r = await d.run(
+      `DELETE FROM listings WHERE status = 'active'
+         AND COALESCE(NULLIF(renewed_at, ''), created_at) <= datetime('now', '-${Number(config.staleDays)} days')`
+    );
+    await d.run("DELETE FROM deleted_numbers WHERE deleted_at < datetime('now', '-30 days')");
+    if (r.changes) dropCounts();
+    return r.changes;
+  }
+
+  async function maintenance() {
+    await ready();
+    const renewed = await autoRenew();
+    const removed = await purgeStale();
+    return { renewed, removed };
   }
 
   // ---- Reports ----
@@ -582,7 +632,7 @@ function createStore(d) {
     );
 
   // Bulk add for the admin: skips numbers that are already live. Returns { added, skipped }.
-  async function importListings(userId, contact, items, { penalty = false } = {}) {
+  async function importListings(userId, contact, items, { penalty = false, auto = false } = {}) {
     dropCounts();
     const uniq = [];
     const seen = new Set();
@@ -607,8 +657,8 @@ function createStore(d) {
     for (let i = 0; i < fresh.length; i += 50) {
       await d.batch(
         fresh.slice(i, i + 50).map((x) => ({
-          sql: `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats)
-                VALUES (?, ?, ?, ?, ?, ?, '', 'active', ?)`,
+          sql: `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, auto_until)
+                VALUES (?, ?, ?, ?, ?, ?, '', 'active', ?, ${auto ? `datetime('now','+${config.autoMonthDays} days')` : "''"})`,
           params: [userId, x.number, x.network, x.city, x.price ?? null, contact, patternTags(x.number)],
         }))
       );
@@ -653,6 +703,10 @@ function createStore(d) {
     landingCounts,
     importListings,
     setPinned,
+    setAutoRenew,
+    autoRenew,
+    purgeStale,
+    maintenance,
     setFeatured,
     setVerified,
     setUserNote,

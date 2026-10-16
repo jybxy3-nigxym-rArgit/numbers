@@ -37,6 +37,9 @@ function apply(env = {}) {
     maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
     pageSize: 24,
     renewDays: env.RENEW_DAYS !== undefined && env.RENEW_DAYS !== '' ? Number(env.RENEW_DAYS) : 3, // an ad can be moved back to the top once in this many days
+    staleDays: env.STALE_DAYS !== undefined && env.STALE_DAYS !== '' ? Number(env.STALE_DAYS) : 365, // an ad nobody refreshed for this long is removed
+    autoRenewDays: env.AUTO_RENEW_DAYS !== undefined && env.AUTO_RENEW_DAYS !== '' ? Number(env.AUTO_RENEW_DAYS) : 3, // verified advertisers: refreshed this often by itself
+    autoMonthDays: 30, // ... for this many days, then it can be switched on again
     repostPenaltyDays: env.REPOST_PENALTY_DAYS !== undefined && env.REPOST_PENALTY_DAYS !== '' ? Number(env.REPOST_PENALTY_DAYS) : 5, // wait before a deleted number can be posted again
 
     // Free WhatsApp alerts to the owner through CallMeBot (optional): set CALLMEBOT_KEY, and CALLMEBOT_PHONE if it is not the admin phone.

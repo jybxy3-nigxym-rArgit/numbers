@@ -133,6 +133,10 @@ if (require.main === module) {
     console.log(`Numbers Market running on http://localhost:${config.port}`);
     if (!config.adminLocal) console.log('Tip: set ADMIN_PHONE to choose the admin account.');
   });
+  // Upkeep (automatic refresh for verified advertisers, removal of year-old ads): once an hour.
+  const upkeep = () => store.maintenance().catch((e) => console.error('upkeep failed', e.message));
+  setTimeout(upkeep, 5000).unref();
+  setInterval(upkeep, 3600 * 1000).unref();
   const stop = () => {
     server.close(() => {
       try {

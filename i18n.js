@@ -415,6 +415,11 @@ const dict = {
     a_search_ph: 'Search by number, phone or advertiser name',
     a_search_users: 'Search by name or phone',
     a_found: '{n} result(s)',
+    auto_on: 'Auto refresh: {n} day(s) left',
+    auto_enable: 'Turn on auto refresh (1 month)',
+    auto_enabled: 'Auto refresh is on for one more month.',
+    auto_rule: 'As a verified advertiser your live ads refresh by themselves every {n} days for one month.',
+    stale_rule: 'An ad stays until a full year passes without a refresh.',
   },
 
   ar: {
@@ -825,6 +830,11 @@ const dict = {
     a_search_ph: 'ابحث برقم الإعلان أو الجوال أو اسم المعلن',
     a_search_users: 'ابحث باسم العضو أو جواله',
     a_found: '{n} نتيجة',
+    auto_on: 'تحديث تلقائي: باقي {n} يوم',
+    auto_enable: 'تفعيل التحديث التلقائي (شهر)',
+    auto_enabled: 'تم تفعيل التحديث التلقائي لشهر جديد.',
+    auto_rule: 'بصفتك معلن موثّق، إعلاناتك المنشورة تتحدث بنفسها كل {n} أيام لمدة شهر.',
+    stale_rule: 'الإعلان يبقى في الموقع إلى أن تمر سنة كاملة بدون تحديث.',
   },
 };
 
