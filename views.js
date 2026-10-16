@@ -483,6 +483,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
   <section class="about">
     <h2>${esc(t('about_title'))}</h2>
     <p>${esc(t('about_body'))}</p>
+    <p class="about-cta"><a class="btn btn-wa" href="https://wa.me/${esc(LINKS.adminWa)}?text=${encodeURIComponent(t('admin_wa_msg'))}" target="_blank" rel="noopener">${esc(t('admin_wa_btn'))}</a></p>
   </section>`;
 
   const selfUrl = ctx.base + info.path;

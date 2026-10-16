@@ -55,6 +55,7 @@ const LINKS = {
   store: 'https://souq3rb.com',
   group: 'https://chat.whatsapp.com/F2V5yGPdaR68R80hbO6wvu',
   snap: 'https://snapchat.com/t/FdRdXjrK',
+  adminWa: '966599900079',
 };
 
 const byKey = (list) => Object.fromEntries(list.map((x) => [x.key, x]));

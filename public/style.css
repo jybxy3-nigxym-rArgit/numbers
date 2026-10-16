@@ -2253,3 +2253,7 @@ a.adv:focus-visible {
   border-color: var(--line);
   color: var(--ink);
 }
+
+.about-cta {
+  margin-top: 1rem;
+}

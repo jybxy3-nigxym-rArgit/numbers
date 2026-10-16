@@ -850,6 +850,7 @@ async function main() {
       check('every plate has the small share button', /class="share-mini" href="https:\/\/wa\.me\/\?text=/.test(home.text));
       check('share message has number, price and link', decodeURIComponent((/share-mini" href="([^"]+)"/.exec(home.text) || [])[1] || '').includes('/n/'));
       check('sold plate has no share button', !sp.text.includes('class="share-mini"') || true);
+      check('home has the contact-admin WhatsApp button', home.text.includes('https://wa.me/966599900079'));
       check('search has network and type filters', home.text.includes('name="network"') && home.text.includes('name="pattern"'));
       check('home shows count and last update', /numbers listed · last update/.test(home.text));
       check('ad page shows the ad number', (await g.get('/n/' + soldId)).text.includes('Ad number'));
