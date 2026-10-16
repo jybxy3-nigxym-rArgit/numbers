@@ -957,7 +957,7 @@ function designPage(ctx) {
     created_at: new Date().toISOString().replace('T', ' ').slice(0, 19), views: 120, seller: t('site_name'), ...extra,
   });
   const card = (l) => `<div class="${cardClass(l)}"><div class="plate">${plateFace(ctx, l, 'span')}</div><span class="adv">${esc(l.seller)}</span></div>`;
-  const opts = ['classic', 'light', 'pro']
+  const opts = ['xmin', 'min', 'light', 'classic', 'pro', 'elite']
     .map(
       (k) => `
     <form method="post" action="/admin/design" class="design-opt${ctx.plateStyle === k ? ' is-on' : ''}" data-plate="${k === 'classic' ? '' : k}">

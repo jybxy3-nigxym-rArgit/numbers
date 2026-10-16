@@ -137,7 +137,7 @@ function createStore(d) {
 
   // Secret used to sign session cookies. Set SESSION_SECRET, or one is generated and kept in the database.
   // Look of the number plates, chosen by the admin: classic (default), light or pro.
-  const PLATE_STYLES = ['classic', 'light', 'pro'];
+  const PLATE_STYLES = ['classic', 'light', 'pro', 'xmin', 'min', 'elite'];
   let plateCache = null;
   async function getPlateStyle() {
     if (plateCache && Date.now() - plateCache.at < 60000) return plateCache.v;

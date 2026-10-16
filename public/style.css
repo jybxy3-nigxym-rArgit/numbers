@@ -1915,3 +1915,168 @@ a.adv:focus-visible {
   gap: 1rem;
   margin-block: 0.8rem;
 }
+
+/* Very simple: almost bare. */
+[data-plate="xmin"] .plate {
+  padding-block: 0.4rem 0.5rem;
+  border: 0;
+  border-bottom: 2px solid var(--plate);
+  border-radius: 6px;
+  box-shadow: none;
+  transition: none;
+}
+[data-plate="xmin"] a.plate:hover {
+  transform: none;
+  box-shadow: none;
+}
+[data-plate="xmin"] .p-net {
+  font-family: "Tajawal", var(--font);
+  font-weight: 700;
+  font-size: clamp(0.9rem, 4.5cqw, 1.1rem);
+}
+[data-plate="xmin"] .p-num {
+  font-weight: 700;
+}
+[data-plate="xmin"] .p-foot {
+  font-family: "Tajawal", var(--font);
+  font-size: clamp(0.85rem, 4.2cqw, 1rem);
+}
+[data-plate="xmin"] .adv,
+[data-plate="xmin"] .is-pinned .adv {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  background: none;
+  color: var(--muted, #6b5b86);
+  border-radius: 0;
+  font-size: 0.9rem;
+}
+[data-plate="xmin"] a.adv,
+[data-plate="xmin"] a.adv:visited {
+  color: var(--muted, #6b5b86);
+}
+[data-plate="xmin"] .is-pinned .plate {
+  box-shadow: none;
+  border-bottom-color: var(--gold-dark);
+}
+[data-plate="xmin"] .is-featured .plate {
+  background: #fffaf0;
+  border: 0;
+  border-bottom: 2px solid #d99a22;
+  box-shadow: none;
+  animation: none;
+}
+[data-plate="xmin"] .is-featured .plate::after {
+  display: none;
+}
+[data-plate="xmin"] .is-featured .feat-badge {
+  animation: none;
+}
+
+/* Simple: soft grey card. */
+[data-plate="min"] .plate {
+  background: #f4f1fa;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: none;
+  transition: none;
+}
+[data-plate="min"] a.plate:hover {
+  transform: none;
+  box-shadow: none;
+}
+[data-plate="min"] .adv {
+  width: auto;
+  max-width: 90%;
+  margin: 0.35rem auto 0;
+  padding: 0.2rem 1rem 0.25rem;
+  border-radius: 999px;
+}
+[data-plate="min"] .is-pinned .plate {
+  box-shadow: none;
+  background: #fff3d6;
+}
+[data-plate="min"] .is-featured .plate {
+  background: #fff3d6;
+  border: 0;
+  box-shadow: none;
+  animation: none;
+}
+[data-plate="min"] .is-featured .plate::after {
+  display: none;
+}
+[data-plate="min"] .is-featured .feat-badge {
+  animation: none;
+}
+
+/* Top professional: dark card, gold lettering. */
+[data-plate="elite"] .plate,
+[data-plate="elite"] .is-pinned .plate {
+  gap: 0.15rem;
+  padding: 0.7rem 1rem 0.8rem;
+  background: linear-gradient(160deg, #1b1230, #2d1f4d);
+  border: 1px solid #d9a93a;
+  border-radius: 14px;
+  box-shadow: 0 6px 16px -8px rgba(27, 18, 48, 0.9);
+  color: #f1d38a;
+}
+[data-plate="elite"] a.plate:hover {
+  transform: none;
+  box-shadow: 0 6px 16px -6px rgba(217, 169, 58, 0.6);
+}
+[data-plate="elite"] .plate a,
+[data-plate="elite"] .plate a:hover,
+[data-plate="elite"] .plate a:visited {
+  color: inherit !important;
+}
+[data-plate="elite"] .p-net {
+  font-family: "Tajawal", var(--font);
+  font-weight: 700;
+  font-size: clamp(0.95rem, 5cqw, 1.2rem);
+  letter-spacing: 0.08em;
+  color: #d9a93a;
+}
+[data-plate="elite"] .p-num {
+  font-weight: 800;
+  color: #fff3cf;
+  letter-spacing: 0.04em;
+}
+[data-plate="elite"] .p-foot {
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(217, 169, 58, 0.35);
+  font-family: "Tajawal", var(--font);
+  font-weight: 700;
+  color: #e7d6a6;
+}
+[data-plate="elite"] .p-foot .price,
+[data-plate="elite"] .p-foot .price small,
+[data-plate="elite"] .p-foot .price.ask {
+  color: #ffd86b;
+}
+[data-plate="elite"] .adv,
+[data-plate="elite"] .is-pinned .adv {
+  margin-top: 0;
+  background: #d9a93a;
+  color: #1b1230;
+  border-radius: 0 0 12px 12px;
+}
+[data-plate="elite"] a.adv,
+[data-plate="elite"] a.adv:visited {
+  color: #1b1230;
+}
+[data-plate="elite"] .is-featured .plate {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(160deg, #1b1230, #2d1f4d) padding-box,
+    linear-gradient(90deg, #d99a22, #ffe38f, #fffbe6, #ffe38f, #d99a22) border-box;
+  box-shadow: 0 8px 20px -8px rgba(217, 154, 34, 0.85);
+  animation: none;
+}
+[data-plate="elite"] .is-featured .plate::after {
+  display: none;
+}
+[data-plate="elite"] .is-featured .feat-badge {
+  animation: none;
+}
