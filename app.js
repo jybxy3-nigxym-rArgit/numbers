@@ -484,6 +484,7 @@ function readAdFields(ctx) {
     else errors.contact = 'err_contact';
   }
   if ([...v.description].length > 300) errors.description = 'err_desc';
+  else if (!ctx.user.is_admin && util.hasOutsideContact(v.description)) errors.description = 'err_desc_links';
   return { v, errors, price, contact };
 }
 

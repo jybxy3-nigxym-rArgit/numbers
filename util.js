@@ -127,12 +127,24 @@ function formatPrice(price) {
   return new Intl.NumberFormat('en-US').format(price);
 }
 
+// Ad details must not send buyers elsewhere: no links, websites, social accounts or @handles.
+const OUTSIDE_RE = new RegExp(
+  [
+    'https?:|ftp:|www\\.|[a-z0-9-]+\\.(?:com|net|org|sa|co|io|me|ly|app|link|store|shop|info|xyz|cc|tv|ae|kw|bh|qa|eg|ws|site|online|page)\\b',
+    '@\\w',
+    'snap|سناب|insta|انستا|إنستا|انستقرام|twitter|تويتر|tiktok|تيك ?توك|telegram|تلقرام|تلجرام|تليجرام|تيليجرام|t\\.me|facebook|فيسبوك|فيس بوك|youtube|يوتيوب|linkedin|haraj|حراج|wa\\.me|رابط|لينك|link|موقع|website',
+  ].join('|'),
+  'iu'
+);
+const hasOutsideContact = (text) => OUTSIDE_RE.test(toWestern(String(text ?? '')));
+
 // Staff levels: 3 = site owner (the admin phone), 2 = general moderator (مشرف عام), 1 = moderator (مشرف), 0 = everyone else.
 const rankOf = (u) => (!u ? 0 : u.is_admin ? 3 : u.role === 'super' ? 2 : u.role === 'mod' ? 1 : 0);
 // A staff member can act on himself or on someone of a lower level, never on his equals or above.
 const canActOn = (actor, target) => !!actor && !!target && (actor.id === target.id || rankOf(actor) > rankOf(target));
 
 module.exports = {
+  hasOutsideContact,
   rankOf,
   canActOn,
   esc,

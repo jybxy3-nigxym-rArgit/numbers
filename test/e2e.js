@@ -159,6 +159,10 @@ async function main() {
     check('absurd price rejected', r.status === 400);
     r = await a.post('/post', { ...AD, description: 'x'.repeat(301) });
     check('long description rejected', r.status === 400);
+    for (const bad of ['زورونا www.shop.com', 'سناب abu123', 'تابعني @abu', 'https://t.me/x', 'instagram abu']) {
+      r = await a.post('/post', { ...AD, number: '0555000999', description: bad });
+      check('links and accounts rejected in details: ' + bad, r.status === 400);
+    }
     r = await a.post('/post', AD);
     check('ad published', r.status === 303 && r.location === '/n/1', r.status + ' ' + r.location);
     r = await a.get('/n/1');
