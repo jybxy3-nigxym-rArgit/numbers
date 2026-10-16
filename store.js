@@ -132,6 +132,8 @@ function createStore(d) {
     await d.run('UPDATE users SET pass_hash = ? WHERE id = ?', [passHash, id]);
   }
 
+  const setUserName = (id, name) => d.run('UPDATE users SET name = ? WHERE id = ?', [name, id]);
+
   // ---- Listings ----
 
   const getListing = (id) => d.first(`${LISTING_SELECT} WHERE l.id = ?`, [id]);
@@ -365,6 +367,7 @@ function createStore(d) {
     getUserByPhone,
     createUser,
     setUserPassword,
+    setUserName,
     getListing,
     searchListings,
     countActiveByUser,

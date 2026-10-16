@@ -620,6 +620,37 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : `/admin?tab=${tab}`);
 });
 
+const cleanName = (raw) => str(raw, 80).replace(/\s+/g, ' ').trim();
+const nameOk = (n) => n.length >= 2 && n.length <= 60;
+
+// The admin can rename any user, including himself.
+route('POST', '/admin/u/:id/name', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  const user = await ctx.store.getUser(Number(ctx.params.id));
+  if (!user) return notFound(ctx);
+  const name = cleanName(ctx.body.name);
+  if (!nameOk(name)) flash(ctx, 'error', 'err_name');
+  else {
+    await ctx.store.setUserName(user.id, name);
+    flash(ctx, 'ok', 'updated');
+  }
+  redirect(ctx, '/admin?tab=users');
+});
+
+// Everyone can change their own name.
+route('GET', '/profile', (ctx) => {
+  if (!requireLogin(ctx)) return;
+  html(ctx, 200, views.profilePage(ctx, { name: ctx.user.name }));
+});
+route('POST', '/profile', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const name = cleanName(ctx.body.name);
+  if (!nameOk(name)) return html(ctx, 400, views.profilePage(ctx, { name }, { name: 'err_name' }));
+  await ctx.store.setUserName(ctx.user.id, name);
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, '/my');
+});
+
 // The admin gives a user a temporary password (shown once, nothing is stored in clear text).
 route('POST', '/admin/u/:id/reset', async (ctx) => {
   if (!requireAdmin(ctx)) return;

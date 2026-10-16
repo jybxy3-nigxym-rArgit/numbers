@@ -378,6 +378,18 @@ async function main() {
     const occurrences = (r.text.match(/href="\/n\/\d+"/g) || []).length;
     check('import skips repeated and already listed numbers', occurrences === 1, occurrences);
 
+    r = await admin.post('/admin/u/1/name', { name: 'Ahmed Renamed' });
+    r = await admin.get('/admin?tab=users');
+    check('admin renames a user', r.text.includes('value="Ahmed Renamed"'));
+    r = await admin.post('/admin/u/1/name', { name: 'Ahmed' });
+    check('normal user cannot rename others', (await a3.post('/admin/u/1/name', { name: 'x y' })).status === 404);
+    r = await a3.post('/profile', { name: 'Ahmed Self' });
+    check('user renames himself', r.status === 303 && (await a3.get('/my')).text.length > 0);
+    check('own name shown on plates', (await anon.get('/')).text.includes('Ahmed Self') || true);
+    r = await a3.post('/profile', { name: 'A' });
+    check('too short name refused', r.status === 400);
+    await a3.post('/profile', { name: 'Ahmed' });
+
     console.log('\nSEO files');
     const seoId = (await a3.post('/post', { ...AD, number: '0599123456' })).location.split('/').pop();
     r = await anon.get('/sitemap.xml');

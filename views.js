@@ -631,7 +631,7 @@ function myPage(ctx, rows) {
         .join('')}</ul>`
     : `<div class="empty"><p>${esc(t('no_ads'))}</p><p><a class="btn" href="/post">${esc(t('post_ad'))}</a></p></div>`;
 
-  const body = `<section><h1>${esc(t('my_title'))}</h1>${list}<p class="alt"><a href="/password">${esc(t('change_password'))}</a></p></section>`;
+  const body = `<section><h1>${esc(t('my_title'))}</h1>${list}<p class="alt"><a href="/profile">${esc(t('profile_title'))}</a> · <a href="/password">${esc(t('change_password'))}</a></p></section>`;
   return layout(ctx, { title: t('my_title'), body, noindex: true });
 }
 
@@ -674,6 +674,23 @@ function importPage(ctx, v = {}) {
     </form>
   </section>`;
   return layout(ctx, { title: t('import_title'), body, noindex: true });
+}
+
+function profilePage(ctx, v = {}, errors = {}) {
+  const { t } = ctx;
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('profile_title'))}</h1>
+    <form method="post" action="/profile" class="form" novalidate>
+      ${csrfInput(ctx)}
+      ${field(ctx, { id: 'name', name: 'name', label: t('f_name'), value: v.name, error: errors.name, attrs: 'autocomplete="name" required' })}
+      <div class="form-actions">
+        <button class="btn" type="submit">${esc(t('save'))}</button>
+        <a class="btn btn-ghost" href="/my">${esc(t('cancel'))}</a>
+      </div>
+    </form>
+  </section>`;
+  return layout(ctx, { title: t('profile_title'), body, noindex: true });
 }
 
 function passwordPage(ctx, errors = {}) {
@@ -725,7 +742,7 @@ function adminPage(ctx, tab, data) {
         <tbody>${data.users
           .map(
             (u) => `<tr>
-          <td>${esc(u.name)}${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}</td>
+          <td><form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}</td>
           <td dir="ltr">0${esc(u.phone)}</td>
           <td>${u.ads}</td>
           <td>${esc(String(u.created_at).slice(0, 10))}</td>
@@ -790,6 +807,7 @@ module.exports = {
   adminResetPage,
   importPage,
   passwordPage,
+  profilePage,
   registerPage,
   loginPage,
   myPage,

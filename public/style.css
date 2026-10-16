@@ -1146,3 +1146,14 @@ main,
 .search-bar input::placeholder {
   text-align: center;
 }
+
+.name-edit {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.name-edit input {
+  min-height: 38px;
+  width: 11rem;
+  padding: 0.2rem 0.6rem;
+}
