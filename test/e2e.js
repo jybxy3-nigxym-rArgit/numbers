@@ -119,6 +119,7 @@ async function main() {
     const anon = new HttpClient(base); // a brand-new visitor: no language chosen yet
     let r = await anon.get('/');
     check('home loads', r.status === 200);
+    check('Tag Manager is off unless GTM_ID is set', !r.text.includes('googletagmanager') && r.headers.get('content-security-policy').includes("script-src 'none'"));
     check('default language is Arabic and RTL', r.text.includes('dir="rtl"') && r.text.includes('بصمة عميل'));
     check('empty site message shown', r.text.includes('ما فيه إعلانات للحين'));
     check('CSP header set', (r.headers.get('content-security-policy') || '').includes("script-src 'none'"));
@@ -616,6 +617,14 @@ async function main() {
     check('members export is a csv file', rr.status === 200 && String(rr.headers.get('content-type')).startsWith('text/csv') && rr.text.includes('Nora') && rr.text.includes('0566000001'));
     rr = await admin.get('/admin/export/numbers.csv');
     check('numbers export is a csv file', rr.status === 200 && rr.text.includes('0566111001'));
+    rr = await admin.get('/admin?tab=all&q=0566111001');
+    check('admin searches ads by number', rr.text.includes('0566 111 001') && !rr.text.includes('0566 111 002') && rr.text.includes('1 result'));
+    rr = await admin.get('/admin?tab=all&q=566111002');
+    check('admin number search works without the leading zero', rr.text.includes('0566 111 002') && !rr.text.includes('0566 111 001'));
+    check('admin searches ads by advertiser name', (await admin.get('/admin?tab=all&q=Omar')).text.includes('Omar') && !(await admin.get('/admin?tab=all&q=Omar')).text.includes('0566 111 001'));
+    check('admin searches members by phone and name', (await admin.get('/admin?tab=users&q=0566000002')).text.includes('Omar') && !(await admin.get('/admin?tab=users&q=0566000002')).text.includes('Nora') && (await admin.get('/admin?tab=users&q=Nora')).text.includes('0566000001'));
+    check('search with no match says so', (await admin.get('/admin?tab=all&q=0511111111')).text.includes('0 result'));
+    check('search box shows on the lists', (await admin.get('/admin?tab=all')).text.includes('class="admin-search"'));
     check('stats show views and top lists', (await admin.get('/admin?tab=stats')).text.includes('Most viewed'));
 
     // under-price pages, information pages, articles
@@ -689,13 +698,21 @@ async function main() {
   }
 
   console.log('\nRenew and alerts');
-  const srv3 = await startServer(port + 2, { RENEW_DAYS: '0' });
+  const srv3 = await startServer(port + 2, { RENEW_DAYS: '0', GTM_ID: 'GTM-TEST123' });
   try {
     const u = await newClient(srv3.base);
     await register(u, 'Lama', '0555000888');
     const id = (await u.post('/post', AD)).location.split('/').pop();
     let r = await u.post(`/my/${id}/renew`);
+    const pubPage = await (await newClient(srv3.base)).get('/');
+    const csp = pubPage.headers.get('content-security-policy');
+    const nonce = /nonce="([^"]+)"/.exec(pubPage.text);
+    check('Tag Manager loads on public pages with a nonce', pubPage.text.includes('GTM-TEST123') && nonce && csp.includes(`'nonce-${nonce[1]}'`) && csp.includes('https://www.googletagmanager.com'));
+    const loginPage = await (await newClient(srv3.base)).get('/login');
+    check('login page stays script-free', !loginPage.text.includes('GTM-TEST123') && loginPage.headers.get('content-security-policy').includes("script-src 'none'"));
     check('renew moves the ad back to the top', r.status === 303 && (await u.get('/my')).text.includes('back at the top'));
+    check('my ads page stays script-free', !(await u.get('/my')).text.includes('googletagmanager'));
+
   } finally {
     srv3.stop();
   }

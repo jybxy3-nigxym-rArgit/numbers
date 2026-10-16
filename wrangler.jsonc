@@ -14,6 +14,8 @@
   ],
   "vars": {
     "BASE_URL": "https://basmatameel.com",
+    // Google Tag Manager (public pages only; login, account and admin pages never load it)
+    "GTM_ID": "GTM-5XCM8XW9",
     // Whoever registers with this phone becomes the admin.
     "ADMIN_PHONE": "0599900079",
     // "true" = every new ad waits for your approval

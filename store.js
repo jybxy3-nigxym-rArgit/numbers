@@ -411,26 +411,60 @@ function createStore(d) {
 
   // ---- Admin ----
 
-  function adminListings(tab) {
-    let where = '1=1';
-    if (tab === 'pending') where = "l.status = 'pending'";
-    else if (tab === 'reported') where = `(l.status = 'hidden' OR ${REPORT_COUNT_SQL} > 0)`;
-    else if (tab === 'review') where = "(l.status = 'hidden' AND l.hidden_by > 0)";
-    return d.all(
-      `SELECT l.*, u.name AS seller, u.phone AS seller_phone, u.banned AS seller_banned, u.suspended AS seller_suspended,
-              u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified, ${REPORT_COUNT_SQL} AS report_count
-       FROM listings l JOIN users u ON u.id = l.user_id
-       WHERE ${where}
-       ORDER BY l.created_at DESC, l.id DESC LIMIT 300`
-    );
+  // `q` searches by number (digits) or by advertiser name (text). Pages keep the admin screens light.
+  const likeSafe = (x) => String(x).replace(/[%_\\]/g, ' ').trim();
+  async function adminListings(tab, { q = '', limit = 40, offset = 0 } = {}) {
+    const where = ['1=1'];
+    const params = [];
+    if (tab === 'pending') where.push("l.status = 'pending'");
+    else if (tab === 'reported') where.push(`(l.status = 'hidden' OR ${REPORT_COUNT_SQL} > 0)`);
+    else if (tab === 'review') where.push("(l.status = 'hidden' AND l.hidden_by > 0)");
+    const digits = String(q).replace(/\D/g, '');
+    if (digits.length >= 2 && digits.length === String(q).trim().replace(/[\s-]/g, '').length) {
+      where.push('(l.number LIKE ? OR u.phone LIKE ?)');
+      params.push('%' + digits + '%', '%' + digits + '%');
+    } else if (likeSafe(q)) {
+      where.push('u.name LIKE ?');
+      params.push('%' + likeSafe(q) + '%');
+    }
+    const w = where.join(' AND ');
+    const rs = await d.batch([
+      { sql: `SELECT COUNT(*) AS c FROM listings l JOIN users u ON u.id = l.user_id WHERE ${w}`, params },
+      {
+        sql: `SELECT l.*, u.name AS seller, u.phone AS seller_phone, u.banned AS seller_banned, u.suspended AS seller_suspended,
+                     u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified, ${REPORT_COUNT_SQL} AS report_count
+              FROM listings l JOIN users u ON u.id = l.user_id
+              WHERE ${w}
+              ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
+        params: [...params, limit, offset],
+      },
+    ]);
+    return { total: rs[0].rows[0].c, rows: rs[1].rows };
   }
 
-  const adminUsers = () =>
-    d.all(
-      `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads,
-              (SELECT COUNT(*) FROM banned_devices b WHERE b.user_id = u.id) AS banned_devices
-       FROM users u ORDER BY u.created_at DESC, u.id DESC LIMIT 300`
-    );
+  async function adminUsers({ q = '', limit = 40, offset = 0 } = {}) {
+    const where = ['1=1'];
+    const params = [];
+    const digits = String(q).replace(/\D/g, '');
+    if (digits.length >= 2 && digits.length === String(q).trim().replace(/[\s-]/g, '').length) {
+      where.push('u.phone LIKE ?');
+      params.push('%' + digits.replace(/^0/, '') + '%');
+    } else if (likeSafe(q)) {
+      where.push('u.name LIKE ?');
+      params.push('%' + likeSafe(q) + '%');
+    }
+    const w = where.join(' AND ');
+    const rs = await d.batch([
+      { sql: `SELECT COUNT(*) AS c FROM users u WHERE ${w}`, params },
+      {
+        sql: `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads,
+                     (SELECT COUNT(*) FROM banned_devices b WHERE b.user_id = u.id) AS banned_devices
+              FROM users u WHERE ${w} ORDER BY u.created_at DESC, u.id DESC LIMIT ? OFFSET ?`,
+        params: [...params, limit, offset],
+      },
+    ]);
+    return { total: rs[0].rows[0].c, rows: rs[1].rows };
+  }
 
   async function adminStats() {
     const one = (sql) => ({ sql, params: [] });

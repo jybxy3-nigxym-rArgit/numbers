@@ -119,6 +119,9 @@ function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', ca
     : '';
   const next = encodeURIComponent(ctx.path || '/');
   const robotsTag = noindex ? 'noindex, nofollow' : robots || '';
+  // Tag Manager runs only on public pages, never on login, account, admin or error pages.
+  const gtm = !!config.gtmId && !noindex;
+  if (gtm) ctx.gtmNonce = ctx.nonce;
 
   const dark = ctx.theme === 'dark';
   const themeLink = `<a class="theme-toggle" href="/theme/${dark ? 'light' : 'dark'}?next=${next}" rel="nofollow" title="${esc(t(dark ? 'theme_light' : 'theme_dark'))}" aria-label="${esc(t(dark ? 'theme_light' : 'theme_dark'))}">${dark ? ICON.sun : ICON.moon}</a>`;
@@ -163,8 +166,12 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&amp;family=Tajawal:wght@400;500;700;900&amp;display=swap">
 <link rel="stylesheet" href="/style.css?v=${esc(ASSET_V)}">
 ${jsonLd(ld)}
+${gtm ? `<!-- Google Tag Manager -->
+<script nonce="${esc(ctx.nonce)}">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${esc(config.gtmId)}');</script>
+<!-- End Google Tag Manager -->` : ''}
 </head>
 <body id="top">
+${gtm ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${esc(config.gtmId)}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` : ''}
 <a class="skip" href="#main">${esc(t('skip'))}</a>
 <header class="top">
   <div class="wrap bar">
@@ -1088,7 +1095,29 @@ function adminPage(ctx, tab, data) {
     content = listingsTable(data.listings);
   }
 
-  const body = `<section><h1>${esc(t('admin_title'))}</h1>${tabNav}${content}</section>`;
+  // Search box (number, phone or name) and page links for the long lists.
+  const searchable = ['pending', 'reported', 'review', 'all', 'users'].includes(tab);
+  const q = data.q || '';
+  const searchBox = searchable
+    ? `<form method="get" action="/admin" class="admin-search" role="search">
+        <input type="hidden" name="tab" value="${esc(tab)}">
+        <input name="q" type="search" value="${esc(q)}" maxlength="40" dir="auto" placeholder="${esc(t(tab === 'users' ? 'a_search_users' : 'a_search_ph'))}" aria-label="${esc(t('a_search'))}">
+        <button class="btn btn-small" type="submit">${esc(t('search'))}</button>
+        ${q ? `<a class="btn btn-ghost btn-small" href="/admin?tab=${esc(tab)}">${esc(t('clear'))}</a>` : ''}
+      </form>
+      <p class="hint-line">${esc(t('a_found', { n: formatPrice(data.total || 0) }))}</p>`
+    : '';
+  const pg = data.page || 1;
+  const pageHref = (p2) => `/admin${qs({ tab, q, page: p2 > 1 ? p2 : '' })}`;
+  const pager =
+    searchable && data.pages > 1
+      ? `<nav class="pager" aria-label="Pages">
+          ${pg > 1 ? `<a class="btn btn-ghost" href="${esc(pageHref(pg - 1))}">${esc(t('page_prev'))}</a>` : '<span></span>'}
+          <span>${esc(t('page_of', { p: pg, n: data.pages }))}</span>
+          ${pg < data.pages ? `<a class="btn btn-ghost" href="${esc(pageHref(pg + 1))}">${esc(t('page_next'))}</a>` : '<span></span>'}
+        </nav>`
+      : '';
+  const body = `<section><h1>${esc(t('admin_title'))}</h1>${tabNav}${searchBox}${content}${pager}</section>`;
   return layout(ctx, { title: t('admin_title'), body, noindex: true });
 }
 

@@ -66,12 +66,20 @@ function safeNext(next) {
   return n;
 }
 
-function securityHeaders(secure) {
-  const h = {
-    'Content-Security-Policy':
-      "default-src 'self'; script-src 'none'; style-src 'self' https://fonts.googleapis.com; " +
+// Pages are script-free, except public pages that load Google Tag Manager: those allow only
+// Google's host plus this one request's nonce. Login, account and admin pages always stay script-free.
+function securityHeaders(secure, gtmNonce) {
+  const csp = gtmNonce
+    ? `default-src 'self'; script-src 'nonce-${gtmNonce}' https://www.googletagmanager.com; ` +
+      "style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; " +
+      "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://www.google.com; " +
+      "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; " +
+      "frame-src https://www.googletagmanager.com; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+    : "default-src 'self'; script-src 'none'; style-src 'self' https://fonts.googleapis.com; " +
       "font-src https://fonts.gstatic.com; img-src 'self' data:; form-action 'self'; " +
-      "base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+      "base-uri 'none'; frame-ancestors 'none'; object-src 'none'";
+  const h = {
+    'Content-Security-Policy': csp,
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -147,6 +155,8 @@ function makeCtx(request, url, extra) {
     base: config.baseUrl || url.origin,
     path: url.pathname + url.search,
     extraCookies: [],
+    nonce: wc.randomToken(12).replace(/[^A-Za-z0-9]/g, 'a'),
+    gtmNonce: '',
     ...extra,
   };
   ctx.t = (key, vars) => t(ctx.lang, key, vars);
@@ -786,6 +796,7 @@ route('POST', '/my/bulk', async (ctx) => {
 const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users', 'blocked', 'log'];
 const TABS_MOD = ['reported', 'all', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
+const ADMIN_PAGE = 40; // rows per admin screen (keeps the page quick on the free plan)
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
 
 route('GET', '/admin', async (ctx) => {
@@ -793,14 +804,24 @@ route('GET', '/admin', async (ctx) => {
   const tabs = adminTabs(ctx);
   const tab = tabs.includes(ctx.query.tab) ? ctx.query.tab : tabs[0];
   const data = {};
+  const q = str(ctx.query.q, 40).trim();
+  const page = Math.max(1, parseInt(ctx.query.page, 10) || 1);
+  const opts = { q, limit: ADMIN_PAGE, offset: (page - 1) * ADMIN_PAGE };
+  Object.assign(data, { q, page });
   if (tab === 'stats') data.stats = await ctx.store.adminStats();
-  else if (tab === 'users') data.users = await ctx.store.adminUsers();
-  else if (tab === 'blocked') data.blocked = await ctx.store.blockedPhones();
+  else if (tab === 'users') {
+    const r = await ctx.store.adminUsers(opts);
+    data.users = r.rows;
+    data.total = r.total;
+  } else if (tab === 'blocked') data.blocked = await ctx.store.blockedPhones();
   else if (tab === 'log') data.log = await ctx.store.auditLog();
   else {
-    data.listings = await ctx.store.adminListings(tab);
+    const r = await ctx.store.adminListings(tab, opts);
+    data.listings = r.rows;
+    data.total = r.total;
     if (tab === 'review') data.suspended = await ctx.store.suspendedUsers();
   }
+  data.pages = Math.max(1, Math.ceil((data.total || 0) / ADMIN_PAGE));
   html(ctx, 200, views.adminPage(ctx, tab, data));
 });
 
@@ -1149,8 +1170,8 @@ route('GET', '/healthz', async (ctx) => {
 
 // ---- Main handler ----------------------------------------------------------
 
-function toResponse(request, out, setCookie, secure, extraCookies = []) {
-  const headers = new Headers({ ...securityHeaders(secure), ...out.headers });
+function toResponse(request, out, setCookie, secure, extraCookies = [], gtmNonce = '') {
+  const headers = new Headers({ ...securityHeaders(secure, gtmNonce), ...out.headers });
   if (setCookie) headers.append('Set-Cookie', setCookie);
   for (const c of extraCookies) headers.append('Set-Cookie', c);
   const noBody = request.method === 'HEAD' || out.status === 204 || out.status === 304;
@@ -1206,7 +1227,7 @@ async function handle(request, { store, ip, waitUntil }) {
     }
 
     const cookie = ctx.dirty ? await sessionCookie(ctx) : '';
-    return toResponse(request, ctx.out, cookie, ctx.secure, ctx.extraCookies);
+    return toResponse(request, ctx.out, cookie, ctx.secure, ctx.extraCookies, ctx.gtmNonce);
   } catch (err) {
     console.error(err);
     try {

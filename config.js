@@ -40,6 +40,9 @@ function apply(env = {}) {
     repostPenaltyDays: env.REPOST_PENALTY_DAYS !== undefined && env.REPOST_PENALTY_DAYS !== '' ? Number(env.REPOST_PENALTY_DAYS) : 5, // wait before a deleted number can be posted again
 
     // Free WhatsApp alerts to the owner through CallMeBot (optional): set CALLMEBOT_KEY, and CALLMEBOT_PHONE if it is not the admin phone.
+    // Google Tag Manager container (public pages only). Empty = off.
+    gtmId: /^GTM-[A-Z0-9]+$/.test(env.GTM_ID || '') ? env.GTM_ID : '',
+
     callmebotKey: env.CALLMEBOT_KEY || '',
     callmebotPhone: (env.CALLMEBOT_PHONE || (adminNational ? '966' + adminNational : '')).replace(/\D/g, ''),
     callmebotUrl: env.CALLMEBOT_URL || 'https://api.callmebot.com/whatsapp.php',

@@ -1660,3 +1660,14 @@ blockquote.msg {
 [data-theme="dark"] .plate a:hover {
   color: var(--plate) !important;
 }
+
+.admin-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem 0.4rem;
+}
+.admin-search input[type="search"] {
+  flex: 1 1 14rem;
+  min-width: 0;
+}

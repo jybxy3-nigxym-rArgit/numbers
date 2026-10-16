@@ -411,6 +411,10 @@ const dict = {
     log_phone_unblock: 'Unblocked a phone',
     log_export: 'Exported a file',
     log_import: 'Imported numbers',
+    a_search: 'Search',
+    a_search_ph: 'Search by number, phone or advertiser name',
+    a_search_users: 'Search by name or phone',
+    a_found: '{n} result(s)',
   },
 
   ar: {
@@ -817,6 +821,10 @@ const dict = {
     log_phone_unblock: 'رفع منع رقم',
     log_export: 'صدّر ملف',
     log_import: 'أضاف أرقام',
+    a_search: 'بحث',
+    a_search_ph: 'ابحث برقم الإعلان أو الجوال أو اسم المعلن',
+    a_search_users: 'ابحث باسم العضو أو جواله',
+    a_found: '{n} نتيجة',
   },
 };
 
