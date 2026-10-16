@@ -1,0 +1,17 @@
+{
+  // Cloudflare Workers setup (free plan). Deploy with the "Deploy to Cloudflare" button in the README,
+  // or run: npx wrangler deploy
+  "name": "numbers",
+  "main": "worker.mjs",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": "./public" },
+  // No database_id on purpose: Cloudflare creates the database on first deploy.
+  "d1_databases": [{ "binding": "DB", "database_name": "numbers-db" }],
+  "vars": {
+    // Whoever registers with this phone becomes the admin.
+    "ADMIN_PHONE": "0599900079",
+    // "true" = every new ad waits for your approval
+    "REQUIRE_APPROVAL": "false"
+  },
+  "observability": { "enabled": true }
+}

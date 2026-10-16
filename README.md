@@ -38,16 +38,27 @@ ADMIN_PHONE=0555123456 node --disable-warning=ExperimentalWarning server.js
 
 ## النشر
 
-الموقع يحتاج مكان يشغّل Node 22 ويحفظ ملف قاعدة البيانات (مجلد `DATA_DIR`). الخيارات:
+الموقع يشتغل بطريقتين من نفس الكود:
 
-- سيرفر صغير (VPS) بنظام Ubuntu: مجلد `deploy/` فيه سكربت تثبيت يسوي كل شي لوحده (Node و HTTPS وخدمة تشتغل دايم ونسخ احتياطي يومي). الملف `deploy/cloud-init.yaml` تلصقه وقت إنشاء السيرفر ويثبّت الموقع بدون ما تفتح terminal.
+**1) Cloudflare (مجاني، بدون بطاقة)**
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jybxy3-nigxym-rArgit/numbers)
+
+الزر ينسخ المشروع لحسابك في GitHub وينشره على Cloudflare Workers وينشئ قاعدة البيانات (D1) لوحده. الإعدادات في `wrangler.jsonc` (رقم المدير `ADMIN_PHONE` وغيره). نقطة الدخول `worker.mjs`.
+
+**2) سيرفر عادي (Oracle أو أي VPS)**
+
+- مجلد `deploy/` فيه سكربت تثبيت يسوي كل شي لوحده (Node و HTTPS وخدمة تشتغل دايم ونسخ احتياطي يومي). الملف `deploy/cloud-init.yaml` تلصقه وقت إنشاء السيرفر.
 - أو Docker: الملف `Dockerfile` جاهز.
-- منصة مثل Render أو Railway: لازم تضيف قرص دائم (Disk/Volume) وتوجّه `DATA_DIR` له.
+- أو منصة مثل Render أو Railway: لازم تضيف قرص دائم (Disk/Volume) وتوجّه `DATA_DIR` له.
+
+كل المنطق في `app.js`، و`store.js` فيه كل استعلامات قاعدة البيانات. `server.js` يوصّله بـ Node و`worker.mjs` يوصّله بـ Cloudflare.
 
 ## الاختبارات
 
 ```
 node --disable-warning=ExperimentalWarning test/e2e.js
+TARGET=worker node --disable-warning=ExperimentalWarning test/e2e.js   # نسخة Cloudflare (بقاعدة تجريبية بدل D1)
 ```
 
 ## ملاحظات مهمة

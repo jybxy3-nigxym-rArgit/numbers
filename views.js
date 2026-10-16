@@ -4,7 +4,7 @@ const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_
 const { esc, plateDigits, formatNumberPlain, intlToLocal, daysSince, formatPrice } = require('./util');
 const config = require('./config');
 
-const ASSET_V = process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION || String(Date.now());
+const ASSET_V = config.assetVersion;
 
 // ---- Small helpers ---------------------------------------------------------
 
@@ -238,7 +238,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
     ${results}
   </section>`;
 
-  return layout(ctx, { title: '', body, canonical: config.baseUrl ? config.baseUrl + '/' : undefined });
+  return layout(ctx, { title: '', body, canonical: ctx.base + '/' });
 }
 
 // ---- Listing page ----------------------------------------------------------
@@ -310,7 +310,7 @@ function listingPage(ctx, l, { canManage }) {
     desc,
     body,
     noindex: !isLive,
-    canonical: config.baseUrl ? `${config.baseUrl}/n/${l.id}` : undefined,
+    canonical: `${ctx.base}/n/${l.id}`,
   });
 }
 
@@ -501,7 +501,7 @@ function safetyPage(ctx) {
     </ul>
     <p><a class="btn" href="/">${esc(t('go_home'))}</a></p>
   </section>`;
-  return layout(ctx, { title: t('safety_page_title'), body, canonical: config.baseUrl ? config.baseUrl + '/safety' : undefined });
+  return layout(ctx, { title: t('safety_page_title'), body, canonical: ctx.base + '/safety' });
 }
 
 function errorPage(ctx, status) {

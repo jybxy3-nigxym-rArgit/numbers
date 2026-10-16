@@ -21,7 +21,7 @@ async function startServer(port, env = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nm-test-'));
   const child = spawn(
     process.execPath,
-    ['--disable-warning=ExperimentalWarning', path.join(__dirname, '..', 'server.js')],
+    ['--disable-warning=ExperimentalWarning', path.join(__dirname, process.env.TARGET === 'worker' ? 'worker-sim.js' : '../server.js')],
     {
       env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],

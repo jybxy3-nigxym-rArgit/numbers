@@ -69,6 +69,13 @@ function matchesPattern(number, key) {
   return re ? re.test(n) : false;
 }
 
+const PATTERN_LIST = ['triple', 'quad', 'ends_same', 'mirror', 'sequence', 'pairs'];
+
+// Stored with each ad so searches can filter in plain SQL, e.g. " triple quad ".
+function patternTags(number) {
+  return ' ' + PATTERN_LIST.filter((k) => matchesPattern(number, k)).join(' ') + ' ';
+}
+
 // Which digit positions to highlight: runs of 3+ same digits and 4+ sequences.
 function hitMask(number) {
   const n = String(number);
@@ -129,6 +136,7 @@ module.exports = {
   toIntl,
   intlToLocal,
   matchesPattern,
+  patternTags,
   hasSequence,
   hitMask,
   plateDigits,
