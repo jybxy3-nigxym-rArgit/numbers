@@ -68,6 +68,11 @@ function createStore(d) {
     if (!readyPromise) {
       readyPromise = (async () => {
         await d.batch(SCHEMA.map((sql) => ({ sql, params: [] })));
+        // Columns added after the first release: add them to databases that already exist.
+        const cols = (await d.all('PRAGMA table_info(listings)')).map((c) => c.name);
+        if (!cols.includes('pinned')) {
+          await d.run('ALTER TABLE listings ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0').catch(() => {});
+        }
         if (config.adminNational) {
           await d.run('UPDATE users SET is_admin = 1 WHERE phone = ?', [config.adminNational]);
         }
@@ -174,11 +179,12 @@ function createStore(d) {
         : f.sort === 'price_desc'
           ? '(l.price IS NULL), l.price DESC, l.id DESC'
           : 'l.created_at DESC, l.id DESC';
+    const pinnedFirst = f.pinFirst === false ? '' : 'l.pinned DESC, ';
 
     const [count, list] = await d.batch([
       { sql: `SELECT COUNT(*) AS c FROM listings l WHERE ${w}`, params },
       {
-        sql: `${LISTING_SELECT} WHERE ${w} ORDER BY ${order} LIMIT ? OFFSET ?`,
+        sql: `${LISTING_SELECT} WHERE ${w} ORDER BY ${pinnedFirst}${order} LIMIT ? OFFSET ?`,
         params: [...params, f.limit, f.offset],
       },
     ]);
@@ -223,13 +229,23 @@ function createStore(d) {
     return (await d.run('UPDATE listings SET status = ? WHERE id = ?', [status, id])).changes;
   }
   async function setOwnListingStatus(id, userId, status) {
-    return (await d.run('UPDATE listings SET status = ? WHERE id = ? AND user_id = ?', [status, id, userId])).changes;
+    return (
+      await d.run("UPDATE listings SET status = ?, pinned = 0 WHERE id = ? AND user_id = ? AND status = 'active'", [
+        status,
+        id,
+        userId,
+      ])
+    ).changes;
   }
   async function deleteListing(id) {
     return (await d.run('DELETE FROM listings WHERE id = ?', [id])).changes;
   }
+  // A sold ad stays as a record: its owner cannot delete it (the admin still can).
   async function deleteOwnListing(id, userId) {
-    return (await d.run('DELETE FROM listings WHERE id = ? AND user_id = ?', [id, userId])).changes;
+    return (await d.run("DELETE FROM listings WHERE id = ? AND user_id = ? AND status != 'sold'", [id, userId])).changes;
+  }
+  async function setPinned(id, pinned) {
+    return (await d.run('UPDATE listings SET pinned = ? WHERE id = ?', [pinned ? 1 : 0, id])).changes;
   }
   async function bumpViews(id) {
     await d.run('UPDATE listings SET views = views + 1 WHERE id = ?', [id]);
@@ -300,6 +316,47 @@ function createStore(d) {
   const sitemapListings = () =>
     d.all("SELECT id, created_at FROM listings WHERE status = 'active' ORDER BY id DESC LIMIT 5000");
 
+  // How many live ads each network and city has (for landing pages, links and the sitemap).
+  async function landingCounts() {
+    const rs = await d.batch([
+      { sql: "SELECT network AS k, COUNT(*) AS c FROM listings WHERE status = 'active' GROUP BY network", params: [] },
+      { sql: "SELECT city AS k, COUNT(*) AS c FROM listings WHERE status = 'active' GROUP BY city", params: [] },
+    ]);
+    const toMap = (rows) => Object.fromEntries(rows.map((r) => [r.k, r.c]));
+    return { network: toMap(rs[0].rows), city: toMap(rs[1].rows) };
+  }
+
+  // Bulk add for the admin: skips numbers that are already live. Returns { added, skipped }.
+  async function importListings(userId, contact, items) {
+    const uniq = [];
+    const seen = new Set();
+    for (const it of items) {
+      if (seen.has(it.number)) continue;
+      seen.add(it.number);
+      uniq.push(it);
+    }
+    const taken = new Set();
+    for (let i = 0; i < uniq.length; i += 80) {
+      const chunk = uniq.slice(i, i + 80);
+      const rows = await d.all(
+        `SELECT number FROM listings WHERE status IN ('active','pending') AND number IN (${chunk.map(() => '?').join(',')})`,
+        chunk.map((x) => x.number)
+      );
+      for (const r of rows) taken.add(r.number);
+    }
+    const fresh = uniq.filter((x) => !taken.has(x.number));
+    for (let i = 0; i < fresh.length; i += 50) {
+      await d.batch(
+        fresh.slice(i, i + 50).map((x) => ({
+          sql: `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats)
+                VALUES (?, ?, ?, ?, ?, ?, '', 'active', ?)`,
+          params: [userId, x.number, x.network, x.city, x.price ?? null, contact, patternTags(x.number)],
+        }))
+      );
+    }
+    return { added: fresh.length, skipped: items.length - fresh.length };
+  }
+
   return {
     ready,
     getSecret,
@@ -327,6 +384,9 @@ function createStore(d) {
     adminStats,
     setUserBanned,
     sitemapListings,
+    landingCounts,
+    importListings,
+    setPinned,
   };
 }
 

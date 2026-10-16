@@ -1,25 +1,28 @@
-/* Numbers Market
-   Plan: cool paper background, ink text, one deep green for actions,
-   and a gold underline that marks the repeated digits inside each number.
-   The number "plate" is the memorable element; everything else stays quiet. */
+/* Basmat Ameel
+   Plan: lavender paper, deep plate-purple for header, hero and actions, one gold accent.
+   The number "plate" is the memorable element; everything else stays quiet.
+   Fonts: Lalezar for headings and plate labels, Tajawal for everything else. */
 
 :root {
-  --ink: #11202b;
-  --ink-soft: #3b4a54;
-  --muted: #5b6b73;
-  --paper: #f3f5f4;
+  --ink: #1c1230;
+  --ink-soft: #43375a;
+  --muted: #6b6180;
+  --paper: #f6f3fb;
   --card: #ffffff;
-  --line: #d5dcd9;
-  --green: #0b6b4f;
-  --green-dark: #08503b;
+  --line: #ddd5ea;
+  --green: #3d2b5c; /* main action colour (the plate purple) */
+  --green-dark: #2a1c44;
+  --deep: #231638;
   --wa: #0f7a41;
-  --gold: #f0b429;
+  --gold: #f2b84b;
+  --gold-dark: #d99a22;
   --gold-soft: #fbe7a8;
   --danger: #b3261e;
   --danger-soft: #fbe9e7;
-  --ok-soft: #e3f3ec;
-  --radius: 10px;
-  --font: "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+  --ok-soft: #efe8fa;
+  --radius: 12px;
+  --font: "Tajawal", system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+  --display: "Lalezar", "Tajawal", system-ui, sans-serif;
 }
 
 *,
@@ -37,8 +40,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 1.05rem;
+  line-height: 1.7;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -46,7 +49,7 @@ body {
 
 main {
   flex: 1;
-  padding-block: 1.5rem 3rem;
+  padding-block: 0.5rem 3rem;
 }
 
 a {
@@ -69,13 +72,16 @@ h2 {
   margin: 0 0 0.5rem;
   letter-spacing: -0.01em;
 }
+h1,
+h2 {
+  font-family: var(--display);
+  font-weight: 400;
+}
 h1 {
-  font-size: clamp(1.9rem, 4.5vw, 2.7rem);
-  font-weight: 700;
+  font-size: clamp(2.1rem, 5.5vw, 3.3rem);
 }
 h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: 1.45rem;
 }
 p {
   margin: 0 0 1rem;
@@ -112,8 +118,8 @@ small {
 /* ---- Header ---- */
 
 .top {
-  background: var(--paper);
-  border-block-end: 1px solid var(--line);
+  background: var(--deep);
+  color: #fff;
 }
 .bar {
   display: flex;
@@ -121,26 +127,31 @@ small {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1.25rem;
-  padding-block: 0.7rem;
+  padding-block: 0.75rem;
 }
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  font-weight: 700;
-  font-size: 1.2rem;
-  color: var(--ink);
+  gap: 0.6rem;
+  font-family: var(--display);
+  font-size: 1.7rem;
+  line-height: 1.1;
+  color: #fff;
   text-decoration: none;
+}
+.brand:hover {
+  color: #fff;
 }
 .brand-mark {
   display: inline-block;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-family: "Tajawal", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 900;
   line-height: 1;
-  padding: 0.35rem 0.4rem;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  box-shadow: inset 0 -0.3em 0 var(--gold);
+  padding: 0.38rem 0.45rem;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  color: var(--gold);
   direction: ltr;
 }
 .nav {
@@ -151,7 +162,7 @@ small {
 }
 .nav a:not(.btn),
 .link-btn {
-  color: var(--ink);
+  color: #fff;
   text-decoration: none;
   font-weight: 500;
 }
@@ -166,6 +177,7 @@ small {
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+  color: #fff;
 }
 form.inline {
   display: inline;
@@ -186,7 +198,7 @@ form.inline {
   background: var(--green);
   color: #fff;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
@@ -225,6 +237,16 @@ form.inline {
   background: #0b6034;
   border-color: #0b6034;
 }
+.btn-gold {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--deep);
+}
+.btn-gold:hover {
+  background: var(--gold-dark);
+  border-color: var(--gold-dark);
+  color: var(--deep);
+}
 .btn-small {
   min-height: 38px;
   padding: 0.3rem 0.9rem;
@@ -241,15 +263,19 @@ form.inline {
 .search-bar input,
 .search-bar select {
   min-width: 0;
-  min-height: 56px;
-  font-size: 1.1rem;
-  border-width: 2px;
-  border-color: var(--ink);
+  min-height: 58px;
+  font-size: 1.15rem;
+  border: 0;
+  border-radius: var(--radius);
+}
+.search-bar input:first-child {
+  font-weight: 900;
+  font-size: 1.35rem;
 }
 .search-bar .btn {
-  min-height: 56px;
-  padding-inline: 1.6rem;
-  font-size: 1.1rem;
+  min-height: 58px;
+  padding-inline: 1.8rem;
+  font-size: 1.15rem;
 }
 @media (max-width: 640px) {
   .search-bar {
@@ -261,14 +287,31 @@ form.inline {
   }
 }
 
-
+/* The hero is a full-width purple band; faint fingerprint ridges sit in one corner. */
+.hero-band {
+  background:
+    repeating-radial-gradient(ellipse 90% 140% at 8% 130%, transparent 0 14px, rgba(242, 184, 75, 0.09) 14px 17px),
+    linear-gradient(180deg, var(--deep), var(--green));
+  color: #fff;
+  padding-block: 1.5rem 2.4rem;
+  margin-block-end: 1.5rem;
+}
 .hero {
-  padding-block: 1rem 1.5rem;
   max-width: 900px;
+  margin-inline: auto;
+  text-align: center;
+}
+.hero h1 {
+  margin-block-end: 0.4rem;
+  text-wrap: balance;
+}
+.hero .lede {
+  color: #e4daf5;
+  margin-block-end: 1.4rem;
 }
 .lede {
   color: var(--ink-soft);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 .search label,
 .field label {
@@ -438,7 +481,7 @@ textarea:focus-visible {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
-  gap: 1.25rem;
+  gap: 1.9rem 1.25rem;
 }
 
 /* The number plate: network on top, big number, then city / price / age in one row. */
@@ -447,6 +490,10 @@ textarea:focus-visible {
 }
 .plate-card {
   container-type: inline-size;
+  position: relative;
+}
+.plate-card + .plate-card {
+  margin: 0;
 }
 .plate {
   display: flex;
@@ -457,6 +504,7 @@ textarea:focus-visible {
   background: #fff;
   border: 4px solid var(--plate);
   border-radius: 24px;
+  box-shadow: 0 6px 18px -10px rgba(42, 28, 68, 0.55);
   color: var(--plate);
   text-align: center;
   text-decoration: none;
@@ -524,6 +572,85 @@ a.plate:hover {
 }
 .plate-big .p-foot {
   font-size: clamp(1.1rem, 5.3cqw, 1.8rem);
+}
+/* Advertiser name: a dark tab hanging under the plate. */
+.adv {
+  display: block;
+  width: max-content;
+  max-width: 80%;
+  min-width: 46%;
+  margin: -4px auto 0;
+  padding: 0.28rem 1.2rem 0.34rem;
+  background: var(--plate);
+  color: #fff;
+  border-radius: 0 0 16px 16px;
+  font-weight: 700;
+  font-size: 1.02rem;
+  line-height: 1.35;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+}
+.plate-big .adv {
+  font-size: 1.25rem;
+  padding-block: 0.4rem 0.5rem;
+}
+.pin-badge {
+  position: absolute;
+  z-index: 2;
+  top: -11px;
+  inset-inline-start: 18px;
+  background: var(--gold);
+  color: var(--deep);
+  font-weight: 900;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.38rem 0.75rem;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.is-pinned .plate {
+  border-color: var(--gold-dark);
+  box-shadow: 0 6px 18px -8px rgba(217, 154, 34, 0.9);
+}
+.is-pinned .adv {
+  background: var(--gold-dark);
+  color: var(--deep);
+}
+.is-sold .plate {
+  opacity: 0.45;
+}
+.is-sold .adv {
+  opacity: 0.6;
+}
+.sold-stamp {
+  position: absolute;
+  z-index: 2;
+  top: 38%;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  transform: rotate(-7deg);
+  padding: 0.1rem 1.1rem;
+  border: 4px solid var(--danger);
+  border-radius: 12px;
+  color: var(--danger);
+  background: rgba(255, 255, 255, 0.85);
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 9cqw, 2.8rem);
+  line-height: 1.3;
+  pointer-events: none;
+}
+.sold-tag {
+  display: inline-block;
+  padding: 0.15rem 0.8rem;
+  border: 2px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+  font-family: var(--display);
+  font-size: 1.15rem;
 }
 .plate-actions {
   display: flex;
@@ -806,9 +933,12 @@ td.actions form {
 /* ---- Footer ---- */
 
 .foot {
-  border-block-start: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.92rem;
+  background: var(--deep);
+  color: #cfc3e6;
+  font-size: 0.95rem;
+}
+.foot a {
+  color: var(--gold);
 }
 .foot-bar {
   display: flex;
@@ -857,4 +987,29 @@ td.actions form {
   border: 3px dashed var(--plate);
   border-radius: 14px;
   user-select: all;
+}
+
+/* ---- Browse links and intro text (also give Google crawlable links) ---- */
+
+.browse h2 {
+  font-size: 1.15rem;
+  margin: 1.6rem 0 0.5rem;
+}
+.browse .chips {
+  margin-block-start: 0;
+}
+.chip small {
+  color: var(--muted);
+}
+.chip:hover {
+  background: var(--ok-soft);
+}
+.about {
+  max-width: 70ch;
+  margin-block-start: 2.2rem;
+  color: var(--ink-soft);
+}
+.badge-pin {
+  background: var(--gold-soft);
+  color: var(--deep);
 }

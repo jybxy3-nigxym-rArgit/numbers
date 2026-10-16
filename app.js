@@ -252,8 +252,7 @@ function parseFilters(query) {
   };
 }
 
-route('GET', '/', async (ctx) => {
-  const f = parseFilters(ctx.query);
+async function renderHome(ctx, f, landing) {
   const size = config.pageSize;
   let { total, rows } = await ctx.store.searchListings({ ...f, limit: size, offset: (f.page - 1) * size });
   const pages = Math.max(1, Math.ceil(total / size));
@@ -263,7 +262,40 @@ route('GET', '/', async (ctx) => {
     ({ rows } = await ctx.store.searchListings({ ...f, limit: size, offset: (page - 1) * size }));
   }
   const anyFilter = !!(f.q || f.starts || f.ends || f.min != null || f.max != null || f.network || f.city || f.pattern);
-  html(ctx, 200, views.homePage(ctx, { filters: f, rows, total, page, pages, siteEmpty: total === 0 && !anyFilter }));
+  const counts = await ctx.store.landingCounts();
+  html(
+    ctx,
+    200,
+    views.homePage(ctx, {
+      filters: f,
+      rows,
+      total,
+      page,
+      pages,
+      siteEmpty: total === 0 && !anyFilter && !landing,
+      landing,
+      counts,
+    })
+  );
+}
+
+route('GET', '/', async (ctx) => renderHome(ctx, parseFilters(ctx.query), null));
+
+// Landing pages with their own address, so Google can list "STC numbers", "numbers in Riyadh" and so on.
+route('GET', '/network/:key', async (ctx) => {
+  if (!NETWORK_BY_KEY[ctx.params.key]) return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), network: ctx.params.key, city: '', q: '', qRaw: '', maxRaw: '', max: null };
+  await renderHome(ctx, f, { type: 'network', key: ctx.params.key });
+});
+route('GET', '/city/:key', async (ctx) => {
+  if (!CITY_BY_KEY[ctx.params.key]) return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), city: ctx.params.key, network: '', q: '', qRaw: '', maxRaw: '', max: null };
+  await renderHome(ctx, f, { type: 'city', key: ctx.params.key });
+});
+route('GET', '/type/:key', async (ctx) => {
+  if (!PATTERN_KEYS.includes(ctx.params.key)) return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), pattern: ctx.params.key, city: '', network: '', q: '', qRaw: '', maxRaw: '', max: null };
+  await renderHome(ctx, f, { type: 'type', key: ctx.params.key });
 });
 
 route('GET', '/n/:id', async (ctx) => {
@@ -386,7 +418,7 @@ route('POST', '/post', async (ctx) => {
 async function ownListing(ctx) {
   const id = Number(ctx.params.id);
   const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
-  return l && l.user_id === ctx.user.id ? l : null;
+  return l && l.user_id === ctx.user.id && l.status !== 'sold' ? l : null;
 }
 
 route('GET', '/n/:id/edit', async (ctx) => {
@@ -568,16 +600,24 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   const id = Number(ctx.params.id);
   const action = ctx.params.action;
   if (!(await ctx.store.getListing(id))) return notFound(ctx);
+  if (action === 'pin') {
+    const cur = await ctx.store.getListing(id);
+    if (cur.status !== 'active') {
+      flash(ctx, 'error', 'err_pin_live');
+      return redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/admin?tab=all');
+    }
+  }
   if (action === 'approve') await ctx.store.setListingStatus(id, 'active');
   else if (action === 'hide') await ctx.store.setListingStatus(id, 'hidden');
   else if (action === 'restore') {
     await ctx.store.setListingStatus(id, 'active');
     await ctx.store.clearReports(id);
   } else if (action === 'delete') await ctx.store.deleteListing(id);
+  else if (action === 'pin' || action === 'unpin') await ctx.store.setPinned(id, action === 'pin');
   else return notFound(ctx);
   const tab = ADMIN_TABS.includes(ctx.body.tab) ? ctx.body.tab : 'pending';
-  flash(ctx, 'ok', 'updated');
-  redirect(ctx, `/admin?tab=${tab}`);
+  flash(ctx, 'ok', action === 'pin' ? 'pinned' : action === 'unpin' ? 'unpinned' : 'updated');
+  redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : `/admin?tab=${tab}`);
 });
 
 // The admin gives a user a temporary password (shown once, nothing is stored in clear text).
@@ -601,6 +641,89 @@ route('POST', '/admin/u/:id/:action', async (ctx) => {
   redirect(ctx, '/admin?tab=users');
 });
 
+
+// ---- Admin: add many numbers at once ----
+
+const NET_WORDS = {
+  stc: 'stc', 'اس تي سي': 'stc', 'سوا': 'stc', 'جوي': 'stc', sawa: 'stc', jawy: 'stc', joi: 'stc',
+  mobily: 'mobily', 'موبايلي': 'mobily', 'فرندي': 'mobily', friendi: 'mobily',
+  zain: 'zain', 'زين': 'zain',
+  virgin: 'virgin', 'فيرجن': 'virgin', 'فيرجن موبايل': 'virgin',
+  lebara: 'lebara', 'ليبارا': 'lebara',
+  salam: 'salam', 'سلام': 'salam',
+};
+const CITY_WORDS = {};
+for (const c of Object.values(CITY_BY_KEY)) {
+  CITY_WORDS[c.ar] = c.key;
+  CITY_WORDS[c.en.toLowerCase()] = c.key;
+}
+const wordKey = (text, table) => {
+  const w = text.trim().toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ');
+  return table[w] || null;
+};
+
+// One line = one number. Free order: 0555123456 5000 stc الرياض. A line with only a network or city name
+// (like the dividers on other sites) sets the network or city for the lines under it.
+function parseImport(text, defNetwork, defCity) {
+  const items = [];
+  let bad = 0;
+  let network = defNetwork;
+  let city = defCity;
+  for (const raw of String(text).split(/\r?\n/).slice(0, 400)) {
+    const line = util.toWestern(raw).trim();
+    if (!line) continue;
+    const m = line.match(/(?:\+?966[\s-]*|0)?5(?:[\s-]*\d){8}/);
+    if (!m) {
+      const n = wordKey(line, NET_WORDS);
+      const c = wordKey(line, CITY_WORDS);
+      if (n) network = n;
+      else if (c) city = c;
+      else if (/\d{4,}/.test(line)) bad++;
+      continue;
+    }
+    const nat = util.normPhone(m[0].replace(/[\s-]/g, ''));
+    if (!nat) {
+      bad++;
+      continue;
+    }
+    const rest = (line.slice(0, m.index) + ' ' + line.slice(m.index + m[0].length)).trim();
+    const pm = rest.match(/\d[\d,.\u066c]*/);
+    let price = null;
+    if (pm) {
+      price = parsePrice(pm[0].replace(/\./g, ''));
+      if (price !== null && price > 10000000) price = null;
+    }
+    let net = network;
+    let cty = city;
+    for (const word of rest.replace(/[\d,.\u066c]+/g, ' ').split(/[\s|/\-،:؛]+/)) {
+      if (!word) continue;
+      if (NET_WORDS[word.toLowerCase()]) net = NET_WORDS[word.toLowerCase()];
+      else if (CITY_WORDS[word.toLowerCase()]) cty = CITY_WORDS[word.toLowerCase()];
+    }
+    items.push({ number: util.toLocal(nat), price, network: net, city: cty });
+  }
+  return { items, bad };
+}
+
+route('GET', '/admin/import', (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  html(ctx, 200, views.importPage(ctx, {}));
+});
+
+route('POST', '/admin/import', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  const network = NETWORK_BY_KEY[ctx.body.network] ? ctx.body.network : 'stc';
+  const city = CITY_BY_KEY[ctx.body.city] ? ctx.body.city : 'riyadh';
+  const { items, bad } = parseImport(str(ctx.body.lines, 19000), network, city);
+  if (!items.length) {
+    flash(ctx, 'error', 'import_none');
+    return redirect(ctx, '/admin/import');
+  }
+  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), items);
+  flash(ctx, 'ok', 'import_done', { added: r.added, skipped: r.skipped, bad });
+  redirect(ctx, '/admin?tab=all');
+});
+
 // ---- Static pages and SEO files ----
 
 route('GET', '/safety', (ctx) => html(ctx, 200, views.safetyPage(ctx)));
@@ -610,17 +733,25 @@ route('GET', '/robots.txt', (ctx) => {
     ctx,
     200,
     'text/plain; charset=utf-8',
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
     { 'Cache-Control': 'public, max-age=3600' }
   );
 });
 
 route('GET', '/sitemap.xml', async (ctx) => {
-  const urls = [`${ctx.base}/`, `${ctx.base}/safety`];
-  for (const l of await ctx.store.sitemapListings()) urls.push(`${ctx.base}/n/${l.id}`);
+  const urls = [{ loc: `${ctx.base}/` }, { loc: `${ctx.base}/safety` }];
+  const counts = await ctx.store.landingCounts();
+  for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });
+  for (const k of Object.keys(CITY_BY_KEY)) if (counts.city[k]) urls.push({ loc: `${ctx.base}/city/${k}` });
+  for (const k of PATTERN_KEYS) urls.push({ loc: `${ctx.base}/type/${k}` });
+  for (const l of await ctx.store.sitemapListings()) {
+    urls.push({ loc: `${ctx.base}/n/${l.id}`, lastmod: String(l.created_at).slice(0, 10) });
+  }
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    urls.map((u) => `  <url><loc>${util.esc(u)}</loc></url>`).join('\n') +
+    urls
+      .map((u) => `  <url><loc>${util.esc(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`)
+      .join('\n') +
     '\n</urlset>\n';
   send(ctx, 200, 'application/xml; charset=utf-8', xml, { 'Cache-Control': 'public, max-age=3600' });
 });

@@ -23,7 +23,7 @@ class Stmt {
   }
   _exec() {
     const st = sqlite.prepare(this.sql);
-    if (/^\s*select/i.test(this.sql)) return { results: st.all(...this.params), meta: { changes: 0, last_row_id: 0 } };
+    if (/^\s*(select|pragma)/i.test(this.sql)) return { results: st.all(...this.params), meta: { changes: 0, last_row_id: 0 } };
     const r = st.run(...this.params);
     return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
   }

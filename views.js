@@ -81,16 +81,24 @@ const cityOptions = (ctx) => CITIES.map((c) => ({ value: c.key, label: c[ctx.lan
 
 // ---- Layout ----------------------------------------------------------------
 
-function layout(ctx, { title, desc, body, canonical, noindex }) {
+function jsonLd(list) {
+  return list
+    .filter(Boolean)
+    .map((o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`)
+    .join('\n');
+}
+
+function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', canonical, noindex, robots, ld = [] }) {
   const { t, lang, user } = ctx;
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const siteName = t('site_name');
-  const fullTitle = title ? `${title} · ${siteName}` : `${siteName} · ${t('tagline')}`;
+  const fullTitle = fullOverride || (title ? `${title} | ${siteName}` : `${siteName} | ${t('tagline')}`);
   const description = desc || t('meta_desc');
   const flash = ctx.flash
     ? `<div class="notice ${ctx.flash.type === 'error' ? 'error' : 'ok'}" role="status">${esc(t(ctx.flash.key, ctx.flash.vars))}</div>`
     : '';
   const next = encodeURIComponent(ctx.path || '/');
+  const robotsTag = noindex ? 'noindex, nofollow' : robots || '';
 
   const nav = user
     ? `
@@ -108,19 +116,26 @@ function layout(ctx, { title, desc, body, canonical, noindex }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(fullTitle)}</title>
 <meta name="description" content="${esc(description)}">
-<meta name="theme-color" content="#F3F5F4">
+<meta name="theme-color" content="#2a1c44">
 <meta name="google-site-verification" content="MykcqJrPEQKzSv2c53joA0i9o4uopSuBMZASOHI4mpE">
-${noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
+${robotsTag ? `<meta name="robots" content="${robotsTag}">` : '<meta name="robots" content="index, follow, max-image-preview:large">'}
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="${esc(siteName)}">
 <meta property="og:title" content="${esc(fullTitle)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:locale" content="${lang === 'ar' ? 'ar_SA' : 'en_US'}">
+${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
+<meta property="og:image" content="${esc(ctx.base)}/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Lalezar&amp;family=Tajawal:wght@800;900&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&amp;family=Tajawal:wght@400;500;700;900&amp;display=swap">
 <link rel="stylesheet" href="/style.css?v=${esc(ASSET_V)}">
+${jsonLd(ld)}
 </head>
 <body>
 <a class="skip" href="#main">${esc(t('skip'))}</a>
@@ -130,10 +145,11 @@ ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
     <nav class="nav" aria-label="Main">
       ${nav}
       <a href="/lang/${esc(t('lang_code'))}?next=${next}" hreflang="${esc(t('lang_code'))}" lang="${esc(t('lang_code'))}">${esc(t('lang_switch'))}</a>
-      <a class="btn btn-small" href="/post">${esc(t('post_ad'))}</a>
+      <a class="btn btn-small btn-gold" href="/post">${esc(t('post_ad'))}</a>
     </nav>
   </div>
 </header>
+${hero}
 <main id="main" class="wrap">
 ${flash}
 ${body}
@@ -150,21 +166,33 @@ ${body}
 
 // ---- Plate card ------------------------------------------------------------
 
-function ownerActions(ctx, l, { deleteNext } = {}) {
-  if (!ctx.user || ctx.user.id !== l.user_id) return '';
+function cardActions(ctx, l, { deleteNext } = {}) {
+  if (!ctx.user) return '';
   const { t } = ctx;
+  const isOwner = ctx.user.id === l.user_id;
+  const isAdmin = !!ctx.user.is_admin;
+  if (!isOwner && !isAdmin) return '';
   const next = `<input type="hidden" name="next" value="${esc(ctx.path)}">`;
   const delNext = `<input type="hidden" name="next" value="${esc(deleteNext || ctx.path)}">`;
-  return `
-  <div class="plate-actions">
-    <a class="btn btn-ghost btn-small" href="/n/${l.id}/edit">${esc(t('edit'))}</a>
-    ${
-      l.status === 'active'
-        ? `<form method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}${next}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
-        : ''
+  const parts = [];
+  if (isOwner && l.status !== 'sold') {
+    parts.push(`<a class="btn btn-ghost btn-small" href="/n/${l.id}/edit">${esc(t('edit'))}</a>`);
+    if (l.status === 'active') {
+      parts.push(
+        `<form method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}${next}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
+      );
     }
-    <form method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}${delNext}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>
-  </div>`;
+    parts.push(
+      `<form method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}${delNext}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>`
+    );
+  }
+  if (isAdmin && l.status === 'active') {
+    const act = l.pinned ? 'unpin' : 'pin';
+    parts.push(
+      `<form method="post" action="/admin/l/${l.id}/${act}">${csrfInput(ctx)}${next}<button class="btn btn-gold btn-small" type="submit">${esc(t(act))}</button></form>`
+    );
+  }
+  return parts.length ? `<div class="plate-actions">${parts.join('')}</div>` : '';
 }
 
 // The number plate: network on top, big number, then city, price and age in one row.
@@ -179,21 +207,67 @@ function plateFace(ctx, l, tag = 'span') {
     </span>`;
 }
 
+// Dark tab under the plate with the advertiser's name.
+const advTab = (ctx, l) =>
+  l.seller ? `<span class="adv" title="${esc(ctx.t('sold_by'))}">${esc(l.seller)}</span>` : '';
+
+const plateBadges = (ctx, l) =>
+  (l.pinned && l.status === 'active' ? `<span class="pin-badge">${esc(ctx.t('pinned_badge'))}</span>` : '') +
+  (l.status === 'sold' ? `<span class="sold-stamp">${esc(ctx.t('sold_stamp'))}</span>` : '');
+
+const cardClass = (l, extra = '') =>
+  `plate-card${extra}${l.pinned && l.status === 'active' ? ' is-pinned' : ''}${l.status === 'sold' ? ' is-sold' : ''}`;
+
 function plate(ctx, l) {
   return `
-  <div class="plate-card">
+  <div class="${cardClass(l)}">
+    ${plateBadges(ctx, l)}
     <a class="plate" href="/n/${l.id}">${plateFace(ctx, l)}</a>
-    ${ownerActions(ctx, l)}
+    ${advTab(ctx, l)}
+    ${cardActions(ctx, l)}
   </div>`;
 }
 
 // ---- Home / search ---------------------------------------------------------
 
-function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
+const absNum = (ctx, n) => ctx.base + n;
+
+function landingInfo(ctx, landing) {
+  const { t } = ctx;
+  if (!landing) {
+    return { path: '/', h1: t('home_h1'), fullTitle: t('home_title'), desc: t('meta_desc'), lede: t('home_lede') };
+  }
+  const key = landing.key;
+  const name = landing.type === 'network' ? netName(ctx, key) : landing.type === 'city' ? cityName(ctx, key) : t('pat_' + key);
+  const prefix = landing.type;
+  const title = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_title`, { name });
+  const desc = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_desc`, { name });
+  return { path: `/${landing.type}/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc, lede: desc, name };
+}
+
+function browseLinks(ctx, counts) {
+  const { t } = ctx;
+  const chip = (href, label, n) =>
+    `<a class="chip" href="${href}">${esc(label)}${n ? ` <small>${esc(n)}</small>` : ''}</a>`;
+  const nets = NETWORKS.map((n) => chip(`/network/${n.key}`, n[ctx.lang], counts.network[n.key])).join('');
+  const cities = CITIES.filter((c) => counts.city[c.key])
+    .map((c) => chip(`/city/${c.key}`, c[ctx.lang], counts.city[c.key]))
+    .join('');
+  const types = PATTERN_KEYS.map((k) => chip(`/type/${k}`, t('pat_' + k))).join('');
+  return `
+  <nav class="browse" aria-label="${esc(t('browse_net'))}">
+    <h2>${esc(t('browse_net'))}</h2><div class="chips">${nets}</div>
+    ${cities ? `<h2>${esc(t('browse_city'))}</h2><div class="chips">${cities}</div>` : ''}
+    <h2>${esc(t('browse_type'))}</h2><div class="chips">${types}</div>
+  </nav>`;
+}
+
+function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, counts }) {
   const { t } = ctx;
   const f = filters;
-  const base = { q: f.qRaw, city: f.city, max: f.maxRaw };
-  const anyFilter = !!(f.qRaw || f.city || f.maxRaw);
+  const info = landingInfo(ctx, landing);
+  const base = { q: f.qRaw, city: landing ? '' : f.city, max: f.maxRaw };
+  const anyFilter = !!(f.qRaw || f.maxRaw || (!landing && f.city));
 
   const form = `
   <form class="search" method="get" action="/" role="search">
@@ -202,11 +276,11 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
         aria-label="${esc(t('search_label'))}" value="${esc(f.qRaw)}" placeholder="${esc(t('search_ph'))}">
       <select id="f-city" name="city" aria-label="${esc(t('city'))}">
         <option value="">${esc(t('all_cities'))}</option>
-        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.value === f.city ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
+        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.value === f.city && !landing ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
       </select>
       <input id="f-max" name="max" type="text" inputmode="numeric" autocomplete="off" dir="auto"
         aria-label="${esc(t('max_price'))}" value="${esc(f.maxRaw)}" placeholder="${esc(t('max_price'))}">
-      <button class="btn" type="submit">${esc(t('search'))}</button>
+      <button class="btn btn-gold" type="submit">${esc(t('search'))}</button>
     </div>
   </form>`;
 
@@ -219,7 +293,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
       <p><a class="btn" href="/post">${esc(t('post_ad'))}</a></p>
     </div>`;
   } else {
-    const pageLink = (p) => '/' + qs({ ...base, page: p > 1 ? p : '' });
+    const pageLink = (p) => info.path + qs({ ...base, page: p > 1 ? p : '' });
     const pager =
       pages > 1
         ? `<nav class="pager" aria-label="Pages">
@@ -231,29 +305,96 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty }) {
     results = `<div class="grid">${rows.map((l) => plate(ctx, l)).join('')}</div>${pager}`;
   }
 
+  const hero = `
+  <div class="hero-band">
+    <section class="wrap hero">
+      <h1>${esc(info.h1)}</h1>
+      <p class="lede">${esc(info.lede.length > 140 ? t('home_lede') : info.lede)}</p>
+      ${form}
+    </section>
+  </div>`;
+
   const body = `
-  <section class="hero">
-    <h1>${esc(t('search_title'))}</h1>
-    <p class="lede">${esc(t('tagline'))}</p>
-    ${form}
-  </section>
   <section class="results" aria-live="polite">
     <div class="results-head">
       <h2>${esc(total === 1 ? t('count_one') : t('count', { n: formatPrice(total) }))}</h2>
-      ${anyFilter ? `<a href="/">${esc(t('clear'))}</a>` : ''}
+      ${anyFilter ? `<a href="${esc(info.path)}">${esc(t('clear'))}</a>` : ''}
     </div>
     ${results}
+  </section>
+  ${browseLinks(ctx, counts)}
+  <section class="about">
+    <h2>${esc(t('about_title'))}</h2>
+    <p>${esc(t('about_body'))}</p>
   </section>`;
 
-  return layout(ctx, { title: '', body, canonical: ctx.base + '/' });
+  const selfUrl = ctx.base + info.path;
+  const canonical = page > 1 ? selfUrl + qs({ page }) : selfUrl;
+  const crumbs = landing
+    ? {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: t('site_name'), item: absNum(ctx, '/') },
+          { '@type': 'ListItem', position: 2, name: info.h1, item: selfUrl },
+        ],
+      }
+    : null;
+  const ld = [
+    landing
+      ? null
+      : {
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: t('site_name'),
+          url: absNum(ctx, '/'),
+          inLanguage: 'ar',
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: `${ctx.base}/?q={search_term_string}`,
+            'query-input': 'required name=search_term_string',
+          },
+        },
+    landing
+      ? null
+      : {
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: t('site_name'),
+          url: absNum(ctx, '/'),
+          logo: absNum(ctx, '/favicon.svg'),
+        },
+    crumbs && { '@context': 'https://schema.org', ...crumbs },
+    rows.length
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          itemListElement: rows.slice(0, 24).map((l, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            url: absNum(ctx, `/n/${l.id}`),
+            name: `${formatNumberPlain(l.number)} - ${netName(ctx, l.network)}`,
+          })),
+        }
+      : null,
+  ];
+
+  const thin = landing && total === 0;
+  return layout(ctx, {
+    fullTitle: info.fullTitle,
+    desc: info.desc,
+    hero,
+    body,
+    canonical: anyFilter ? selfUrl : canonical,
+    robots: anyFilter || thin ? 'noindex, follow' : '',
+    ld,
+  });
 }
 
 // ---- Listing page ----------------------------------------------------------
 
 function listingPage(ctx, l, { canManage }) {
   const { t } = ctx;
-  const local = l.number;
-  const waText = t('wa_message', { number: local });
+  const waText = t('wa_message', { number: l.number });
   const wa = `https://wa.me/${encodeURIComponent(l.contact)}?text=${encodeURIComponent(waText)}`;
   const isLive = l.status === 'active';
 
@@ -268,9 +409,11 @@ function listingPage(ctx, l, { canManage }) {
   const body = `
   <article class="listing">
     ${notices.join('')}
-    <div class="plate-card plate-big">
+    <div class="${cardClass(l, ' plate-big')}">
+      ${plateBadges(ctx, l)}
       <div class="plate">${plateFace(ctx, l, 'h1')}</div>
-      ${ownerActions(ctx, l, { deleteNext: '/my' })}
+      ${advTab(ctx, l)}
+      ${cardActions(ctx, l, { deleteNext: '/my' })}
     </div>
 
     <div class="listing-side">
@@ -280,8 +423,8 @@ function listingPage(ctx, l, { canManage }) {
           : ''
       }
       <dl class="facts">
-        <div><dt>${esc(t('network'))}</dt><dd>${esc(netName(ctx, l.network))}</dd></div>
-        <div><dt>${esc(t('city'))}</dt><dd>${esc(cityName(ctx, l.city))}</dd></div>
+        <div><dt>${esc(t('network'))}</dt><dd><a href="/network/${esc(l.network)}">${esc(netName(ctx, l.network))}</a></dd></div>
+        <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
         <div><dt>${esc(t('seller'))}</dt><dd>${esc(l.seller)}</dd></div>
         <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
@@ -309,14 +452,52 @@ function listingPage(ctx, l, { canManage }) {
     }
   </article>`;
 
-  const title = `${formatNumberPlain(l.number)} · ${netName(ctx, l.network)} · ${cityName(ctx, l.city)}`;
-  const desc = `${formatNumberPlain(l.number)} — ${netName(ctx, l.network)}, ${cityName(ctx, l.city)}${l.price != null ? ' — ' + formatPrice(l.price) + ' ' + t('sar') : ''}`;
+  const plain = formatNumberPlain(l.number);
+  const priceText = l.price != null ? `${formatPrice(l.price)} ${t('sar')}` : '';
+  const title = `${t('listing_title_word', { n: plain })} | ${netName(ctx, l.network)} | ${cityName(ctx, l.city)}${priceText ? ' | ' + priceText : ''}`;
+  const desc = t('listing_desc', {
+    n: plain,
+    net: netName(ctx, l.network),
+    city: cityName(ctx, l.city),
+    price: priceText || t('price_ask'),
+    seller: l.seller,
+  });
+  const url = `${ctx.base}/n/${l.id}`;
+  const ld = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: `${plain} - ${netName(ctx, l.network)}`,
+      description: desc,
+      category: 'Phone number',
+      brand: { '@type': 'Brand', name: netName(ctx, l.network) },
+      url,
+      offers: {
+        '@type': 'Offer',
+        url,
+        priceCurrency: 'SAR',
+        ...(l.price != null ? { price: String(l.price) } : {}),
+        availability: isLive ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+        seller: { '@type': 'Person', name: l.seller },
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: t('site_name'), item: absNum(ctx, '/') },
+        { '@type': 'ListItem', position: 2, name: netName(ctx, l.network), item: absNum(ctx, `/network/${l.network}`) },
+        { '@type': 'ListItem', position: 3, name: plain, item: url },
+      ],
+    },
+  ];
   return layout(ctx, {
-    title,
+    fullTitle: `${title} | ${t('site_name')}`,
     desc,
     body,
     noindex: !isLive,
-    canonical: `${ctx.base}/n/${l.id}`,
+    canonical: url,
+    ld,
   });
 }
 
@@ -445,11 +626,15 @@ function myPage(ctx, rows) {
         </div>
         <div class="my-actions">
           ${
-            l.status === 'active'
-              ? `<form method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
-              : ''
+            l.status === 'sold'
+              ? `<span class="sold-tag">${esc(t('sold_stamp'))}</span>`
+              : `${
+                  l.status === 'active'
+                    ? `<form method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
+                    : ''
+                }
+          <form method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>`
           }
-          <form method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>
         </div>
       </li>`
         )
@@ -476,6 +661,29 @@ function adminResetPage(ctx, user, pass) {
     </p>
   </section>`;
   return layout(ctx, { title: t('reset_title'), body, noindex: true });
+}
+
+function importPage(ctx, v = {}) {
+  const { t } = ctx;
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('import_title'))}</h1>
+    <p class="lede">${esc(t('import_intro'))}</p>
+    <form method="post" action="/admin/import" class="form" novalidate>
+      ${csrfInput(ctx)}
+      ${selectField(ctx, { id: 'network', name: 'network', label: t('import_net'), options: networkOptions(ctx), value: v.network || 'stc' })}
+      ${selectField(ctx, { id: 'city', name: 'city', label: t('import_city'), options: cityOptions(ctx), value: v.city || 'riyadh' })}
+      <div class="field">
+        <label for="lines">${esc(t('import_lines'))}</label>
+        <textarea id="lines" name="lines" rows="14" dir="ltr" placeholder="سوا&#10;0555123456 5000&#10;0500111222 12000 الرياض&#10;زين&#10;0590000555 3000 جدة"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn" type="submit">${esc(t('import_submit'))}</button>
+        <a class="btn btn-ghost" href="/admin?tab=all">${esc(t('cancel'))}</a>
+      </div>
+    </form>
+  </section>`;
+  return layout(ctx, { title: t('import_title'), body, noindex: true });
 }
 
 function passwordPage(ctx, errors = {}) {
@@ -509,7 +717,7 @@ function adminPage(ctx, tab, data) {
   ];
   const tabNav = `<nav class="tabs" aria-label="Admin">${tabs
     .map(([k, label]) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(label)}</a>`)
-    .join('')}</nav>`;
+    .join('')}<a href="/admin/import">${esc(t('a_import'))}</a></nav>`;
 
   let content = '';
   if (tab === 'stats') {
@@ -551,10 +759,11 @@ function adminPage(ctx, tab, data) {
             (l) => `<tr>
           <td><a href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><br><small>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}</small></td>
           <td>${esc(l.seller)}<br><small dir="ltr">0${esc(l.seller_phone)}</small>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}</td>
-          <td>${statusBadge(ctx, l.status)}${l.report_count ? `<br><small>${esc(t('reports_n', { n: l.report_count }))}</small>` : ''}</td>
+          <td>${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.report_count ? `<br><small>${esc(t('reports_n', { n: l.report_count }))}</small>` : ''}</td>
           <td class="actions">
             ${l.status === 'pending' ? act(l, 'approve', t('approve'), 'btn') : ''}
             ${l.status === 'hidden' ? act(l, 'restore', t('restore'), 'btn') : ''}
+            ${l.status === 'active' ? act(l, l.pinned ? 'unpin' : 'pin', t(l.pinned ? 'unpin' : 'pin'), 'btn-gold') : ''}
             ${l.status === 'active' ? act(l, 'hide', t('hide')) : ''}
             ${act(l, 'delete', t('delete'), 'btn-danger')}
           </td></tr>`
@@ -603,6 +812,7 @@ module.exports = {
   postPage,
   editPage,
   adminResetPage,
+  importPage,
   passwordPage,
   registerPage,
   loginPage,
