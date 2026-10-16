@@ -145,7 +145,7 @@ ${jsonLd(ld)}
     <nav class="nav" aria-label="Main">
       ${nav}
       <a href="/lang/${esc(t('lang_code'))}?next=${next}" hreflang="${esc(t('lang_code'))}" lang="${esc(t('lang_code'))}">${esc(t('lang_switch'))}</a>
-      <a class="btn btn-small btn-gold" href="/post">${esc(t('post_ad'))}</a>
+      <a class="nav-add" href="/post">${esc(t('post_ad'))}</a>
     </nav>
   </div>
 </header>

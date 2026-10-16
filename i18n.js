@@ -15,7 +15,7 @@ const dict = {
     logout: 'Log out',
     my_ads: 'My ads',
     admin: 'Admin',
-    lang_switch: 'العربية',
+    lang_switch: 'عربي',
     lang_code: 'ar',
 
     // search
@@ -267,7 +267,7 @@ const dict = {
     logout: 'تسجيل الخروج',
     my_ads: 'إعلاناتي',
     admin: 'الإدارة',
-    lang_switch: 'English',
+    lang_switch: 'EN',
     lang_code: 'en',
 
     search_title: 'دوّر على رقمك',

@@ -1062,3 +1062,79 @@ main,
 .form-actions {
   justify-content: center;
 }
+
+/* ---- Header: brand on top, one rounded bar of segments below ---- */
+
+.bar {
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-block: 1rem 1.1rem;
+}
+.nav {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.nav > a,
+.nav > form {
+  display: flex;
+  align-items: center;
+}
+.nav > a:not(.nav-add),
+.nav .link-btn {
+  padding: 0.55rem 1.05rem;
+  font-weight: 700;
+  font-size: 0.98rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav > a:not(.nav-add):hover,
+.nav .link-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration: none;
+}
+.nav > * + * {
+  border-inline-start: 1.5px solid rgba(255, 255, 255, 0.28);
+}
+.nav .link-btn {
+  height: 100%;
+}
+.nav > a[hreflang] {
+  letter-spacing: 0.04em;
+}
+.nav-add {
+  padding: 0.55rem 1.2rem;
+  background: var(--gold);
+  color: var(--deep);
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-add:hover {
+  background: var(--gold-dark);
+  color: var(--deep);
+}
+@media (max-width: 480px) {
+  .nav {
+    display: flex;
+    width: 100%;
+  }
+  .nav > * {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .nav > a:not(.nav-add),
+  .nav .link-btn {
+    padding-inline: 0.4rem;
+    font-size: 0.88rem;
+  }
+  .nav-add {
+    padding-inline: 0.6rem;
+    font-size: 0.9rem;
+  }
+}
