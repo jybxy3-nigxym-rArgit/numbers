@@ -54,7 +54,7 @@ const PRICE_TYPES = ['negotiable', 'final'];
 const LINKS = {
   store: 'https://souq3rb.com',
   group: 'https://chat.whatsapp.com/F2V5yGPdaR68R80hbO6wvu',
-  snap: 'https://snapchat.com/t/XR6iSrS1',
+  snap: 'https://snapchat.com/t/FdRdXjrK',
 };
 
 const byKey = (list) => Object.fromEntries(list.map((x) => [x.key, x]));
