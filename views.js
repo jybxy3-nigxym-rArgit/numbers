@@ -37,6 +37,7 @@ const SAR_SIGN = (ctx) =>
   `<svg class="sar" viewBox="0 0 24 24" role="img" aria-label="${esc(ctx.t('sar'))}" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m20 19.5-5.5 1.2"/><path d="M14.5 4v11.22a1 1 0 0 0 1.242.97L20 15.2"/><path d="m2.978 19.351 5.549-1.363A2 2 0 0 0 10 16V2"/><path d="M20 10 4 13.5"/></svg>`;
 
 const ICON = {
+  logout: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   eye: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   home: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
   plus: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
@@ -203,11 +204,12 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
   </div>
 </footer>
 <a class="to-top" href="#top" aria-label="${esc(t('to_top'))}" title="${esc(t('to_top'))}">${ICON.up}</a>
-<nav class="tabbar" aria-label="${esc(t('tabbar'))}">
+<nav class="tabbar${user ? ' has-out' : ''}" aria-label="${esc(t('tabbar'))}">
   <a href="/">${ICON.home}<span>${esc(t('tab_home'))}</span></a>
   <a class="tab-add" href="/post">${ICON.plus}<span>${esc(t('post_ad'))}</span></a>
   ${user ? `<a href="/my">${ICON.list}<span>${esc(t('my_ads'))}</span></a>` : `<a href="/login">${ICON.user}<span>${esc(t('login'))}</span></a>`}
   ${isStaff ? `<a href="/admin">${ICON.shield}<span>${esc(t('admin'))}${alerts}</span></a>` : `<a href="/faq">${ICON.help}<span>${esc(t('page_faq'))}</span></a>`}
+  ${user ? `<form method="post" action="/logout" class="tab-out">${csrfInput(ctx)}<button type="submit">${ICON.logout}<span>${esc(t('logout'))}</span></button></form>` : ''}
 </nav>
 </body>
 </html>`;

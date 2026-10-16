@@ -646,6 +646,8 @@ async function main() {
     check('promo banner shows for visitors, not for members', (await anon.get('/faq')).text.includes('class="promo"') && !(await nora.get('/faq')).text.includes('class="promo"'));
     check('footer links, back-to-top and bottom bar exist', (await homeText()).includes('class="to-top"') && (await homeText()).includes('class="tabbar"'));
 
+    check('mobile bottom bar has a logout button for signed-in users only', (await nora.get('/faq')).text.includes('class="tab-out"') && !(await anon.get('/faq')).text.includes('class="tab-out"'));
+
     // night mode
     const night = await newClient(base);
     rr = await night.get('/theme/dark?next=/');

@@ -1470,6 +1470,32 @@ blockquote.msg {
     width: 1.45rem;
     height: 1.45rem;
   }
+  .tabbar.has-out {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .tabbar .tab-out {
+    display: contents;
+  }
+  .tabbar .tab-out button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    padding: 0.45rem 0.2rem 0.4rem;
+    background: none;
+    border: 0;
+    color: #d9ccf0;
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+  .tabbar .tab-out .ico {
+    width: 1.45rem;
+    height: 1.45rem;
+  }
   .tabbar .tab-add {
     color: var(--deep);
     background: var(--gold);
