@@ -835,6 +835,8 @@ async function main() {
       check('unknown design is ignored', (await g.get('/')).text.includes('data-plate="pro"'));
       await ad.post('/admin/design', { style: 'classic' });
       check('back to the classic design', !(await g.get('/')).text.includes('<body id="top" data-plate'));
+      const fw = await g.get('/fonts/tajawal-700.woff');
+      check('Tajawal font is served from the site', fw.status === 200 && !home.text.includes('family=Tajawal'));
       check('unknown member is 404', (await g.get('/u/99999')).status === 404 && (await g.get('/u/abc')).status === 404);
     } finally {
       srvC.stop();
