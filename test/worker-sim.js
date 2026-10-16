@@ -53,7 +53,10 @@ const DB = {
   },
 };
 
-const env = { DB, ADMIN_PHONE: process.env.ADMIN_PHONE || '', REQUIRE_APPROVAL: process.env.REQUIRE_APPROVAL || '' };
+const env = { DB, ADMIN_PHONE: process.env.ADMIN_PHONE || '', REQUIRE_APPROVAL: process.env.REQUIRE_APPROVAL || '', REGISTER_PER_HOUR: process.env.REGISTER_PER_HOUR || '' };
+if (process.env.MAIL_LOG_FILE) {
+  require('../config').mailHook = async (m) => fs.appendFileSync(process.env.MAIL_LOG_FILE, JSON.stringify(m) + '\n');
+}
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 (async () => {

@@ -19,11 +19,12 @@ function check(name, cond, extra) {
 
 async function startServer(port, env = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nm-test-'));
+  const mailLog = path.join(dir, 'mail.jsonl');
   const child = spawn(
     process.execPath,
     ['--disable-warning=ExperimentalWarning', path.join(__dirname, process.env.TARGET === 'worker' ? 'worker-sim.js' : '../server.js')],
     {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', ...env },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', MAIL_LOG_FILE: mailLog, REGISTER_PER_HOUR: '100', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   );
@@ -46,6 +47,7 @@ async function startServer(port, env = {}) {
       fs.rmSync(dir, { recursive: true, force: true });
     },
     log: () => log,
+    mails: () => (fs.existsSync(mailLog) ? fs.readFileSync(mailLog, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []),
   };
 }
 
@@ -95,12 +97,12 @@ async function newClient(base) {
   return c;
 }
 
-async function register(c, name, phone, password = 'secret-pass-1') {
+async function register(c, name, phone, password = 'secret-pass-1', email = `user${phone}@example.com`) {
   const _csrf = await (async () => {
     const r = await c.get('/register');
     return /name="_csrf" value="([^"]+)"/.exec(r.text)[1];
   })();
-  const r = await c.req('POST', '/register', { _csrf, name, phone, password });
+  const r = await c.req('POST', '/register', { _csrf, name, phone, password, email });
   if (r.status === 303) c.auth = true;
   return r;
 }
@@ -300,6 +302,58 @@ async function main() {
     r = await pc.post('/password', { current: 'new-pass-9999', next: 'secret-pass-1' });
     check('and can set it back', r.status === 303, r.status);
     check('visitors cannot open the password page', (await anon.get('/password')).status === 303);
+
+    console.log('\nEmail on accounts');
+    r = await anon.get('/register');
+    check('register page asks for email and warns it cannot be recovered if wrong', r.text.includes('name="email"') && r.text.includes('password cannot be recovered'));
+    check('register page says no code is sent to the phone', r.text.includes('No code is sent to your phone'));
+    const rc = await newClient(base);
+    r = await register(rc, 'NoMail', '0555000777', 'secret-pass-1', '');
+    check('registration needs an email', r.status === 400, r.status);
+    r = await register(rc, 'BadMail', '0555000777', 'secret-pass-1', 'not-an-email');
+    check('registration rejects a bad email', r.status === 400, r.status);
+    r = await register(rc, 'Dup', '0555000777', 'secret-pass-1', 'USER0555000111@example.com');
+    check('same email cannot have two accounts (any letter case)', r.status === 400 && r.text.includes('already has an account'), r.status);
+    r = await register(rc, 'Mail', '0555000777', 'secret-pass-1', 'Mail.User@Example.com');
+    check('registration with email works', r.status === 303, r.status);
+    r = await admin.get('/admin?tab=users');
+    check('admin sees the email', r.text.includes('mail.user@example.com'));
+    let ec = await newClient(base);
+    r = await ec.post('/login', { phone: 'MAIL.user@example.com', password: 'secret-pass-1' });
+    check('login works with the email', r.status === 303, r.status);
+
+    console.log('\nForgot password by email');
+    r = await anon.get('/login');
+    check('login page links to the reset form', r.text.includes('href="/forgot"'));
+    r = await anon.get('/forgot');
+    check('reset form opens', r.status === 200 && r.text.includes('name="email"'));
+    const before = srv.mails().length;
+    r = await anon.post('/forgot', { email: 'nobody@example.com' });
+    check('unknown email gets the same answer', r.status === 200 && r.text.includes('If this email has an account'));
+    check('and no mail is sent', srv.mails().length === before);
+    r = await anon.post('/forgot', { email: 'user0555000111@example.com' });
+    check('known email gets the same answer', r.status === 200 && r.text.includes('If this email has an account'));
+    const sent = srv.mails().slice(before);
+    check('one reset mail was sent to the right address', sent.length === 1 && sent[0].to === 'user0555000111@example.com', JSON.stringify(sent));
+    const link = ((sent[0] && sent[0].text.match(/\/reset\/([A-Za-z0-9_-]+)/)) || [])[1];
+    check('mail holds a reset link', !!link && link.length > 30);
+    r = await anon.get('/reset/not-a-real-token');
+    check('bad link is refused', r.status === 400);
+    r = await anon.get('/reset/' + link);
+    check('good link shows the new-password form', r.status === 200 && r.text.includes('name="password"'));
+    r = await anon.post('/reset/' + link, { password: 'short' });
+    check('too short new password refused', r.status === 400);
+    r = await anon.post('/reset/' + link, { password: 'brand-new-pass-1' });
+    check('new password saved', r.status === 303 && r.location === '/login', r.status);
+    r = await anon.post('/reset/' + link, { password: 'another-pass-22' });
+    check('link works only once', r.status === 400, r.status);
+    let rl = await newClient(base);
+    r = await rl.post('/login', { phone: '0555000111', password: 'secret-pass-1' });
+    check('old password no longer works', r.status === 401, r.status);
+    r = await rl.post('/login', { phone: 'user0555000111@example.com', password: 'brand-new-pass-1' });
+    check('new password works', r.status === 303, r.status);
+    rl.auth = true;
+    await rl.post('/password', { current: 'brand-new-pass-1', next: 'secret-pass-1' });
 
     console.log('\nMy ads actions');
     const a3 = await newClient(base);

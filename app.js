@@ -8,6 +8,7 @@ const views = require('./views');
 const { t } = require('./i18n');
 const util = require('./util');
 const wc = require('./webcrypto');
+const { sendMail, mailEnabled } = require('./mailer');
 const { NETWORK_BY_KEY, CITY_BY_KEY, PATTERN_KEYS, REPORT_REASONS } = require('./data');
 
 const SESSION_MAX_AGE = 30 * 24 * 3600; // seconds
@@ -215,6 +216,11 @@ function route(method, pattern, handler) {
       '/?$'
   );
   routes.push({ method, re, names, handler });
+}
+
+function normEmail(raw) {
+  const e = String(raw || '').trim().toLowerCase();
+  return e.length <= 120 && /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(e) ? e : null;
 }
 
 function parsePrice(raw) {
@@ -436,14 +442,18 @@ route('GET', '/register', (ctx) => {
 });
 
 route('POST', '/register', async (ctx) => {
-  if (!(await ctx.store.allow(`register:${ctx.ip}`, 8, 3600 * 1000))) return tooMany(ctx);
+  if (!(await ctx.store.allow(`register:${ctx.ip}`, config.registerPerHour, 3600 * 1000))) return tooMany(ctx);
   const name = str(ctx.body.name, 80).replace(/\s+/g, ' ').trim();
   const phoneRaw = str(ctx.body.phone, 25).trim();
   const password = str(ctx.body.password, 200);
-  const v = { name, phone: phoneRaw };
+  const emailRaw = str(ctx.body.email, 150).trim();
+  const email = normEmail(emailRaw);
+  const v = { name, phone: phoneRaw, email: emailRaw };
   const errors = {};
 
   if (name.length < 2 || name.length > 60) errors.name = 'err_name';
+  if (!email) errors.email = 'err_email';
+  else if (await ctx.store.getUserByEmail(email)) errors.email = 'err_email_taken';
   const nat = util.normPhone(phoneRaw);
   if (!nat) errors.phone = 'err_phone';
   else if (await ctx.store.getUserByPhone(nat)) errors.phone = 'err_phone_taken';
@@ -453,10 +463,11 @@ route('POST', '/register', async (ctx) => {
   const passHash = await wc.hashPassword(password, config.pbkdf2Iterations);
   let id;
   try {
-    id = await ctx.store.createUser(nat, name, passHash);
+    id = await ctx.store.createUser(nat, name, passHash, email);
   } catch {
-    // Someone registered the same phone at the same moment.
-    return html(ctx, 400, views.registerPage(ctx, v, { phone: 'err_phone_taken' }));
+    // Someone registered the same phone or email at the same moment.
+    const taken = (await ctx.store.getUserByEmail(email)) ? { email: 'err_email_taken' } : { phone: 'err_phone_taken' };
+    return html(ctx, 400, views.registerPage(ctx, v, taken));
   }
   logIn(ctx, id);
   flash(ctx, 'ok', 'welcome');
@@ -471,17 +482,20 @@ route('GET', '/login', (ctx) => {
 });
 
 route('POST', '/login', async (ctx) => {
-  const phoneRaw = str(ctx.body.phone, 25).trim();
+  const idRaw = str(ctx.body.phone, 150).trim();
   const password = str(ctx.body.password, 200);
-  const nat = util.normPhone(phoneRaw);
-  // Limits are per visitor (IP), and per phone from that same IP, so a stranger cannot lock someone else out.
+  // People can log in with the mobile number or the email.
+  const email = idRaw.includes('@') ? normEmail(idRaw) : null;
+  const nat = email ? null : util.normPhone(idRaw);
+  const who = email || nat;
+  // Limits are per visitor (IP), and per account from that same IP, so a stranger cannot lock someone else out.
   if (!(await ctx.store.allow(`login:${ctx.ip}`, 20, 15 * 60 * 1000))) return tooMany(ctx);
-  if (nat && !(await ctx.store.allow(`login-phone:${nat}:${ctx.ip}`, 10, 15 * 60 * 1000))) return tooMany(ctx);
+  if (who && !(await ctx.store.allow(`login-phone:${who}:${ctx.ip}`, 10, 15 * 60 * 1000))) return tooMany(ctx);
 
-  const user = nat ? await ctx.store.getUserByPhone(nat) : undefined;
+  const user = email ? await ctx.store.getUserByEmail(email) : nat ? await ctx.store.getUserByPhone(nat) : undefined;
   const ok = await wc.verifyPassword(password, user ? user.pass_hash : dummyHash(), config.pbkdf2Iterations);
-  if (!user || !ok) return html(ctx, 401, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_login' }));
-  if (user.banned) return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
+  if (!user || !ok) return html(ctx, 401, views.loginPage(ctx, { phone: idRaw }, { form: 'err_login' }));
+  if (user.banned) return html(ctx, 403, views.loginPage(ctx, { phone: idRaw }, { form: 'err_banned' }));
 
   logIn(ctx, user.id);
   flash(ctx, 'ok', 'welcome_back');
@@ -505,6 +519,54 @@ route('GET', '/lang/:code', (ctx) => {
     ctx.dirty = true;
   }
   redirect(ctx, safeNext(ctx.query.next), 302);
+});
+
+// ---- Forgot password (by email) ----
+
+route('GET', '/forgot', (ctx) => {
+  if (ctx.user) return redirect(ctx, '/password');
+  html(ctx, 200, views.forgotPage(ctx));
+});
+
+route('POST', '/forgot', async (ctx) => {
+  if (!mailEnabled()) return html(ctx, 200, views.forgotPage(ctx));
+  if (!(await ctx.store.allow(`forgot:${ctx.ip}`, 5, 3600 * 1000))) return tooMany(ctx);
+  const email = normEmail(str(ctx.body.email, 150));
+  // The answer is always the same, so nobody can use this form to find out who has an account.
+  if (email && (await ctx.store.allow(`forgot-email:${email}`, 3, 3600 * 1000))) {
+    const user = await ctx.store.getUserByEmail(email);
+    if (user && !user.banned) {
+      const token = wc.randomToken(32);
+      await ctx.store.createResetToken(user.id, await wc.sha256Hex(token), Date.now() + 3600 * 1000);
+      await sendMail({
+        to: email,
+        subject: t(ctx.lang, 'mail_subject'),
+        text: t(ctx.lang, 'mail_body', { name: user.name, link: `${ctx.base}/reset/${token}` }),
+      });
+    }
+  }
+  html(ctx, 200, views.forgotPage(ctx, { sent: true }));
+});
+
+async function resetUser(ctx) {
+  return ctx.store.findResetToken(await wc.sha256Hex(String(ctx.params.token)));
+}
+
+route('GET', '/reset/:token', async (ctx) => {
+  const user = await resetUser(ctx);
+  html(ctx, user ? 200 : 400, views.resetPage(ctx, ctx.params.token, { bad: !user }));
+});
+
+route('POST', '/reset/:token', async (ctx) => {
+  if (!(await ctx.store.allow(`reset-try:${ctx.ip}`, 20, 3600 * 1000))) return tooMany(ctx);
+  const user = await resetUser(ctx);
+  if (!user || user.banned) return html(ctx, 400, views.resetPage(ctx, ctx.params.token, { bad: true }));
+  const password = str(ctx.body.password, 200);
+  if (password.length < 8) return html(ctx, 400, views.resetPage(ctx, ctx.params.token, { errors: { password: 'err_pass' } }));
+  await ctx.store.setUserPassword(user.id, await wc.hashPassword(password, config.pbkdf2Iterations));
+  await ctx.store.deleteResetTokens(user.id);
+  flash(ctx, 'ok', 'pw_changed');
+  redirect(ctx, '/login');
 });
 
 // ---- Change own password ----

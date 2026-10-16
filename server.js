@@ -12,6 +12,11 @@ const config = require('./config');
 const { db, store } = require('./db');
 const { handle } = require('./app');
 
+// Tests: write emails to a file instead of sending them.
+if (process.env.MAIL_LOG_FILE) {
+  config.mailHook = async (m) => fs.appendFileSync(process.env.MAIL_LOG_FILE, JSON.stringify(m) + '\n');
+}
+
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_BODY = 20000;
 

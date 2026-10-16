@@ -16,6 +16,9 @@
     "BASE_URL": "https://basmatameel.com",
     // Whoever registers with this phone becomes the admin.
     "ADMIN_PHONE": "0599900079",
+    // Password-reset emails are sent from this address (Resend). The key itself is a secret named RESEND_API_KEY
+    // that you add in the Cloudflare dashboard, never in this file.
+    "MAIL_FROM": "Basmat Ameel <no-reply@basmatameel.com>",
     // "true" = every new ad waits for your approval
     "REQUIRE_APPROVAL": "false"
   },

@@ -48,6 +48,11 @@ const SCHEMA = [
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (listing_id, reporter_key)
   )`,
+  `CREATE TABLE IF NOT EXISTS reset_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL
+  )`,
   'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS rate_events (k TEXT NOT NULL, ts INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_rate_k ON rate_events(k, ts)',
@@ -68,6 +73,10 @@ function createStore(d) {
     if (!readyPromise) {
       readyPromise = (async () => {
         await d.batch(SCHEMA.map((sql) => ({ sql, params: [] })));
+        // Older databases were created before accounts had an email.
+        const cols = await d.all('PRAGMA table_info(users)');
+        if (!cols.some((c) => c.name === 'email')) await d.run('ALTER TABLE users ADD COLUMN email TEXT');
+        await d.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)');
         if (config.adminNational) {
           await d.run('UPDATE users SET is_admin = 1 WHERE phone = ?', [config.adminNational]);
         }
@@ -112,15 +121,34 @@ function createStore(d) {
 
   const getUser = async (id) => (id ? d.first('SELECT * FROM users WHERE id = ?', [id]) : null);
   const getUserByPhone = (phone) => d.first('SELECT * FROM users WHERE phone = ?', [phone]);
-  async function createUser(phone, name, passHash) {
+  const getUserByEmail = (email) => d.first('SELECT * FROM users WHERE email = ?', [email]);
+  async function createUser(phone, name, passHash, email) {
     const isAdmin = config.adminNational && phone === config.adminNational ? 1 : 0;
-    const r = await d.run('INSERT INTO users (phone, name, pass_hash, is_admin) VALUES (?, ?, ?, ?)', [
+    const r = await d.run('INSERT INTO users (phone, name, pass_hash, is_admin, email) VALUES (?, ?, ?, ?, ?)', [
       phone,
       name,
       passHash,
       isAdmin,
+      email || null,
     ]);
     return r.lastId;
+  }
+
+  // ---- Password reset links (only a hash of the token is stored) ----
+  async function createResetToken(userId, tokenHash, expiresAt) {
+    await d.batch([
+      { sql: 'DELETE FROM reset_tokens WHERE user_id = ? OR expires_at < ?', params: [userId, Date.now()] },
+      { sql: 'INSERT INTO reset_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)', params: [tokenHash, userId, expiresAt] },
+    ]);
+  }
+  const findResetToken = (tokenHash) =>
+    d.first(
+      `SELECT u.* FROM reset_tokens t JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = ? AND t.expires_at > ?`,
+      [tokenHash, Date.now()]
+    );
+  async function deleteResetTokens(userId) {
+    await d.run('DELETE FROM reset_tokens WHERE user_id = ?', [userId]);
   }
 
   async function setUserPassword(id, passHash) {
@@ -306,7 +334,11 @@ function createStore(d) {
     allow,
     getUser,
     getUserByPhone,
+    getUserByEmail,
     createUser,
+    createResetToken,
+    findResetToken,
+    deleteResetTokens,
     setUserPassword,
     getListing,
     searchListings,
