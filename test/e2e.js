@@ -795,9 +795,9 @@ async function main() {
   try {
     const g = await newClient(srv7.base);
     const h1 = await g.get('/');
-    check('new visitor sees the notice', h1.text.includes('class="notice"') && h1.text.includes('not responsible for buying or selling'));
+    check('new visitor sees the notice', h1.text.includes('class="popup"') && h1.text.includes('not responsible for buying or selling'));
     await g.get('/ack?next=/');
-    check('after pressing got it the notice is gone', !(await g.get('/')).text.includes('class="notice"'));
+    check('after pressing got it the notice is gone', !(await g.get('/')).text.includes('class="popup"'));
   } finally {
     srv7.stop();
   }

@@ -187,7 +187,7 @@ ${gtm ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${es
 ${hero}
 <main id="main" class="wrap">
 ${flash}
-${ctx.ack || noindex ? '' : `<aside class="notice" role="note"><ul><li>${esc(t('notice_1'))}</li><li>${esc(t('notice_2'))}</li><li>${esc(t('notice_3'))}</li></ul><a class="btn btn-gold" href="/ack?next=${encodeURIComponent(ctx.path || '/')}" rel="nofollow">${esc(t('notice_ok'))}</a></aside>`}
+${ctx.ack || noindex ? '' : `<div class="popup" role="dialog" aria-modal="true" aria-labelledby="pop-t"><div class="popup-box"><strong id="pop-t">${esc(t('notice_title'))}</strong><ul><li>${esc(t('notice_1'))}</li><li>${esc(t('notice_2'))}</li><li>${esc(t('notice_3'))}</li></ul><a class="btn btn-gold" href="/ack?next=${encodeURIComponent(ctx.path || '/')}" rel="nofollow">${esc(t('notice_ok'))}</a></div></div>`}
 ${body}
 ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</strong><span>${esc(t('promo_body'))}</span></div><a class="btn btn-gold" href="/register">${esc(t('promo_cta'))}</a></aside>` : ''}
 </main>
