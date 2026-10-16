@@ -1671,3 +1671,29 @@ blockquote.msg {
   flex: 1 1 14rem;
   min-width: 0;
 }
+
+.row-actions {
+  display: contents;
+}
+.logout-form {
+  margin-top: 1.2rem;
+}
+/* On phones the bottom bar carries the buttons: the top bar keeps only language and night mode. */
+@media (max-width: 640px) {
+  .nav > a:not([hreflang]):not(.theme-toggle),
+  .nav > form {
+    display: none;
+  }
+  .nav {
+    display: inline-flex;
+    width: auto;
+  }
+  .nav > * {
+    flex: none;
+  }
+  .nav > a[hreflang],
+  .nav > a.theme-toggle {
+    padding: 0.5rem 1.1rem;
+  }
+}
+div.actions{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}

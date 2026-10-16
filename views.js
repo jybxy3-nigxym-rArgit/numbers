@@ -775,7 +775,8 @@ function myPage(ctx, rows) {
   const body = `<section><h1>${esc(t('my_title'))}${ctx.user.verified ? ` ${verifiedMark(ctx)}` : ''}</h1>
     <p class="hint-line">${esc(t('renew_rule', { n: config.renewDays }))}</p>
     ${canBulk ? `<p><a class="btn btn-ghost btn-small" href="/my/bulk">${esc(t('bulk_link'))}</a></p>` : ''}
-    ${list}<p class="alt"><a href="/profile">${esc(t('profile_title'))}</a> · <a href="/password">${esc(t('change_password'))}</a></p></section>`;
+    ${list}<p class="alt"><a href="/profile">${esc(t('profile_title'))}</a> · <a href="/password">${esc(t('change_password'))}</a></p>
+    <form method="post" action="/logout" class="logout-form">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('logout'))}</button></form></section>`;
   return layout(ctx, { title: t('my_title'), body, noindex: true });
 }
 
@@ -951,8 +952,9 @@ function adminPage(ctx, tab, data) {
           ? ` <span class="badge badge-pin">${esc(t('role_mod'))}</span>`
           : '';
 
-  const userForm = (u, action, label, cls = 'btn-ghost', tabName = 'users') =>
-    `<form method="post" action="/admin/u/${u.id}/${action}">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tabName)}"><button class="btn ${cls} btn-small" type="submit">${esc(label)}</button></form>`;
+  // Buttons share one form per row (formaction), which keeps long lists light.
+  const userForm = (u, action, label, cls = 'btn-ghost') =>
+    `<button class="btn ${cls} btn-small" type="submit" formaction="/admin/u/${u.id}/${action}">${esc(label)}</button>`;
 
   const usersTable = (users, tabName) =>
     users.length
@@ -967,15 +969,14 @@ function adminPage(ctx, tab, data) {
                 ? `<form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
                 : esc(u.name);
             const acts = [];
+            let roleForm = '';
             if (mayAct) {
               if (u.suspended) {
                 if (senior || u.suspended === me.id) acts.push(userForm(u, 'unsuspend', t('unsuspend'), 'btn-ghost', tabName));
               } else acts.push(userForm(u, 'suspend', t('suspend'), 'btn-ghost', tabName));
               if (senior) {
                 acts.push(userForm(u, u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban'), 'btn-ghost', tabName));
-                acts.push(
-                  `<form method="post" action="/admin/u/${u.id}/reset">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('a_reset_pass'))}</button></form>`
-                );
+                acts.push(userForm(u, 'reset', t('a_reset_pass')));
               }
             }
             if (senior && !u.is_admin && mayAct && !mine) {
@@ -983,11 +984,10 @@ function adminPage(ctx, tab, data) {
             }
             if (senior && !u.is_admin && mayAct && !mine) {
               const roles = rank >= 3 ? [['user', t('role_user')], ['mod', t('role_mod')], ['super', t('role_super')]] : [['user', t('role_user')], ['mod', t('role_mod')]];
-              acts.push(
+              roleForm =
                 `<form method="post" action="/admin/u/${u.id}/role" class="name-edit">${csrfInput(ctx)}<select name="role" aria-label="${esc(t('a_role'))}">
                   ${roles.map(([k, label]) => `<option value="${k}"${(u.role || 'user') === k ? ' selected' : ''}>${esc(label)}</option>`).join('')}
-                </select><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
-              );
+                </select><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`;
             }
             return `<tr>
           <td>${nameCell}${u.verified ? ` ${verifiedMark(ctx)}` : ''}${roleBadge(u)}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}${u.suspended_by_name ? `<br><small>${esc(t('suspended_by', { name: u.suspended_by_name }))}</small>` : ''}${
@@ -1000,14 +1000,14 @@ function adminPage(ctx, tab, data) {
           <td dir="ltr">0${esc(u.phone)}</td>
           <td>${u.ads ?? ''}</td>
           <td>${esc(String(u.created_at).slice(0, 10))}</td>
-          <td><div class="actions">${acts.join('')}</div></td></tr>`;
+          <td><div class="actions"><form method="post" action="/admin/u/${u.id}/reset" class="row-actions">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tabName)}">${acts.join('')}</form>${roleForm}</div></td></tr>`;
           })
           .join('')}</tbody></table></div>`
       : `<p>${esc(t('a_nothing'))}</p>`;
 
   const listingsTable = (listings) => {
     const act = (l, action, label, cls = 'btn-ghost') =>
-      `<form method="post" action="/admin/l/${l.id}/${action}">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}"><button class="btn ${cls} btn-small" type="submit">${esc(label)}</button></form>`;
+      `<button class="btn ${cls} btn-small" type="submit" formaction="/admin/l/${l.id}/${action}">${esc(label)}</button>`;
     return listings.length
       ? `<div class="table-wrap"><table>
         <thead><tr><th>${esc(t('a_col_number'))}</th><th>${esc(t('a_col_seller'))}</th><th>${esc(t('a_col_status'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
@@ -1033,7 +1033,7 @@ function adminPage(ctx, tab, data) {
           <td><a href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><br><small>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}</small></td>
           <td>${esc(l.seller)}<br><small dir="ltr">0${esc(l.seller_phone)}</small>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</td>
           <td>${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.featured ? ` <span class="badge badge-pin">${esc(t('featured_badge'))}</span>` : ''}${l.price != null && (l.price < 100 || l.price > 3000000) ? ` <span class="badge badge-pending">${esc(t('odd_price'))}</span>` : ''}${l.hidden_by ? `<br><small>${esc(t('hidden_by_mod'))}</small>` : ''}${l.report_count ? `<br><small>${esc(t('reports_n', { n: l.report_count }))}</small>` : ''}</td>
-          <td class="actions">${acts.join('')}</td></tr>`;
+          <td class="actions">${acts.length ? `<form method="post" action="/admin/l/${l.id}/hide" class="row-actions">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}">${acts.join('')}</form>` : ''}</td></tr>`;
           })
           .join('')}</tbody></table></div>`
       : `<p>${esc(t('a_nothing'))}</p>`;
@@ -1162,9 +1162,7 @@ function contactPage(ctx) {
     <p class="lede">${esc(t('contact_lede'))}</p>
     <ul class="contact-list">
       ${wa ? `<li><a class="btn btn-wa" href="${esc(wa)}" target="_blank" rel="noopener">${esc(t('contact_wa'))}</a></li>` : ''}
-      <li><a class="btn btn-ghost" href="${esc(LINKS.group)}" target="_blank" rel="noopener">${esc(t('contact_group'))}</a></li>
       <li><a class="btn btn-ghost" href="${esc(LINKS.snap)}" target="_blank" rel="noopener">${esc(t('contact_snap'))}</a></li>
-      <li><a class="btn btn-ghost" href="${esc(LINKS.store)}" target="_blank" rel="noopener">${esc(t('contact_store'))}</a></li>
     </ul>
     <p>${esc(t('contact_verify'))}</p>
   </article>`;

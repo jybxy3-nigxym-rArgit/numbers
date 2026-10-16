@@ -101,7 +101,6 @@ const REPORT_COUNT_SQL = '(SELECT COUNT(*) FROM reports r WHERE r.listing_id = l
 const DAY_MS = 86400000;
 
 function createStore(d) {
-  let readyPromise = null;
   let secretCache = null;
   // Counts for the landing pages change slowly: keep them for a minute, and drop them when this server writes an ad.
   let countsCache = null;
@@ -110,40 +109,29 @@ function createStore(d) {
   };
 
   // Creates the tables if they are missing and promotes the admin phone. Runs once per process.
-  function ready() {
-    if (!readyPromise) {
-      readyPromise = (async () => {
-        await d.batch(SCHEMA.map((sql) => ({ sql, params: [] })));
-        // Columns added after the first release: add them to databases that already exist.
-        const cols = (await d.all('PRAGMA table_info(listings)')).map((c) => c.name);
-        const ucols = (await d.all('PRAGMA table_info(users)')).map((c) => c.name);
-        if (!ucols.includes('role')) {
-          await d.run("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").catch(() => {});
-        }
-        if (!ucols.includes('suspended')) {
-          await d.run('ALTER TABLE users ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0').catch(() => {});
-        }
-        if (!cols.includes('hidden_by')) {
-          await d.run('ALTER TABLE listings ADD COLUMN hidden_by INTEGER NOT NULL DEFAULT 0').catch(() => {});
-        }
-        const addCol = (table, col, ddl) => d.run(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`).catch(() => {});
-        if (!ucols.includes('verified')) await addCol('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
-        if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
-        if (!cols.includes('renewed_at')) await addCol('listings', 'renewed_at', "TEXT NOT NULL DEFAULT ''");
-        if (!cols.includes('price_type')) await addCol('listings', 'price_type', "TEXT NOT NULL DEFAULT ''");
-        if (!cols.includes('featured')) await addCol('listings', 'featured', 'INTEGER NOT NULL DEFAULT 0');
-        if (!cols.includes('pinned')) {
-          await d.run('ALTER TABLE listings ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0').catch(() => {});
-        }
-        if (config.adminNational) {
-          await d.run('UPDATE users SET is_admin = 1 WHERE phone = ?', [config.adminNational]);
-        }
-      })().catch((err) => {
-        readyPromise = null; // try again on the next request
-        throw err;
-      });
+  // The check is idempotent. Each request runs its own copy until one finishes: a promise created by one request is never
+  // awaited by another, because Cloudflare Workers can leave such a request hanging.
+  let isReady = false;
+  async function ready() {
+    if (isReady) return;
+    await d.batch(SCHEMA.map((sql) => ({ sql, params: [] })));
+    // Columns added after the first release: add them to databases that already exist.
+    const cols = (await d.all('PRAGMA table_info(listings)')).map((c) => c.name);
+    const ucols = (await d.all('PRAGMA table_info(users)')).map((c) => c.name);
+    const addCol = (table, col, ddl) => d.run(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`).catch(() => {});
+    if (!ucols.includes('role')) await addCol('users', 'role', "TEXT NOT NULL DEFAULT 'user'");
+    if (!ucols.includes('suspended')) await addCol('users', 'suspended', 'INTEGER NOT NULL DEFAULT 0');
+    if (!ucols.includes('verified')) await addCol('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+    if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
+    if (!cols.includes('hidden_by')) await addCol('listings', 'hidden_by', 'INTEGER NOT NULL DEFAULT 0');
+    if (!cols.includes('renewed_at')) await addCol('listings', 'renewed_at', "TEXT NOT NULL DEFAULT ''");
+    if (!cols.includes('price_type')) await addCol('listings', 'price_type', "TEXT NOT NULL DEFAULT ''");
+    if (!cols.includes('featured')) await addCol('listings', 'featured', 'INTEGER NOT NULL DEFAULT 0');
+    if (!cols.includes('pinned')) await addCol('listings', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
+    if (config.adminNational) {
+      await d.run('UPDATE users SET is_admin = 1 WHERE phone = ?', [config.adminNational]);
     }
-    return readyPromise;
+    isReady = true;
   }
 
   // Secret used to sign session cookies. Set SESSION_SECRET, or one is generated and kept in the database.

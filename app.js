@@ -796,7 +796,7 @@ route('POST', '/my/bulk', async (ctx) => {
 const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users', 'blocked', 'log'];
 const TABS_MOD = ['reported', 'all', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
-const ADMIN_PAGE = 40; // rows per admin screen (keeps the page quick on the free plan)
+const ADMIN_PAGE = 30; // rows per admin screen (keeps the page quick on the free plan)
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
 
 route('GET', '/admin', async (ctx) => {
