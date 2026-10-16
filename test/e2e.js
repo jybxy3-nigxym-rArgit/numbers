@@ -278,7 +278,7 @@ async function main() {
     r = await register(other, 'Neighbour', '0566000888');
     check('another browser on the same address is not blocked', r.status === 303, r.status);
     r = await admin.get('/admin?tab=users');
-    check('admin sees the saved address and device ban', r.text.includes('127.0.0.1') && r.text.includes('device blocked'));
+    check('admin sees the device ban note', r.text.includes('device blocked') && !/<small>\d+\.\d+\.\d+\.\d+<\/small>/.test(r.text));
     await admin.post('/admin/u/1/unban', { tab: 'users' });
     const evader2 = await newClient(base);
     evader2.jar.did = a.jar.did;

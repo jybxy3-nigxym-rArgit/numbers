@@ -517,7 +517,7 @@ route('POST', '/register', async (ctx) => {
     // Someone registered the same phone at the same moment.
     return html(ctx, 400, views.registerPage(ctx, v, { phone: 'err_phone_taken' }));
   }
-  await ctx.store.recordDevice(id, ctx.ip, ctx.device);
+  await ctx.store.recordDevice(id, ctx.device);
   logIn(ctx, id);
   rememberPhone(ctx, nat);
   flash(ctx, 'ok', 'welcome');
@@ -550,7 +550,7 @@ route('POST', '/login', async (ctx) => {
   if (!user || !ok) return html(ctx, 401, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_login' }));
   if (user.banned) return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
 
-  await ctx.store.recordDevice(user.id, ctx.ip, ctx.device);
+  await ctx.store.recordDevice(user.id, ctx.device);
   logIn(ctx, user.id);
   rememberPhone(ctx, nat);
   flash(ctx, 'ok', 'welcome_back');

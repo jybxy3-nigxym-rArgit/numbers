@@ -143,16 +143,10 @@ small {
   color: #fff;
 }
 .brand-mark {
-  display: inline-block;
-  font-family: "Tajawal", sans-serif;
-  font-size: 0.85rem;
-  font-weight: 900;
-  line-height: 1;
-  padding: 0.38rem 0.45rem;
-  border: 2px solid var(--gold);
-  border-radius: 8px;
-  color: var(--gold);
-  direction: ltr;
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
 }
 .nav {
   display: flex;

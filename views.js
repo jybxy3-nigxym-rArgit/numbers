@@ -130,7 +130,9 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&amp;family=Tajawal:wght@400;500;700;900&amp;display=swap">
@@ -141,7 +143,7 @@ ${jsonLd(ld)}
 <a class="skip" href="#main">${esc(t('skip'))}</a>
 <header class="top">
   <div class="wrap bar">
-    <a class="brand" href="/" aria-label="${esc(siteName)}"><span class="brand-mark" aria-hidden="true">05</span>${esc(siteName)}</a>
+    <a class="brand" href="/" aria-label="${esc(siteName)}"><img class="brand-mark" src="/brand.png" width="44" height="44" alt="">${esc(siteName)}</a>
     <nav class="nav" aria-label="Main">
       ${nav}
       <a href="/lang/${esc(t('lang_code'))}?next=${next}" hreflang="${esc(t('lang_code'))}" lang="${esc(t('lang_code'))}">${esc(t('lang_switch'))}</a>
@@ -365,7 +367,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
           '@type': 'Organization',
           name: t('site_name'),
           url: absNum(ctx, '/'),
-          logo: absNum(ctx, '/favicon.svg'),
+          logo: absNum(ctx, '/icon-512.png'),
         },
     crumbs && { '@context': 'https://schema.org', ...crumbs },
     rows.length
@@ -760,7 +762,7 @@ function adminPage(ctx, tab, data) {
           .map(
             (u) => `<tr>
           <td><form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}</td>
-          <td dir="ltr">0${esc(u.phone)}${u.last_ip ? `<br><small>${esc(u.last_ip)}</small>` : ''}</td>
+          <td dir="ltr">0${esc(u.phone)}</td>
           <td>${u.ads}</td>
           <td>${esc(String(u.created_at).slice(0, 10))}</td>
           <td>${

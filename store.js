@@ -148,19 +148,15 @@ function createStore(d) {
 
   const setUserName = (id, name) => d.run('UPDATE users SET name = ? WHERE id = ?', [name, id]);
 
-  // ---- Devices: the phone's browser id (kind 'dev') and the internet address (kind 'ip') ----
+  // ---- Devices: a random id kept in the person's browser (the internet address is not saved) ----
 
-  async function recordDevice(userId, ip, dev) {
-    const stmts = [];
-    for (const [kind, val] of [['ip', ip], ['dev', dev]]) {
-      if (!val) continue;
-      stmts.push({
-        sql: `INSERT INTO user_devices (user_id, kind, val) VALUES (?, ?, ?)
-              ON CONFLICT (user_id, kind, val) DO UPDATE SET last_seen = datetime('now')`,
-        params: [userId, kind, val],
-      });
-    }
-    if (stmts.length) await d.batch(stmts);
+  async function recordDevice(userId, dev) {
+    if (!dev) return;
+    await d.run(
+      `INSERT INTO user_devices (user_id, kind, val) VALUES (?, 'dev', ?)
+       ON CONFLICT (user_id, kind, val) DO UPDATE SET last_seen = datetime('now')`,
+      [userId, dev]
+    );
   }
 
   async function isDeviceBanned(dev) {
@@ -323,7 +319,6 @@ function createStore(d) {
   const adminUsers = () =>
     d.all(
       `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads,
-              (SELECT val FROM user_devices x WHERE x.user_id = u.id AND x.kind = 'ip' ORDER BY x.last_seen DESC LIMIT 1) AS last_ip,
               (SELECT COUNT(*) FROM banned_devices b WHERE b.user_id = u.id) AS banned_devices
        FROM users u ORDER BY u.created_at DESC, u.id DESC LIMIT 300`
     );
@@ -342,7 +337,7 @@ function createStore(d) {
     return { active: rs[0].rows[0].c, pending: rs[1].rows[0].c, users: rs[2].rows[0].c, reports: rs[3].rows[0].c };
   }
 
-  // Banning a user also bans every browser he used (the internet address is only saved for the admin to see, because many people can share one address); unbanning lifts it.
+  // Banning a user also bans every browser he used (the internet address is not used at all); unbanning lifts it.
   async function setUserBanned(id, banned) {
     const stmts = [{ sql: 'UPDATE users SET banned = ? WHERE id = ? AND is_admin = 0', params: [banned ? 1 : 0, id] }];
     if (banned) {
