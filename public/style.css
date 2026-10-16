@@ -1176,3 +1176,16 @@ main,
 .plate-big .adv.adv-xs {
   font-size: 0.8rem;
 }
+
+/* Saudi riyal sign next to prices */
+.sar {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-inline-start: 0.22em;
+  vertical-align: -0.08em;
+}
+.p-foot .sar {
+  width: 0.95em;
+  height: 0.95em;
+}

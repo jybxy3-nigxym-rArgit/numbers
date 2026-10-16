@@ -32,10 +32,14 @@ function csrfInput(ctx) {
   return `<input type="hidden" name="_csrf" value="${esc(ctx.csrf)}">`;
 }
 
+// Saudi riyal sign (Lucide "saudi-riyal" icon, ISC licence), drawn inline so it shows on every phone.
+const SAR_SIGN = (ctx) =>
+  `<svg class="sar" viewBox="0 0 24 24" role="img" aria-label="${esc(ctx.t('sar'))}" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m20 19.5-5.5 1.2"/><path d="M14.5 4v11.22a1 1 0 0 0 1.242.97L20 15.2"/><path d="m2.978 19.351 5.549-1.363A2 2 0 0 0 10 16V2"/><path d="M20 10 4 13.5"/></svg>`;
+
 function priceHtml(ctx, price, big = false) {
   const cls = big ? 'price price-lg' : 'price';
   if (price == null) return `<span class="${cls} ask">${esc(ctx.t('price_ask'))}</span>`;
-  return `<span class="${cls}"><bdi>${esc(formatPrice(price))}</bdi> <small>${esc(ctx.t('sar'))}</small></span>`;
+  return `<span class="${cls}"><bdi>${esc(formatPrice(price))}</bdi>${SAR_SIGN(ctx)}</span>`;
 }
 
 function statusBadge(ctx, status) {
