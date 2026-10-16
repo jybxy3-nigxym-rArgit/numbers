@@ -670,6 +670,7 @@ a.plate:hover {
 .digits {
   display: block;
   margin: 0;
+  letter-spacing: 0.04em;
   font-family: "Tajawal", var(--font);
   font-size: 1.6rem;
   font-weight: 900;
@@ -679,7 +680,7 @@ a.plate:hover {
 }
 .digits b {
   font-weight: inherit;
-  margin-inline-end: 0.45em;
+  margin-inline-end: 0;
 }
 .digits b:last-child {
   margin-inline-end: 0;
