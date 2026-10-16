@@ -2219,3 +2219,37 @@ a.adv:focus-visible {
   font-size: 0.92rem;
   color: rgba(255, 255, 255, 0.78);
 }
+
+/* Small share button on every plate. */
+.adv-row {
+  position: relative;
+  display: flow-root;
+}
+.share-mini {
+  position: absolute;
+  inset-inline-end: 14px;
+  top: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--plate);
+  color: var(--plate);
+}
+.share-mini:hover,
+.share-mini:focus-visible {
+  background: var(--plate);
+  color: #fff;
+}
+.share-mini .ico {
+  width: 17px;
+  height: 17px;
+}
+[data-theme="dark"] .share-mini {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink);
+}

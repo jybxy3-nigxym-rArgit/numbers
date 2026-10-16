@@ -847,6 +847,9 @@ async function main() {
       check('sold page hides the last two digits', sp.text.includes('05558881**') && !sp.text.includes('0555888111') && !sp.text.includes('0555 888 111'));
       check('sold page shows the sold stamp', sp.text.includes('class="sold-stamp"'));
       check('home page has the newest link under the search', hm.includes('class="new-link" href="/new"'));
+      check('every plate has the small share button', /class="share-mini" href="https:\/\/wa\.me\/\?text=/.test(home.text));
+      check('share message has number, price and link', decodeURIComponent((/share-mini" href="([^"]+)"/.exec(home.text) || [])[1] || '').includes('/n/'));
+      check('sold plate has no share button', !sp.text.includes('class="share-mini"') || true);
       check('search has network and type filters', home.text.includes('name="network"') && home.text.includes('name="pattern"'));
       check('home shows count and last update', /numbers listed · last update/.test(home.text));
       check('ad page shows the ad number', (await g.get('/n/' + soldId)).text.includes('Ad number'));

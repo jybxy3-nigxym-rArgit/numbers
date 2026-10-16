@@ -48,6 +48,7 @@ const ICON = {
   up: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>',
   help: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>',
   clock: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  share2: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M5 11v8a2 2 0 002 2h10a2 2 0 002-2v-8"/></svg>',
   share: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4M8.6 13.4l6.8 4"/></svg>',
 };
 
@@ -294,12 +295,30 @@ const plateBadges = (ctx, l) =>
 const cardClass = (l, extra = '') =>
   `plate-card${extra}${l.pinned && l.status === 'active' ? ' is-pinned' : ''}${l.featured && l.status === 'active' ? ' is-featured' : ''}${l.status === 'sold' ? ' is-sold' : ''}`;
 
+// The ready WhatsApp message for one number. The number and the price are wrapped so Arabic text does not flip them.
+function shareHref(ctx, l) {
+  const t = ctx.t;
+  const text = t('share_text', {
+    number: '\u200e' + formatNumberPlain(l.number) + '\u200e',
+    net: netName(ctx, l.network),
+    city: cityName(ctx, l.city),
+    price: l.price != null ? `\u200e${formatPrice(l.price)}\u200e ${t('sar')}` : t('price_ask'),
+    url: `${ctx.base}/n/${l.id}`,
+  });
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
 function plate(ctx, l) {
+  const { t } = ctx;
   return `
   <div class="${cardClass(l)}">
     ${plateBadges(ctx, l)}
     <div class="plate">${plateFace(ctx, l, 'span', { links: true, numHref: `/n/${l.id}` })}</div>
-    ${advTab(ctx, l)}
+    <div class="adv-row">${advTab(ctx, l)}${
+      l.status === 'active'
+        ? `<a class="share-mini" href="${esc(shareHref(ctx, l))}" target="_blank" rel="noopener nofollow" title="${esc(t('share_wa'))}" aria-label="${esc(t('share_wa'))}">${ICON.share2}</a>`
+        : ''
+    }</div>
     ${cardActions(ctx, l)}
   </div>`;
 }
@@ -544,15 +563,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
   }
 
   const reasonOptions = REPORT_REASONS.map((r) => ({ value: r, label: t('r_' + r) }));
-  const url0 = `${ctx.base}/n/${l.id}`;
-  const shareText = t('share_text', {
-    number: shownNumber(ctx, l),
-    net: netName(ctx, l.network),
-    city: cityName(ctx, l.city),
-    price: l.price != null ? `${formatPrice(l.price)} ${t('sar')}` : t('price_ask'),
-    url: url0,
-  });
-  const shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  const shareUrl = shareHref(ctx, l);
 
   const body = `
   <article class="listing">
