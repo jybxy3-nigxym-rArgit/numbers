@@ -32,6 +32,7 @@ function apply(env = {}) {
 
     reportHideAt: Number(env.REPORT_HIDE_AT) || 3,
     maxActiveAdsPerUser: Number(env.MAX_ADS_PER_USER) || 20,
+    maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
     pageSize: 24,
 
     // Password hashing cost. Higher is safer but uses more CPU (Cloudflare's free plan gives 10 ms per request).

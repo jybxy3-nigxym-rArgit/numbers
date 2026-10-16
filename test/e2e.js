@@ -294,6 +294,21 @@ async function main() {
     check('robots hides admin', r.text.includes('Disallow: /admin') && r.text.includes('Sitemap:'));
     r = await anon.get('/n/3');
     check('listing page has a title and description', /<title>0599 123 456/.test(r.text) && r.text.includes('name="description"'));
+
+    console.log('\nDaily limit');
+    // a3 already posted a few numbers today in earlier sections; keep posting until the daily limit says stop.
+    let okCount = 0;
+    let refused = null;
+    for (let k = 0; k < 12 && !refused; k++) {
+      const rr = await a3.post('/post', { ...AD, number: '055500' + String(1000 + k) });
+      if (rr.status === 303 && /^\/n\/\d+$/.test(rr.location)) okCount++;
+      else refused = rr;
+    }
+    check('daily limit stops the advertiser with a clear message', !!refused && refused.status === 400 && refused.text.includes('10 numbers per day'), refused && refused.status);
+    check('never more than 10 numbers accepted in a day', okCount <= 9, okCount);
+    r = await a3.post('/post', { ...AD, number: '0555001000' });
+    check('same number cannot be posted twice', r.status === 400);
+
   } finally {
     srv.stop();
   }

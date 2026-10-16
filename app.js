@@ -359,6 +359,11 @@ route('POST', '/post', async (ctx) => {
     }
   }
 
+  // At most N new numbers per advertiser in any 24 hours. Deleted ads still count, so delete-and-repost does not get around it.
+  if (!Object.keys(errors).length && !(await ctx.store.allow(`ads-day:${ctx.user.id}`, config.maxAdsPerDay, 24 * 3600 * 1000))) {
+    errors.number = { key: 'err_daily', vars: { n: config.maxAdsPerDay } };
+  }
+
   if (Object.keys(errors).length) return html(ctx, 400, views.postPage(ctx, v, errors));
 
   const status = config.requireApproval && !ctx.user.is_admin ? 'pending' : 'active';
