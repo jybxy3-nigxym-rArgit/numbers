@@ -414,6 +414,88 @@ async function main() {
     r = await (await newClient(base)).get('/login');
     check('new device sees an empty phone box', !r.text.includes('Last time you signed in'));
 
+    console.log('\nModerators');
+    const idOf = async (phone) => {
+      const rr = await admin.get('/admin?tab=users');
+      const m = new RegExp(`action="/admin/u/(\\d+)/name"(?:(?!<tr>)[\\s\\S])*?dir="ltr">${phone}`).exec(rr.text);
+      return m && m[1];
+    };
+    const sup = await newClient(base);
+    const sup2 = await newClient(base);
+    const mod = await newClient(base);
+    const vic = await newClient(base);
+    await register(sup, 'Sup', '0577000001');
+    await register(mod, 'Mod', '0577000002');
+    await register(vic, 'Vic', '0577000003');
+    await register(sup2, 'Sup2', '0577000004');
+    const [supId, modId, vicId, sup2Id, ownerId] = [
+      await idOf('0577000001'),
+      await idOf('0577000002'),
+      await idOf('0577000003'),
+      await idOf('0577000004'),
+      await idOf('0500000001'),
+    ];
+    check('plain member cannot open the admin panel', (await sup.get('/admin')).status === 404);
+    await admin.post(`/admin/u/${supId}/role`, { role: 'super' });
+    await admin.post(`/admin/u/${sup2Id}/role`, { role: 'super' });
+    await admin.post(`/admin/u/${modId}/role`, { role: 'mod' });
+    check('general moderator opens the admin panel', (await sup.get('/admin')).status === 200);
+    check('moderator opens the admin panel', (await mod.get('/admin')).status === 200);
+    check('only the owner gives roles', (await sup.post(`/admin/u/${modId}/role`, { role: 'user' })).status === 404 && (await mod.get('/admin')).status === 200);
+    check('moderator panel has no import and no stats', !(await mod.get('/admin')).text.includes('/admin/import'));
+
+    const ownerAd = (await admin.post('/post', { ...AD, number: '0500999888' })).location.split('/').pop();
+    const vicAd = (await vic.post('/post', { ...AD, number: '0577111222' })).location.split('/').pop();
+    const supAd = (await sup.post('/post', { ...AD, number: '0577222333' })).location.split('/').pop();
+    const pub = async (id) => (await anon.get(`/n/${id}`)).status;
+
+    r = await mod.post(`/admin/l/${vicAd}/hide`, { tab: 'all' });
+    check('moderator hides an ad', r.status === 303 && (await pub(vicAd)) === 404);
+    check('moderator cannot delete', (await mod.post(`/admin/l/${vicAd}/delete`)).status === 404 && (await admin.get(`/n/${vicAd}`)).status === 200);
+    check('moderator cannot pin or approve', (await mod.post(`/admin/l/${vicAd}/pin`)).status === 404 && (await mod.post(`/admin/l/${vicAd}/approve`)).status === 404);
+    check('moderator takes back his own hiding', (await mod.post(`/admin/l/${vicAd}/restore`, { tab: 'all' })).status === 303 && (await pub(vicAd)) === 200);
+    check('moderator cannot touch the owner or a general moderator ads',
+      (await mod.post(`/admin/l/${ownerAd}/hide`)).status === 404 && (await mod.post(`/admin/l/${supAd}/hide`)).status === 404 && (await pub(ownerAd)) === 200);
+
+    r = await mod.post(`/admin/u/${vicId}/suspend`, { tab: 'users' });
+    check('moderator suspends a member', r.status === 303 && (await pub(vicAd)) === 404);
+    check('suspended member is signed out', (await vic.get('/my')).status === 303);
+    r = await (await newClient(base)).post('/login', { phone: '0577000003', password: 'secret-pass-1' });
+    check('suspended member cannot sign in and sees why', r.status === 403 && r.text.includes('suspended'));
+    check('suspended ads leave the home page', !(await anon.get('/')).text.includes('/n/' + vicAd + '"'));
+    check('moderator cannot ban, reset or rename',
+      (await mod.post(`/admin/u/${vicId}/ban`)).status === 404 && (await mod.post(`/admin/u/${vicId}/reset`)).status === 404 && (await mod.post(`/admin/u/${vicId}/name`, { name: 'Zed Zed' })).status === 404);
+    check('moderator cannot suspend the owner or a general moderator',
+      (await mod.post(`/admin/u/${ownerId}/suspend`)).status === 404 && (await mod.post(`/admin/u/${supId}/suspend`)).status === 404);
+
+    await mod.post(`/admin/l/${vicAd}/hide`);
+    r = await sup.get('/admin?tab=review');
+    check('review tab lists hidden ads and suspended members', r.text.includes('0577 111 222') && r.text.includes('Vic') && r.text.includes('Suspended by Mod'));
+    check('general moderator lifts the suspension', (await sup.post(`/admin/u/${vicId}/unsuspend`, { tab: 'review' })).status === 303);
+    check('member can sign in again', (await (await newClient(base)).post('/login', { phone: '0577000003', password: 'secret-pass-1' })).status === 303);
+    check('general moderator restores the ad', (await sup.post(`/admin/l/${vicAd}/restore`)).status === 303 && (await pub(vicAd)) === 200);
+    check('general moderator pins an ad', (await sup.post(`/admin/l/${vicAd}/pin`, { next: '/' })).status === 303);
+    check('general moderator bans and unbans a member',
+      (await sup.post(`/admin/u/${vicId}/ban`)).status === 303 && (await sup.post(`/admin/u/${vicId}/unban`)).status === 303);
+    check('general moderator resets a password and renames a member',
+      (await sup.post(`/admin/u/${vicId}/reset`)).status === 200 && (await sup.post(`/admin/u/${vicId}/name`, { name: 'Vic Renamed' })).status === 303);
+    await sup.post(`/admin/u/${vicId}/name`, { name: 'Vic' });
+    check('general moderator opens the import page', (await sup.get('/admin/import')).status === 200);
+    check('general moderator cannot touch the owner at all',
+      (await sup.post(`/admin/l/${ownerAd}/hide`)).status === 404 &&
+      (await sup.post(`/admin/l/${ownerAd}/delete`)).status === 404 &&
+      (await sup.post(`/admin/u/${ownerId}/reset`)).status === 404 &&
+      (await sup.post(`/admin/u/${ownerId}/name`, { name: 'Boss Boss' })).status === 404 &&
+      (await sup.post(`/admin/u/${ownerId}/ban`)).status === 404 &&
+      (await pub(ownerAd)) === 200);
+    check('general moderators cannot act on each other', (await sup.post(`/admin/u/${sup2Id}/ban`)).status === 404 && (await sup.post(`/admin/u/${sup2Id}/reset`)).status === 404);
+
+    await sup.post(`/admin/u/${vicId}/suspend`, { tab: 'users' });
+    check('moderator cannot lift a suspension he did not make', (await mod.post(`/admin/u/${vicId}/unsuspend`)).status === 404);
+    await sup.post(`/admin/u/${vicId}/unsuspend`, { tab: 'users' });
+    await admin.post(`/admin/u/${modId}/role`, { role: 'user' });
+    check('owner takes the role away', (await mod.get('/admin')).status === 404);
+
     console.log('\nSEO files');
     const seoId = (await a3.post('/post', { ...AD, number: '0599123456' })).location.split('/').pop();
     r = await anon.get('/sitemap.xml');

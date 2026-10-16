@@ -142,7 +142,7 @@ async function buildContext(request, url, ip, store) {
   }
 
   let user = session.uid ? await store.getUser(session.uid) : undefined;
-  if (user && user.banned) user = undefined;
+  if (user && (user.banned || user.suspended)) user = undefined;
   if (session.uid && !user) {
     delete session.uid;
     dirty = true;
@@ -192,11 +192,13 @@ function requireLogin(ctx) {
   return false;
 }
 
-function requireAdmin(ctx) {
-  if (ctx.user && ctx.user.is_admin) return true;
+// minRank: 1 = any staff, 2 = general moderator or owner, 3 = owner only.
+function requireStaff(ctx, minRank = 1) {
+  if (util.rankOf(ctx.user) >= minRank) return true;
   notFound(ctx);
   return false;
 }
+const requireAdmin = (ctx) => requireStaff(ctx, 2);
 
 // Remember the phone in this browser only, so the login form can fill it in next time.
 function rememberPhone(ctx, nat) {
@@ -323,8 +325,8 @@ route('GET', '/n/:id', async (ctx) => {
   const id = Number(ctx.params.id);
   const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
   if (!l) return notFound(ctx);
-  const canManage = !!ctx.user && (ctx.user.id === l.user_id || !!ctx.user.is_admin);
-  const publicVisible = (l.status === 'active' || l.status === 'sold') && !l.seller_banned;
+  const canManage = !!ctx.user && (ctx.user.id === l.user_id || util.rankOf(ctx.user) >= 1);
+  const publicVisible = (l.status === 'active' || l.status === 'sold') && !l.seller_banned && !l.seller_suspended;
   if (!publicVisible && !canManage) return notFound(ctx);
 
   if (l.status === 'active' && !(ctx.user && ctx.user.id === l.user_id)) {
@@ -549,6 +551,7 @@ route('POST', '/login', async (ctx) => {
   const ok = await wc.verifyPassword(password, user ? user.pass_hash : dummyHash(), config.pbkdf2Iterations);
   if (!user || !ok) return html(ctx, 401, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_login' }));
   if (user.banned) return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
+  if (user.suspended) return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_suspended' }));
 
   await ctx.store.recordDevice(user.id, ctx.device);
   logIn(ctx, user.id);
@@ -620,39 +623,52 @@ route('POST', '/my/:id/delete', async (ctx) => {
 
 // ---- Admin ----
 
-const ADMIN_TABS = ['stats', 'pending', 'reported', 'all', 'users'];
+const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users'];
+const TABS_MOD = ['reported', 'all', 'users'];
+const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
 
 route('GET', '/admin', async (ctx) => {
-  if (!requireAdmin(ctx)) return;
-  const tab = ADMIN_TABS.includes(ctx.query.tab) ? ctx.query.tab : 'stats';
+  if (!requireStaff(ctx, 1)) return;
+  const tabs = adminTabs(ctx);
+  const tab = tabs.includes(ctx.query.tab) ? ctx.query.tab : tabs[0];
   const data = {};
   if (tab === 'stats') data.stats = await ctx.store.adminStats();
   else if (tab === 'users') data.users = await ctx.store.adminUsers();
-  else data.listings = await ctx.store.adminListings(tab);
+  else {
+    data.listings = await ctx.store.adminListings(tab);
+    if (tab === 'review') data.suspended = await ctx.store.suspendedUsers();
+  }
   html(ctx, 200, views.adminPage(ctx, tab, data));
 });
 
+const sellerOf = (l) => ({ id: l.user_id, is_admin: l.seller_is_admin, role: l.seller_role });
+
 route('POST', '/admin/l/:id/:action', async (ctx) => {
-  if (!requireAdmin(ctx)) return;
+  if (!requireStaff(ctx, 1)) return;
   const id = Number(ctx.params.id);
   const action = ctx.params.action;
-  if (!(await ctx.store.getListing(id))) return notFound(ctx);
-  if (action === 'pin') {
-    const cur = await ctx.store.getListing(id);
-    if (cur.status !== 'active') {
-      flash(ctx, 'error', 'err_pin_live');
-      return redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/admin?tab=all');
-    }
+  const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
+  if (!l) return notFound(ctx);
+  const rank = util.rankOf(ctx.user);
+  // Moderators may only hide an ad (and take back their own hiding). Nobody touches the ads of someone above them.
+  const modOk = action === 'hide' || (action === 'restore' && l.hidden_by === ctx.user.id);
+  if (rank < 2 && !modOk) return notFound(ctx);
+  if (!util.canActOn(ctx.user, sellerOf(l))) return notFound(ctx);
+
+  if ((action === 'pin') && l.status !== 'active') {
+    flash(ctx, 'error', 'err_pin_live');
+    return redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/admin?tab=all');
   }
   if (action === 'approve') await ctx.store.setListingStatus(id, 'active');
-  else if (action === 'hide') await ctx.store.setListingStatus(id, 'hidden');
+  else if (action === 'hide') await ctx.store.setListingStatus(id, 'hidden', rank === 1 ? ctx.user.id : 0);
   else if (action === 'restore') {
     await ctx.store.setListingStatus(id, 'active');
     await ctx.store.clearReports(id);
   } else if (action === 'delete') await ctx.store.deleteListing(id);
   else if (action === 'pin' || action === 'unpin') await ctx.store.setPinned(id, action === 'pin');
   else return notFound(ctx);
-  const tab = ADMIN_TABS.includes(ctx.body.tab) ? ctx.body.tab : 'pending';
+  const tabs = adminTabs(ctx);
+  const tab = tabs.includes(ctx.body.tab) ? ctx.body.tab : tabs[0];
   flash(ctx, 'ok', action === 'pin' ? 'pinned' : action === 'unpin' ? 'unpinned' : 'updated');
   redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : `/admin?tab=${tab}`);
 });
@@ -660,11 +676,11 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
 const cleanName = (raw) => str(raw, 80).replace(/\s+/g, ' ').trim();
 const nameOk = (n) => n.length >= 2 && n.length <= 60;
 
-// The admin can rename any user, including himself.
+// The owner and general moderators can rename members (not their equals or above); each can rename himself.
 route('POST', '/admin/u/:id/name', async (ctx) => {
-  if (!requireAdmin(ctx)) return;
+  if (!requireStaff(ctx, 2)) return;
   const user = await ctx.store.getUser(Number(ctx.params.id));
-  if (!user) return notFound(ctx);
+  if (!user || !util.canActOn(ctx.user, user)) return notFound(ctx);
   const name = cleanName(ctx.body.name);
   if (!nameOk(name)) flash(ctx, 'error', 'err_name');
   else {
@@ -690,25 +706,49 @@ route('POST', '/profile', async (ctx) => {
 
 // The admin gives a user a temporary password (shown once, nothing is stored in clear text).
 route('POST', '/admin/u/:id/reset', async (ctx) => {
-  if (!requireAdmin(ctx)) return;
+  if (!requireStaff(ctx, 2)) return;
   if (!(await ctx.store.allow(`reset:${ctx.user.id}`, 30, 3600 * 1000))) return tooMany(ctx);
   const user = await ctx.store.getUser(Number(ctx.params.id));
-  if (!user || user.is_admin) return notFound(ctx);
+  if (!user || util.rankOf(ctx.user) <= util.rankOf(user)) return notFound(ctx);
   const pass = wc.randomPassword(10);
   await ctx.store.setUserPassword(user.id, await wc.hashPassword(pass, config.pbkdf2Iterations));
   html(ctx, 200, views.adminResetPage(ctx, user, pass), { 'Cache-Control': 'no-store' });
 });
 
-route('POST', '/admin/u/:id/:action', async (ctx) => {
-  if (!requireAdmin(ctx)) return;
-  const id = Number(ctx.params.id);
-  const action = ctx.params.action;
-  if (!['ban', 'unban'].includes(action) || !(await ctx.store.getUser(id))) return notFound(ctx);
-  await ctx.store.setUserBanned(id, action === 'ban');
+// Only the owner gives or takes away moderator roles.
+route('POST', '/admin/u/:id/role', async (ctx) => {
+  if (!requireStaff(ctx, 3)) return;
+  const user = await ctx.store.getUser(Number(ctx.params.id));
+  const role = ['user', 'mod', 'super'].includes(ctx.body.role) ? ctx.body.role : null;
+  if (!user || user.is_admin || !role) return notFound(ctx);
+  await ctx.store.setUserRole(user.id, role);
   flash(ctx, 'ok', 'updated');
   redirect(ctx, '/admin?tab=users');
 });
 
+route('POST', '/admin/u/:id/:action', async (ctx) => {
+  if (!requireStaff(ctx, 1)) return;
+  const id = Number(ctx.params.id);
+  const action = ctx.params.action;
+  const user = Number.isInteger(id) ? await ctx.store.getUser(id) : undefined;
+  if (!user || id === ctx.user.id) return notFound(ctx);
+  const rank = util.rankOf(ctx.user);
+  const tab = ctx.body.tab === 'review' ? 'review' : 'users';
+  if (!util.canActOn(ctx.user, user)) return notFound(ctx);
+
+  if (action === 'suspend') {
+    await ctx.store.suspendUser(user.id, ctx.user.id);
+  } else if (action === 'unsuspend') {
+    // A moderator can only undo his own suspension; the rest is for the general moderators and the owner.
+    if (rank < 2 && user.suspended !== ctx.user.id) return notFound(ctx);
+    await ctx.store.unsuspendUser(user.id);
+  } else if (action === 'ban' || action === 'unban') {
+    if (rank < 2) return notFound(ctx);
+    await ctx.store.setUserBanned(user.id, action === 'ban');
+  } else return notFound(ctx);
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, `/admin?tab=${tab}`);
+});
 
 // ---- Admin: add many numbers at once ----
 

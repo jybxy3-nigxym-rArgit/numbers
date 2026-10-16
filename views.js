@@ -103,7 +103,7 @@ function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', ca
   const nav = user
     ? `
       <a href="/my">${esc(t('my_ads'))}</a>
-      ${user.is_admin ? `<a href="/admin">${esc(t('admin'))}</a>` : ''}
+      ${util.rankOf(user) >= 1 ? `<a href="/admin">${esc(t('admin'))}</a>` : ''}
       <form method="post" action="/logout" class="inline">${csrfInput(ctx)}<button type="submit" class="link-btn">${esc(t('logout'))}</button></form>`
     : `
       <a href="/login">${esc(t('login'))}</a>
@@ -171,7 +171,7 @@ function cardActions(ctx, l, { deleteNext } = {}) {
   if (!ctx.user) return '';
   const { t } = ctx;
   const isOwner = ctx.user.id === l.user_id;
-  const isAdmin = !!ctx.user.is_admin;
+  const isAdmin = util.rankOf(ctx.user) >= 2 && util.canActOn(ctx.user, { id: l.user_id, is_admin: l.seller_is_admin, role: l.seller_role });
   if (!isOwner && !isAdmin) return '';
   const next = `<input type="hidden" name="next" value="${esc(ctx.path)}">`;
   const delNext = `<input type="hidden" name="next" value="${esc(deleteNext || ctx.path)}">`;
@@ -734,16 +734,109 @@ function passwordPage(ctx, errors = {}) {
 
 function adminPage(ctx, tab, data) {
   const { t } = ctx;
-  const tabs = [
+  const me = ctx.user;
+  const rank = util.rankOf(me);
+  const senior = rank >= 2;
+  const allTabs = [
     ['stats', t('a_stats')],
     ['pending', t('a_pending')],
+    ['review', t('a_review')],
     ['reported', t('a_reported')],
     ['all', t('a_all')],
     ['users', t('a_users')],
   ];
+  const tabs = senior ? allTabs : allTabs.filter(([k]) => ['reported', 'all', 'users'].includes(k));
   const tabNav = `<nav class="tabs" aria-label="Admin">${tabs
     .map(([k, label]) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(label)}</a>`)
-    .join('')}<a href="/admin/import">${esc(t('a_import'))}</a></nav>`;
+    .join('')}${senior ? `<a href="/admin/import">${esc(t('a_import'))}</a>` : ''}</nav>`;
+
+  const roleBadge = (u) =>
+    u.is_admin
+      ? ` <span class="badge badge-pin">${esc(t('role_owner'))}</span>`
+      : u.role === 'super'
+        ? ` <span class="badge badge-pin">${esc(t('role_super'))}</span>`
+        : u.role === 'mod'
+          ? ` <span class="badge badge-pin">${esc(t('role_mod'))}</span>`
+          : '';
+
+  const userForm = (u, action, label, cls = 'btn-ghost', tabName = 'users') =>
+    `<form method="post" action="/admin/u/${u.id}/${action}">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tabName)}"><button class="btn ${cls} btn-small" type="submit">${esc(label)}</button></form>`;
+
+  const usersTable = (users, tabName) =>
+    users.length
+      ? `<div class="table-wrap"><table>
+        <thead><tr><th>${esc(t('a_col_name'))}</th><th>${esc(t('a_col_phone'))}</th><th>${esc(t('a_col_ads'))}</th><th>${esc(t('a_col_joined'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
+        <tbody>${users
+          .map((u) => {
+            const mine = u.id === me.id;
+            const mayAct = !mine && util.canActOn(me, u);
+            const nameCell =
+              senior && (mine || mayAct)
+                ? `<form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
+                : esc(u.name);
+            const acts = [];
+            if (mayAct) {
+              if (u.suspended) {
+                if (senior || u.suspended === me.id) acts.push(userForm(u, 'unsuspend', t('unsuspend'), 'btn-ghost', tabName));
+              } else acts.push(userForm(u, 'suspend', t('suspend'), 'btn-ghost', tabName));
+              if (senior) {
+                acts.push(userForm(u, u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban'), 'btn-ghost', tabName));
+                acts.push(
+                  `<form method="post" action="/admin/u/${u.id}/reset">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('a_reset_pass'))}</button></form>`
+                );
+              }
+            }
+            if (rank >= 3 && !u.is_admin) {
+              acts.push(
+                `<form method="post" action="/admin/u/${u.id}/role" class="name-edit">${csrfInput(ctx)}<select name="role" aria-label="${esc(t('a_role'))}">
+                  ${[['user', t('role_user')], ['mod', t('role_mod')], ['super', t('role_super')]]
+                    .map(([k, label]) => `<option value="${k}"${(u.role || 'user') === k ? ' selected' : ''}>${esc(label)}</option>`)
+                    .join('')}
+                </select><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
+              );
+            }
+            return `<tr>
+          <td>${nameCell}${roleBadge(u)}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}${u.suspended_by_name ? `<br><small>${esc(t('suspended_by', { name: u.suspended_by_name }))}</small>` : ''}</td>
+          <td dir="ltr">0${esc(u.phone)}</td>
+          <td>${u.ads ?? ''}</td>
+          <td>${esc(String(u.created_at).slice(0, 10))}</td>
+          <td><div class="actions">${acts.join('')}</div></td></tr>`;
+          })
+          .join('')}</tbody></table></div>`
+      : `<p>${esc(t('a_nothing'))}</p>`;
+
+  const listingsTable = (listings) => {
+    const act = (l, action, label, cls = 'btn-ghost') =>
+      `<form method="post" action="/admin/l/${l.id}/${action}">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}"><button class="btn ${cls} btn-small" type="submit">${esc(label)}</button></form>`;
+    return listings.length
+      ? `<div class="table-wrap"><table>
+        <thead><tr><th>${esc(t('a_col_number'))}</th><th>${esc(t('a_col_seller'))}</th><th>${esc(t('a_col_status'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
+        <tbody>${listings
+          .map((l) => {
+            const seller = { id: l.user_id, is_admin: l.seller_is_admin, role: l.seller_role };
+            const mayAct = util.canActOn(me, seller);
+            const acts = [];
+            if (mayAct) {
+              if (senior) {
+                if (l.status === 'pending') acts.push(act(l, 'approve', t('approve'), 'btn'));
+                if (l.status === 'hidden') acts.push(act(l, 'restore', t('restore'), 'btn'));
+                if (l.status === 'active') acts.push(act(l, l.pinned ? 'unpin' : 'pin', t(l.pinned ? 'unpin' : 'pin'), 'btn-gold'));
+                if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
+                acts.push(act(l, 'delete', t('delete'), 'btn-danger'));
+              } else {
+                if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
+                if (l.status === 'hidden' && l.hidden_by === me.id) acts.push(act(l, 'restore', t('restore'), 'btn'));
+              }
+            }
+            return `<tr>
+          <td><a href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><br><small>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}</small></td>
+          <td>${esc(l.seller)}<br><small dir="ltr">0${esc(l.seller_phone)}</small>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</td>
+          <td>${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.hidden_by ? `<br><small>${esc(t('hidden_by_mod'))}</small>` : ''}${l.report_count ? `<br><small>${esc(t('reports_n', { n: l.report_count }))}</small>` : ''}</td>
+          <td class="actions">${acts.join('')}</td></tr>`;
+          })
+          .join('')}</tbody></table></div>`
+      : `<p>${esc(t('a_nothing'))}</p>`;
+  };
 
   let content = '';
   if (tab === 'stats') {
@@ -755,47 +848,13 @@ function adminPage(ctx, tab, data) {
       <div><strong>${s.users}</strong><span>${esc(t('a_total_users'))}</span></div>
     </div>`;
   } else if (tab === 'users') {
-    content = data.users.length
-      ? `<div class="table-wrap"><table>
-        <thead><tr><th>${esc(t('a_col_name'))}</th><th>${esc(t('a_col_phone'))}</th><th>${esc(t('a_col_ads'))}</th><th>${esc(t('a_col_joined'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
-        <tbody>${data.users
-          .map(
-            (u) => `<tr>
-          <td><form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}</td>
-          <td dir="ltr">0${esc(u.phone)}</td>
-          <td>${u.ads}</td>
-          <td>${esc(String(u.created_at).slice(0, 10))}</td>
-          <td>${
-            u.is_admin
-              ? ''
-              : `<div class="actions"><form method="post" action="/admin/u/${u.id}/${u.banned ? 'unban' : 'ban'}">${csrfInput(ctx)}<input type="hidden" name="tab" value="users"><button class="btn btn-ghost btn-small" type="submit">${esc(t(u.banned ? 'unban' : 'ban'))}</button></form>
-              <form method="post" action="/admin/u/${u.id}/reset">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('a_reset_pass'))}</button></form></div>`
-          }</td></tr>`
-          )
-          .join('')}</tbody></table></div>`
-      : `<p>${esc(t('a_nothing'))}</p>`;
+    content = usersTable(data.users, 'users');
+  } else if (tab === 'review') {
+    content = `<p class="lede">${esc(t('a_review_intro'))}</p>
+      <h2>${esc(t('a_review_ads'))}</h2>${listingsTable(data.listings)}
+      <h2>${esc(t('a_review_users'))}</h2>${usersTable(data.suspended, 'review')}`;
   } else {
-    const act = (l, action, label, cls = 'btn-ghost') =>
-      `<form method="post" action="/admin/l/${l.id}/${action}">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}"><button class="btn ${cls} btn-small" type="submit">${esc(label)}</button></form>`;
-    content = data.listings.length
-      ? `<div class="table-wrap"><table>
-        <thead><tr><th>${esc(t('a_col_number'))}</th><th>${esc(t('a_col_seller'))}</th><th>${esc(t('a_col_status'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
-        <tbody>${data.listings
-          .map(
-            (l) => `<tr>
-          <td><a href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><br><small>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}</small></td>
-          <td>${esc(l.seller)}<br><small dir="ltr">0${esc(l.seller_phone)}</small>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}</td>
-          <td>${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.report_count ? `<br><small>${esc(t('reports_n', { n: l.report_count }))}</small>` : ''}</td>
-          <td class="actions">
-            ${l.status === 'pending' ? act(l, 'approve', t('approve'), 'btn') : ''}
-            ${l.status === 'hidden' ? act(l, 'restore', t('restore'), 'btn') : ''}
-            ${l.status === 'active' ? act(l, l.pinned ? 'unpin' : 'pin', t(l.pinned ? 'unpin' : 'pin'), 'btn-gold') : ''}
-            ${l.status === 'active' ? act(l, 'hide', t('hide')) : ''}
-            ${act(l, 'delete', t('delete'), 'btn-danger')}
-          </td></tr>`
-          )
-          .join('')}</tbody></table></div>`
-      : `<p>${esc(t('a_nothing'))}</p>`;
+    content = listingsTable(data.listings);
   }
 
   const body = `<section><h1>${esc(t('admin_title'))}</h1>${tabNav}${content}</section>`;

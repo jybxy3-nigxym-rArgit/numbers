@@ -68,8 +68,12 @@ const SCHEMA = [
 ];
 
 const LISTING_SELECT = `
-  SELECT l.*, u.name AS seller, u.banned AS seller_banned
+  SELECT l.*, u.name AS seller, u.banned AS seller_banned, u.suspended AS seller_suspended,
+         u.is_admin AS seller_is_admin, u.role AS seller_role
   FROM listings l JOIN users u ON u.id = l.user_id`;
+
+// Ads of banned or suspended members stay out of every public list.
+const VISIBLE_SELLER = 'l.user_id NOT IN (SELECT id FROM users WHERE banned = 1 OR suspended > 0)';
 
 const REPORT_COUNT_SQL = '(SELECT COUNT(*) FROM reports r WHERE r.listing_id = l.id)';
 
@@ -84,6 +88,16 @@ function createStore(d) {
         await d.batch(SCHEMA.map((sql) => ({ sql, params: [] })));
         // Columns added after the first release: add them to databases that already exist.
         const cols = (await d.all('PRAGMA table_info(listings)')).map((c) => c.name);
+        const ucols = (await d.all('PRAGMA table_info(users)')).map((c) => c.name);
+        if (!ucols.includes('role')) {
+          await d.run("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").catch(() => {});
+        }
+        if (!ucols.includes('suspended')) {
+          await d.run('ALTER TABLE users ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0').catch(() => {});
+        }
+        if (!cols.includes('hidden_by')) {
+          await d.run('ALTER TABLE listings ADD COLUMN hidden_by INTEGER NOT NULL DEFAULT 0').catch(() => {});
+        }
         if (!cols.includes('pinned')) {
           await d.run('ALTER TABLE listings ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0').catch(() => {});
         }
@@ -146,6 +160,15 @@ function createStore(d) {
     await d.run('UPDATE users SET pass_hash = ? WHERE id = ?', [passHash, id]);
   }
 
+  const setUserRole = (id, role) => d.run('UPDATE users SET role = ? WHERE id = ? AND is_admin = 0', [role, id]);
+  // Suspension is temporary and reversible: the member cannot sign in and his ads leave the public pages, nothing is deleted.
+  const suspendUser = (id, by) => d.run('UPDATE users SET suspended = ? WHERE id = ? AND is_admin = 0', [by, id]);
+  const unsuspendUser = (id) => d.run('UPDATE users SET suspended = 0 WHERE id = ?', [id]);
+  const suspendedUsers = () =>
+    d.all(
+      `SELECT u.*, s.name AS suspended_by_name FROM users u LEFT JOIN users s ON s.id = u.suspended
+       WHERE u.suspended > 0 AND u.banned = 0 ORDER BY u.id DESC LIMIT 300`
+    );
   const setUserName = (id, name) => d.run('UPDATE users SET name = ? WHERE id = ?', [name, id]);
 
   // ---- Devices: a random id kept in the person's browser (the internet address is not saved) ----
@@ -171,7 +194,7 @@ function createStore(d) {
   const getListing = (id) => d.first(`${LISTING_SELECT} WHERE l.id = ?`, [id]);
 
   async function searchListings(f) {
-    const where = ["l.status = 'active'"];
+    const where = ["l.status = 'active'", VISIBLE_SELLER];
     const params = [];
     if (f.network) {
       where.push('l.network = ?');
@@ -259,8 +282,10 @@ function createStore(d) {
   const userListings = (userId) =>
     d.all(`${LISTING_SELECT} WHERE l.user_id = ? ORDER BY l.created_at DESC, l.id DESC`, [userId]);
 
-  async function setListingStatus(id, status) {
-    return (await d.run('UPDATE listings SET status = ? WHERE id = ?', [status, id])).changes;
+  // `by` is the moderator who hid the ad (0 when anyone else did), so the senior staff can review it.
+  async function setListingStatus(id, status, by = 0) {
+    return (await d.run('UPDATE listings SET status = ?, hidden_by = ? WHERE id = ?', [status, status === 'hidden' ? by : 0, id]))
+      .changes;
   }
   async function setOwnListingStatus(id, userId, status) {
     return (
@@ -307,9 +332,10 @@ function createStore(d) {
     let where = '1=1';
     if (tab === 'pending') where = "l.status = 'pending'";
     else if (tab === 'reported') where = `(l.status = 'hidden' OR ${REPORT_COUNT_SQL} > 0)`;
+    else if (tab === 'review') where = "(l.status = 'hidden' AND l.hidden_by > 0)";
     return d.all(
-      `SELECT l.*, u.name AS seller, u.phone AS seller_phone, u.banned AS seller_banned,
-              ${REPORT_COUNT_SQL} AS report_count
+      `SELECT l.*, u.name AS seller, u.phone AS seller_phone, u.banned AS seller_banned, u.suspended AS seller_suspended,
+              u.is_admin AS seller_is_admin, u.role AS seller_role, ${REPORT_COUNT_SQL} AS report_count
        FROM listings l JOIN users u ON u.id = l.user_id
        WHERE ${where}
        ORDER BY l.created_at DESC, l.id DESC LIMIT 300`
@@ -358,13 +384,13 @@ function createStore(d) {
   }
 
   const sitemapListings = () =>
-    d.all("SELECT id, created_at FROM listings WHERE status = 'active' ORDER BY id DESC LIMIT 5000");
+    d.all(`SELECT id, created_at FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} ORDER BY id DESC LIMIT 5000`);
 
   // How many live ads each network and city has (for landing pages, links and the sitemap).
   async function landingCounts() {
     const rs = await d.batch([
-      { sql: "SELECT network AS k, COUNT(*) AS c FROM listings WHERE status = 'active' GROUP BY network", params: [] },
-      { sql: "SELECT city AS k, COUNT(*) AS c FROM listings WHERE status = 'active' GROUP BY city", params: [] },
+      { sql: `SELECT network AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY network`, params: [] },
+      { sql: `SELECT city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY city`, params: [] },
     ]);
     const toMap = (rows) => Object.fromEntries(rows.map((r) => [r.k, r.c]));
     return { network: toMap(rs[0].rows), city: toMap(rs[1].rows) };
@@ -410,6 +436,10 @@ function createStore(d) {
     createUser,
     setUserPassword,
     setUserName,
+    setUserRole,
+    suspendUser,
+    unsuspendUser,
+    suspendedUsers,
     getListing,
     searchListings,
     countActiveByUser,

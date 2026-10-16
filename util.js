@@ -127,7 +127,14 @@ function formatPrice(price) {
   return new Intl.NumberFormat('en-US').format(price);
 }
 
+// Staff levels: 3 = site owner (the admin phone), 2 = general moderator (مشرف عام), 1 = moderator (مشرف), 0 = everyone else.
+const rankOf = (u) => (!u ? 0 : u.is_admin ? 3 : u.role === 'super' ? 2 : u.role === 'mod' ? 1 : 0);
+// A staff member can act on himself or on someone of a lower level, never on his equals or above.
+const canActOn = (actor, target) => !!actor && !!target && (actor.id === target.id || rankOf(actor) > rankOf(target));
+
 module.exports = {
+  rankOf,
+  canActOn,
   esc,
   toWestern,
   digitsOnly,
