@@ -784,9 +784,9 @@ function myPage(ctx, rows) {
     const left = config.renewDays * DAY - (Date.now() - util.parseDbDate(l.renewed_at || l.created_at).getTime());
     if (left > 0) {
       const d = Math.ceil(left / DAY);
-      return `<span class="renew-wait">${esc(t('renew_wait', { n: d }))}</span>`;
+      return `<span class="renew-wait act-renew">${esc(t('renew_wait', { n: d }))}</span>`;
     }
-    return `<form method="post" action="/my/${l.id}/renew">${csrfInput(ctx)}<button class="btn btn-gold btn-small" type="submit">${esc(t('renew'))}</button></form>`;
+    return `<form class="act-renew" method="post" action="/my/${l.id}/renew">${csrfInput(ctx)}<button class="btn btn-gold btn-small" type="submit">${esc(t('renew'))}</button></form>`;
   };
   const autoInfo = (l) => {
     if (!ctx.user.verified || l.status !== 'active') return '';
@@ -802,8 +802,8 @@ function myPage(ctx, rows) {
         <a class="my-number" href="/n/${l.id}"><span class="digits" dir="ltr">${plateDigits(l.number)}</span></a>
         <div class="my-info">
           ${statusBadge(ctx, l.status)}
-          <span>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))}</span>
-          ${priceHtml(ctx, l.price)}
+          <span class="my-net">${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))}</span>
+          <span class="my-price">${priceHtml(ctx, l.price)}</span>
           <span class="views-inline" title="${esc(t('views'))}">${ICON.eye}<bdi>${esc(l.views || 0)}</bdi></span>
           ${autoInfo(l)}
         </div>
@@ -813,10 +813,10 @@ function myPage(ctx, rows) {
               ? `<span class="sold-tag">${esc(t('sold_stamp'))}</span>`
               : `${renewBtn(l)}${
                   l.status === 'active'
-                    ? `<form method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
+                    ? `<form class="act-sold" method="post" action="/my/${l.id}/sold">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('mark_sold'))}</button></form>`
                     : ''
                 }
-          <form method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>`
+          <form class="act-del" method="post" action="/my/${l.id}/delete">${csrfInput(ctx)}<button class="btn btn-danger btn-small" type="submit">${esc(t('delete'))}</button></form>`
           }
         </div>
       </li>`

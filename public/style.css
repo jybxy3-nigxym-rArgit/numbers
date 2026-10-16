@@ -2117,3 +2117,80 @@ a.adv:focus-visible {
   width: 1.2em;
   height: 1.2em;
 }
+
+/* ---- My ads: every row has the same size and the same columns ---- */
+.my-item {
+  gap: 0.8rem;
+  padding: 0.95rem 1.1rem;
+}
+.my-number {
+  display: block;
+}
+.my-info {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.45rem 0.9rem;
+  align-items: center;
+}
+.my-info .badge {
+  justify-self: start;
+  white-space: nowrap;
+}
+.my-net {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.my-price {
+  justify-self: end;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.my-info .views-inline {
+  justify-self: end;
+  min-width: 2.6rem;
+}
+.my-info .auto-on,
+.my-info form {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.my-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+}
+.my-actions .btn,
+.my-actions form {
+  width: 100%;
+}
+.my-actions .btn {
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+.my-actions .act-renew {
+  grid-column: 1;
+  text-align: center;
+}
+.my-actions .act-sold {
+  grid-column: 2;
+}
+.my-actions .act-del {
+  grid-column: 3;
+}
+.my-actions .sold-tag {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+@media (min-width: 760px) {
+  .my-item {
+    grid-template-columns: 13rem minmax(0, 1fr) 21rem;
+    gap: 1.2rem;
+  }
+  .my-info {
+    grid-template-columns: 6.5rem minmax(0, 1fr) 7rem 3.6rem;
+  }
+}
