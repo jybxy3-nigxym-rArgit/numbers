@@ -251,7 +251,7 @@ const dict = {
 
     listing_title_word: 'Number {n} for sale',
     listing_desc: 'Premium number {n} on {net} for sale in {city}. Price: {price}. Advertiser: {seller}. Contact the owner on WhatsApp.',
-    footer_note: 'Free classifieds for premium numbers. Not affiliated with any mobile operator.',
+    footer_note: 'The site is not responsible for buying and selling. Not affiliated with any mobile operator.',
   },
 
   ar: {
@@ -493,7 +493,7 @@ const dict = {
 
     listing_title_word: 'رقم {n} للبيع',
     listing_desc: 'رقم مميز {n} شبكة {net} للبيع في {city}. السعر: {price}. المعلن: {seller}. تواصل مع صاحب الرقم عبر واتساب.',
-    footer_note: 'إعلانات مجانية للأرقام المميزة. الموقع غير تابع لأي شركة اتصالات.',
+    footer_note: 'الموقع غير مسؤول عن البيع والشراء. والموقع غير تابع لأي شركة اتصالات.',
   },
 };
 

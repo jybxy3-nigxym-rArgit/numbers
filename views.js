@@ -157,7 +157,6 @@ ${body}
 <footer class="foot">
   <div class="wrap foot-bar">
     <p>${esc(t('footer_note'))}</p>
-    <p><a href="/safety">${esc(t('safety_page_title'))}</a></p>
   </div>
 </footer>
 </body>
@@ -432,11 +431,6 @@ function listingPage(ctx, l, { canManage }) {
       ${l.description ? `<div class="desc"><h2>${esc(t('details'))}</h2><p>${esc(l.description).replace(/\n/g, '<br>')}</p></div>` : ''}
     </div>
 
-    <aside class="safety">
-      <h2>${esc(t('safety_title'))}</h2>
-      <p>${esc(t('safety_body'))}</p>
-      <p><a href="/safety">${esc(t('safety_link'))}</a></p>
-    </aside>
 
     ${
       isLive
@@ -526,10 +520,6 @@ function postPage(ctx, v = {}, errors = {}) {
       </div>
       <button class="btn" type="submit">${esc(t('publish'))}</button>
     </form>
-    <aside class="safety">
-      <h2>${esc(t('safety_title'))}</h2>
-      <p>${esc(t('safety_body'))}</p>
-    </aside>
   </section>`;
   return layout(ctx, { title: t('post_title'), body, noindex: true });
 }
@@ -778,20 +768,6 @@ function adminPage(ctx, tab, data) {
 
 // ---- Static pages ----------------------------------------------------------
 
-function safetyPage(ctx) {
-  const { t } = ctx;
-  const body = `
-  <section class="narrow prose">
-    <h1>${esc(t('safety_page_title'))}</h1>
-    <p class="lede">${esc(t('safety_page_intro'))}</p>
-    <ul class="tips">
-      ${[1, 2, 3, 4, 5].map((i) => `<li>${esc(t('tip_' + i))}</li>`).join('')}
-    </ul>
-    <p><a class="btn" href="/">${esc(t('go_home'))}</a></p>
-  </section>`;
-  return layout(ctx, { title: t('safety_page_title'), body, canonical: ctx.base + '/safety' });
-}
-
 function errorPage(ctx, status) {
   const { t } = ctx;
   const kind = status === 404 ? 'nf' : status === 429 ? 'rate' : 'srv';
@@ -818,6 +794,5 @@ module.exports = {
   loginPage,
   myPage,
   adminPage,
-  safetyPage,
   errorPage,
 };

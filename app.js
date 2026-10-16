@@ -726,7 +726,6 @@ route('POST', '/admin/import', async (ctx) => {
 
 // ---- Static pages and SEO files ----
 
-route('GET', '/safety', (ctx) => html(ctx, 200, views.safetyPage(ctx)));
 
 route('GET', '/robots.txt', (ctx) => {
   send(
@@ -739,7 +738,7 @@ route('GET', '/robots.txt', (ctx) => {
 });
 
 route('GET', '/sitemap.xml', async (ctx) => {
-  const urls = [{ loc: `${ctx.base}/` }, { loc: `${ctx.base}/safety` }];
+  const urls = [{ loc: `${ctx.base}/` }];
   const counts = await ctx.store.landingCounts();
   for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });
   for (const k of Object.keys(CITY_BY_KEY)) if (counts.city[k]) urls.push({ loc: `${ctx.base}/city/${k}` });
