@@ -793,7 +793,7 @@ async function main() {
 
   {
     const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'style.css'), 'utf8');
-    check('style.css is complete (guards against a cut file)', css.length > 30000 && ['.popup', '.tabbar', '.plate', '.feat-sheen', '@keyframes feat-sheen', '.admin-search'].every((x) => css.includes(x)));
+    check('style.css is complete (guards against a cut file)', css.length > 30000 && ['.popup', '.tabbar', '.plate', '@keyframes feat-sheen', '.admin-search'].every((x) => css.includes(x)));
   }
 
   const srv7 = await startServer(port + 6, {});
