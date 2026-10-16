@@ -64,6 +64,11 @@ async function hmac(secret, value) {
   return toB64u(new Uint8Array(sig));
 }
 
+async function hmacHex(secret, value) {
+  const sig = await subtle.sign('HMAC', await hmacKey(secret), enc.encode(value));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function sha256Hex(text) {
   const d = new Uint8Array(await subtle.digest('SHA-256', enc.encode(text)));
   return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -101,6 +106,7 @@ module.exports = {
   randomPassword,
   safeEqual,
   hmac,
+  hmacHex,
   sha256Hex,
   hashPassword,
   verifyPassword,

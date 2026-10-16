@@ -37,6 +37,7 @@ function apply(env = {}) {
     maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
     pageSize: 24,
     renewDays: env.RENEW_DAYS !== undefined && env.RENEW_DAYS !== '' ? Number(env.RENEW_DAYS) : 3, // an ad can be moved back to the top once in this many days
+    sallaSecret: env.SALLA_WEBHOOK_SECRET || '', // shared secret of the Salla store webhook (empty = link off)
     staleDays: env.STALE_DAYS !== undefined && env.STALE_DAYS !== '' ? Number(env.STALE_DAYS) : 365, // an ad nobody refreshed for this long is removed
     autoRenewDays: env.AUTO_RENEW_DAYS !== undefined && env.AUTO_RENEW_DAYS !== '' ? Number(env.AUTO_RENEW_DAYS) : 3, // verified advertisers: refreshed this often by itself
     autoMonthDays: 30, // ... for this many days, then it can be switched on again

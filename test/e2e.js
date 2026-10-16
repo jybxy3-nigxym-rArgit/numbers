@@ -807,6 +807,43 @@ async function main() {
     srv7.stop();
   }
 
+
+  // ---- Link with the Salla store ----
+  const srv8 = await startServer(port + 7, { SALLA_WEBHOOK_SECRET: 'store-secret-1' });
+  try {
+    const hook = (body, headers = {}) =>
+      fetch(srv8.base + '/webhook/salla', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+    const prod = (over = {}) => ({
+      event: 'product.updated',
+      data: { id: 1, name: '0505355300 | رقم سوا مرتب وسهل الحفظ', price: { amount: 1200, currency: 'SAR' }, quantity: 1, status: 'sale', is_available: true,
+        url: 'https://souq3rb.com/رقم-مميز-سوا-مرتب-سهل-الحفظ-0505355300-القصيم/p1', ...over },
+    });
+    const ad = await newClient(srv8.base);
+    const reader = await newClient(srv8.base);
+    check('webhook without secret is refused', (await hook(prod())).status === 401);
+    check('webhook with a wrong secret is refused', (await hook(prod(), { authorization: 'Bearer nope' })).status === 401);
+    const adm = await newClient(srv8.base);
+    await register(adm, 'Owner', '0500000001');
+    check('a new store number is added', (await hook(prod(), { authorization: 'Bearer store-secret-1' })).status === 200);
+    const page1 = (await reader.get('/')).text;
+    check('the store number shows on the site', page1.includes('0505355300') || page1.includes('0505 355 300'));
+    const sig = await require('crypto').createHmac('sha256', 'store-secret-1').update(JSON.stringify(prod({ price: { amount: 900 } }))).digest('hex');
+    check('signature header is accepted', (await hook(prod({ price: { amount: 900 } }), { 'x-salla-signature': sig })).status === 200);
+    check('price change reaches the site', (await reader.get('/')).text.includes('900'));
+    await hook(prod({ quantity: 0 }), { authorization: 'Bearer store-secret-1' });
+    const gone = (await reader.get('/')).text;
+    check('quantity 0 hides the number', !gone.includes('0505355300') && !gone.includes('0505 355 300'));
+    await hook(prod({ quantity: 1 }), { authorization: 'Bearer store-secret-1' });
+    const back = (await reader.get('/')).text;
+    check('quantity back shows it again', back.includes('0505355300') || back.includes('0505 355 300'));
+    await hook({ ...prod(), event: 'product.deleted' }, { authorization: 'Bearer store-secret-1' });
+    check('deleted product is hidden', !(await reader.get('/')).text.includes('0505 355 300'));
+    check('hidden store numbers do not clutter the reported tab', !(await adm.get('/admin?tab=reported')).text.includes('0505355300'));
+    void ad;
+  } finally {
+    srv8.stop();
+  }
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
   process.exit(failures ? 1 : 0);
 }

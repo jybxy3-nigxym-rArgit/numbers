@@ -78,3 +78,10 @@ The site can message the owner on WhatsApp for free through CallMeBot (https://w
 Without `CALLMEBOT_KEY` nothing is sent. CallMeBot is a third-party free service and can change or stop.
 
 Other optional settings: `RENEW_DAYS` (default 3), `REPOST_PENALTY_DAYS` (default 5), `POST_PER_HOUR` (default 30).
+
+## Link with the Salla store (souq3rb.com)
+
+Every number added to the store appears here; quantity 0 (or hidden/deleted) hides it here.
+1. Cloudflare: Workers -> numbers -> Settings -> Variables and Secrets -> add secret `SALLA_WEBHOOK_SECRET` (any long random text).
+2. Salla dashboard: Webhooks -> add `https://basmatameel.com/webhook/salla`, events `product.*` (created, updated, deleted, quantity), security strategy "Token" with the same secret (or "Signature").
+3. The numbers already in the store are added once from Admin -> add many numbers; after that the link keeps them in sync.

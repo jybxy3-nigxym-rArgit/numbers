@@ -413,6 +413,40 @@ function createStore(d) {
     return r.changes;
   }
 
+  // The Salla store (souq3rb.com) link: one product -> the matching ad of the admin account.
+  // Available -> listed (or listed again); sold out, hidden or deleted -> hidden.
+  async function applyStoreProduct(item) {
+    const admin = await d.first('SELECT id, phone FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
+    if (!admin) return 'no_admin';
+    const ex = await d.first("SELECT id, status, hidden_by, price FROM listings WHERE number = ? AND user_id = ? ORDER BY id DESC LIMIT 1", [item.number, admin.id]);
+    dropCounts();
+    if (!item.available) {
+      if (ex && (ex.status === 'active' || ex.status === 'pending')) {
+        await d.run("UPDATE listings SET status = 'hidden', hidden_by = -1, pinned = 0 WHERE id = ?", [ex.id]);
+        return 'hidden';
+      }
+      return 'none';
+    }
+    if (ex) {
+      if (ex.status === 'hidden' && ex.hidden_by === -1) {
+        await d.run("UPDATE listings SET status = 'active', price = ?, created_at = datetime('now') WHERE id = ?", [item.price, ex.id]);
+        return 'shown';
+      }
+      if (ex.status === 'active' && item.price && item.price !== ex.price) {
+        await d.run('UPDATE listings SET price = ? WHERE id = ?', [item.price, ex.id]);
+        return 'updated';
+      }
+      return 'none';
+    }
+    if (await d.first("SELECT 1 AS x FROM listings WHERE number = ? AND status IN ('active','pending') LIMIT 1", [item.number])) return 'taken';
+    await d.run(
+      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats)
+       VALUES (?, ?, ?, ?, ?, ?, '', 'active', ?)`,
+      [admin.id, item.number, item.network, item.city, item.price, '966' + admin.phone, patternTags(item.number)]
+    );
+    return 'added';
+  }
+
   // An ad nobody refreshed for a whole year is removed (sold ads stay as records).
   async function purgeStale() {
     const r = await d.run(
@@ -455,7 +489,7 @@ function createStore(d) {
     const where = ['1=1'];
     const params = [];
     if (tab === 'pending') where.push("l.status = 'pending'");
-    else if (tab === 'reported') where.push(`(l.status = 'hidden' OR ${REPORT_COUNT_SQL} > 0)`);
+    else if (tab === 'reported') where.push(`((l.status = 'hidden' AND l.hidden_by >= 0) OR ${REPORT_COUNT_SQL} > 0)`);
     else if (tab === 'review') where.push("(l.status = 'hidden' AND l.hidden_by > 0)");
     const digits = String(q).replace(/\D/g, '');
     if (digits.length >= 2 && digits.length === String(q).trim().replace(/[\s-]/g, '').length) {
@@ -684,6 +718,7 @@ function createStore(d) {
     countActiveByUser,
     numberIsListed,
     insertListing,
+    applyStoreProduct,
     updateListing,
     userListings,
     setListingStatus,

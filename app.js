@@ -1156,7 +1156,7 @@ route('GET', '/robots.txt', (ctx) => {
     ctx,
     200,
     'text/plain; charset=utf-8',
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\nDisallow: /theme/\nDisallow: /ack\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\nDisallow: /theme/\nDisallow: /ack\nDisallow: /webhook/\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
     { 'Cache-Control': 'public, max-age=3600' }
   );
 });
@@ -1209,6 +1209,16 @@ async function handle(request, { store, ip, waitUntil }) {
   const url = new URL(request.url);
   const method = request.method;
   const wanted = method === 'HEAD' ? 'GET' : method;
+
+  if (method === 'POST' && url.pathname === '/webhook/salla') {
+    try {
+      await store.ready();
+      return await require('./salla').handleWebhook(request, store, config.sallaSecret);
+    } catch (err) {
+      console.error(err);
+      return new Response('error', { status: 500 });
+    }
+  }
 
   try {
     const ctx = await buildContext(request, url, ip, store, waitUntil);
