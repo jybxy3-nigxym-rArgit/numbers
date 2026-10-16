@@ -791,6 +791,11 @@ async function main() {
     srv6.stop();
   }
 
+  {
+    const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'style.css'), 'utf8');
+    check('style.css is complete (guards against a cut file)', css.length > 30000 && ['.popup', '.tabbar', '.plate', '.feat-sheen', '@keyframes feat-sheen', '.admin-search'].every((x) => css.includes(x)));
+  }
+
   const srv7 = await startServer(port + 6, {});
   try {
     const g = await newClient(srv7.base);
