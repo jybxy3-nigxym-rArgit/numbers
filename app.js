@@ -365,6 +365,14 @@ route('GET', '/city/:key', async (ctx) => {
   const f = { ...parseFilters(ctx.query), city: ctx.params.key, network: '', q: '', qRaw: '', maxRaw: '', max: null };
   await renderHome(ctx, f, { type: 'city', key: ctx.params.key });
 });
+// A member's public page: every live ad of one advertiser. Not indexed by Google.
+route('GET', '/u/:id', async (ctx) => {
+  const id = /^\d{1,9}$/.test(ctx.params.id) ? Number(ctx.params.id) : 0;
+  const u = id ? await ctx.store.getUser(id) : null;
+  if (!u || u.banned || u.suspended > 0) return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), userId: id, network: '', city: '', q: '', qRaw: '', maxRaw: '', max: null };
+  await renderHome(ctx, f, { type: 'seller', key: String(id), name: u.name });
+});
 route('GET', '/price/:key', async (ctx) => {
   const price = /^\d{1,8}$/.test(ctx.params.key) ? Number(ctx.params.key) : null;
   if (price === null) return notFound(ctx);

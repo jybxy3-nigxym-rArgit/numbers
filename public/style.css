@@ -1805,3 +1805,14 @@ div.actions{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
 @media (prefers-reduced-motion: reduce) {
   .popup { animation: none; }
 }
+
+/* Advertiser name is a link to the member's page. */
+a.adv,
+a.adv:visited {
+  color: #fff;
+  text-decoration: none;
+}
+a.adv:hover,
+a.adv:focus-visible {
+  text-decoration: underline;
+}

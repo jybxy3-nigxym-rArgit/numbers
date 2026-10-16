@@ -818,6 +818,12 @@ async function main() {
       const sm = await g.get('/sitemap.xml');
       check('sitemap has the combination page', sm.text.includes('/network/stc/riyadh') && !sm.text.includes('/network/stc/jeddah'));
       check('contact page links the store', (await g.get('/contact')).text.includes('souq3rb.com'));
+      const home = await g.get('/');
+      const m = home.text.match(/class="adv[^"]*" href="(\/u\/\d+)"/);
+      check('advertiser name links to the member page', !!m);
+      const up = m ? await g.get(m[1]) : { status: 0, text: '' };
+      check('member page lists his ads, noindex', up.status === 200 && up.text.includes('0555 888 111') && up.text.includes('0555 888 222') && up.text.includes('noindex') && up.text.includes('Ads by Combo'));
+      check('unknown member is 404', (await g.get('/u/99999')).status === 404 && (await g.get('/u/abc')).status === 404);
     } finally {
       srvC.stop();
     }

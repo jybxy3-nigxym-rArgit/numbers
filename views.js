@@ -277,7 +277,7 @@ const advSize = (name) => {
 };
 const advTab = (ctx, l) =>
   l.seller
-    ? `<span class="adv${advSize(l.seller)}" title="${esc(l.seller)}">${esc(l.seller)}${l.seller_verified ? verifiedMark(ctx) : ''}</span>`
+    ? `<a class="adv${advSize(l.seller)}" href="/u/${esc(l.user_id)}" title="${esc(l.seller)}">${esc(l.seller)}${l.seller_verified ? verifiedMark(ctx) : ''}</a>`
     : '';
 
 const plateBadges = (ctx, l) =>
@@ -318,6 +318,11 @@ function landingInfo(ctx, landing) {
     const p = `${formatPrice(Number(key))} ${t('sar')}`;
     const title = t('under_title', { name: p });
     return { path: `/under/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc: t('under_desc', { name: p }), lede: t('under_desc', { name: p }), name: p };
+  }
+  if (landing.type === 'seller') {
+    const title = t('seller_title', { name: landing.name });
+    const desc = t('seller_desc', { name: landing.name });
+    return { path: `/u/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc, lede: desc, name: landing.name };
   }
   if (landing.type === 'netcity') {
     const [nk, ck] = key.split('/');
@@ -498,7 +503,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
     hero,
     body,
     canonical: anyFilter ? selfUrl : canonical,
-    robots: anyFilter || thin || (landing && landing.type === 'price') ? 'noindex, follow' : '',
+    robots: anyFilter || thin || (landing && (landing.type === 'price' || landing.type === 'seller')) ? 'noindex, follow' : '',
     ld,
     promo: true,
   });
@@ -552,7 +557,7 @@ function listingPage(ctx, l, { canManage }) {
         <div><dt>${esc(t('network'))}</dt><dd><a href="/network/${esc(l.network)}">${esc(netName(ctx, l.network))}</a></dd></div>
         <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
         ${l.price != null && l.price_type ? `<div><dt>${esc(t('price_word'))}</dt><dd>${esc(t('pt_' + l.price_type))}</dd></div>` : ''}
-        <div><dt>${esc(t('seller'))}</dt><dd>${esc(l.seller)}${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}</dd></div>
+        <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}</dd></div>
         <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
       </dl>

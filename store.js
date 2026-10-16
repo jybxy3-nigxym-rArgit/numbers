@@ -234,6 +234,10 @@ function createStore(d) {
   async function searchListings(f) {
     const where = ["l.status = 'active'", VISIBLE_SELLER];
     const params = [];
+    if (f.userId) {
+      where.push('l.user_id = ?');
+      params.push(f.userId);
+    }
     if (f.network) {
       where.push('l.network = ?');
       params.push(f.network);
