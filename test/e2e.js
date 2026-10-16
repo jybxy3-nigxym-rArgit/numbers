@@ -844,14 +844,15 @@ async function main() {
       const sp = await g.get(`/n/${soldId}`);
       check('sold page stays open and says sold', sp.status === 200 && sp.text.includes('This number is sold'));
       check('sold page is indexable', !/noindex/.test(sp.text));
+      check('sold page hides the last two digits', sp.text.includes('05558881**') && !sp.text.includes('0555888111') && !sp.text.includes('0555 888 111'));
+      check('sold page shows the sold stamp', sp.text.includes('class="sold-stamp"'));
+      check('home page has the newest link under the search', hm.includes('class="new-link" href="/new"'));
       check('sold page shows similar numbers', sp.text.includes('class="similar"') && sp.text.includes('0555 998 111'));
       check('sold number is out of the lists', !(await g.get('/')).text.includes('0555 888 111'));
-      const pr = await g.get('/prices');
-      check('prices page shows numbers from the ads', pr.status === 200 && pr.text.includes('15,000') && pr.text.includes('<table'));
       const nw = await g.get('/new');
       check('newest page lists the ads', nw.status === 200 && nw.text.includes('0555 998 111'));
       const sm2 = (await g.get('/sitemap.xml')).text;
-      check('sitemap has prices and newest pages', sm2.includes('/prices') && sm2.includes('/new'));
+      check('sitemap has the newest page', sm2.includes('/new'));
       const fw = await g.get('/fonts/tajawal-700.woff');
       check('Tajawal font is served from the site', fw.status === 200 && !home.text.includes('googleapis') && (await g.get('/fonts/lalezar-400.woff')).status === 200);
       check('unknown member is 404', (await g.get('/u/99999')).status === 404 && (await g.get('/u/abc')).status === 404);

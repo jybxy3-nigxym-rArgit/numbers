@@ -47,6 +47,7 @@ const ICON = {
   sun: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   up: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>',
   help: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>',
+  clock: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   share: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4M8.6 13.4l6.8 4"/></svg>',
 };
 
@@ -191,7 +192,6 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
 <footer class="foot">
   <div class="wrap foot-links">
     <a href="/new">${esc(t('page_new'))}</a>
-    <a href="/prices">${esc(t('page_prices'))}</a>
     <a href="/faq">${esc(t('page_faq'))}</a>
     <a href="/articles">${esc(t('page_articles'))}</a>
     <a href="/about">${esc(t('page_about'))}</a>
@@ -249,15 +249,21 @@ function cardActions(ctx, l, { deleteNext } = {}) {
 
 // The number plate: network on top, big number, then city, price and age in one row.
 // With `links`, the network, city and price are links to the matching results; `numHref` makes the whole card open the ad.
+// A sold number is shown with its last two digits hidden, so nobody can copy it. The owner and the staff still see it whole.
+const shownNumber = (ctx, l) => {
+  const mine = ctx.user && (ctx.user.id === l.user_id || util.rankOf(ctx.user) >= 1);
+  return l.status === 'sold' && !mine ? String(l.number).slice(0, -2) + '**' : l.number;
+};
+
 function plateFace(ctx, l, tag = 'span', { links = false, numHref = '' } = {}) {
   const net = esc(netName(ctx, l.network));
   const city = esc(cityName(ctx, l.city));
-  const label = esc(formatNumberPlain(l.number));
+  const label = esc(formatNumberPlain(shownNumber(ctx, l)));
   const price = priceHtml(ctx, l.price);
   const numAttrs = `class="p-num" dir="ltr" aria-label="${label}"`;
   const numEl = numHref
-    ? `<a ${numAttrs} href="${esc(numHref)}">${esc(l.number)}</a>`
-    : `<${tag} ${numAttrs}>${esc(l.number)}</${tag}>`;
+    ? `<a ${numAttrs} href="${esc(numHref)}">${esc(shownNumber(ctx, l))}</a>`
+    : `<${tag} ${numAttrs}>${esc(shownNumber(ctx, l))}</${tag}>`;
   return `
     ${links ? `<a class="p-net" href="/network/${esc(l.network)}">${net}</a>` : `<span class="p-net">${net}</span>`}
     ${numEl}
@@ -432,6 +438,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
       <h1>${esc(info.h1)}</h1>
       <p class="lede">${esc(info.lede.length > 140 ? t('home_lede') : info.lede)}</p>
       ${form}
+      ${landing && landing.type === 'new' ? '' : `<a class="new-link" href="/new">${ICON.clock}<span>${esc(t('page_new'))}</span></a>`}
     </section>
   </div>`;
 
@@ -517,7 +524,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
 
 function listingPage(ctx, l, { canManage, similar = [] }) {
   const { t } = ctx;
-  const waText = t('wa_message', { number: l.number });
+  const waText = t('wa_message', { number: shownNumber(ctx, l) });
   const wa = `https://wa.me/${encodeURIComponent(l.contact)}?text=${encodeURIComponent(waText)}`;
   const isLive = l.status === 'active';
 
@@ -530,7 +537,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
   const reasonOptions = REPORT_REASONS.map((r) => ({ value: r, label: t('r_' + r) }));
   const url0 = `${ctx.base}/n/${l.id}`;
   const shareText = t('share_text', {
-    number: l.number,
+    number: shownNumber(ctx, l),
     net: netName(ctx, l.network),
     city: cityName(ctx, l.city),
     price: l.price != null ? `${formatPrice(l.price)} ${t('sar')}` : t('price_ask'),
@@ -556,7 +563,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
           : ''
       }
       <p class="copy-hint">${esc(t('copy_hint'))}</p>
-      <p class="copy-num" dir="ltr">${esc(l.number)}</p>
+      <p class="copy-num" dir="ltr">${esc(shownNumber(ctx, l))}</p>
       <dl class="facts">
         <div><dt>${esc(t('network'))}</dt><dd><a href="/network/${esc(l.network)}">${esc(netName(ctx, l.network))}</a></dd></div>
         <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
@@ -584,7 +591,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
     ${similar.length ? `<section class="similar"><h2>${esc(t(isLive ? 'similar_title' : 'similar_sold'))}</h2><div class="grid">${similar.map((x) => plate(ctx, x)).join('')}</div></section>` : ''}
   </article>`;
 
-  const plain = formatNumberPlain(l.number);
+  const plain = formatNumberPlain(shownNumber(ctx, l));
   const priceText = l.price != null ? `${formatPrice(l.price)} ${t('sar')}` : '';
   const title = `${t('listing_title_word', { n: plain })} | ${netName(ctx, l.network)} | ${cityName(ctx, l.city)}${priceText ? ' | ' + priceText : ''}`;
   const desc = t('listing_desc', {
@@ -953,50 +960,6 @@ function syncPage(ctx) {
     </form>
   </section>`;
   return layout(ctx, { title: t('sync_title'), body, noindex: true });
-}
-
-function pricesPage(ctx, st) {
-  const { t } = ctx;
-  const fmt = (n) => `${formatPrice(n)} ${t('sar')}`;
-  const row = (label, r, href) =>
-    r && r.n
-      ? `<tr><th scope="row">${href ? `<a href="${href}">${esc(label)}</a>` : esc(label)}</th><td>${esc(r.n)}</td><td>${esc(formatPrice(r.lo))}</td><td>${esc(formatPrice(r.avg))}</td><td>${esc(formatPrice(r.hi))}</td></tr>`
-      : '';
-  const head = `<thead><tr><th scope="col"></th><th scope="col">${esc(t('pr_count'))}</th><th scope="col">${esc(t('pr_low'))}</th><th scope="col">${esc(t('pr_avg'))}</th><th scope="col">${esc(t('pr_high'))}</th></tr></thead>`;
-  const table = (rows) => (rows ? `<div class="table-wrap"><table class="prices">${head}<tbody>${rows}</tbody></table></div>` : '');
-  const nets = NETWORKS.map((n) => row(n[ctx.lang], st.network[n.key], `/network/${n.key}`)).join('');
-  const pats = PATTERN_KEYS.map((k) => row(t('pat_' + k), st.pattern[k], `/type/${k}`)).join('');
-  const has = st.all && st.all.n > 0;
-  const body = `
-  <article class="narrow prose">
-    <h1>${esc(t('prices_title'))}</h1>
-    <p class="lede">${esc(t('prices_lede'))}</p>
-    ${
-      has
-        ? `<p>${esc(t('prices_all', { n: st.all.n, lo: fmt(st.all.lo), avg: fmt(st.all.avg), hi: fmt(st.all.hi) }))}</p>
-    <h2>${esc(t('prices_by_net'))}</h2>${table(nets)}
-    <h2>${esc(t('prices_by_type'))}</h2>${table(pats)}
-    <p>${esc(t('prices_note'))}</p>`
-        : `<p>${esc(t('prices_none'))}</p>`
-    }
-    <p class="form-actions"><a class="btn" href="/">${esc(t('prices_browse'))}</a></p>
-  </article>`;
-  return layout(ctx, {
-    fullTitle: `${t('prices_title')} | ${t('site_name')}`,
-    desc: t('prices_lede'),
-    body,
-    canonical: ctx.base + '/prices',
-    ld: [
-      {
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: t('site_name'), item: absNum(ctx, '/') },
-          { '@type': 'ListItem', position: 2, name: t('prices_title'), item: absNum(ctx, '/prices') },
-        ],
-      },
-    ],
-  });
 }
 
 function designPage(ctx) {
@@ -1438,7 +1401,6 @@ function errorPage(ctx, status) {
 module.exports = {
   syncPage,
   designPage,
-  pricesPage,
   homePage,
   listingPage,
   postPage,

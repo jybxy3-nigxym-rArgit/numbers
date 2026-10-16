@@ -106,7 +106,6 @@ function createStore(d) {
   let countsCache = null;
   const dropCounts = () => {
     countsCache = null;
-    statsCache = null;
   };
 
   // Creates the tables if they are missing and promotes the admin phone. Runs once per process.
@@ -315,26 +314,6 @@ function createStore(d) {
        ORDER BY (substr(l.number, -4) = ?) DESC, (substr(l.number, -3) = ?) DESC, (l.city = ?) DESC, l.pinned DESC, l.created_at DESC, l.id DESC LIMIT ?`,
       [l.id, l.network, String(l.number).slice(-4), String(l.number).slice(-3), l.city, limit]
     );
-  }
-
-  // Price summary for the prices page: per network and per number type, from the live ads that show a price.
-  let statsCache = null;
-  async function priceStats(patternKeys) {
-    if (statsCache && Date.now() - statsCache.at < 300000) return statsCache.v;
-    const agg = 'COUNT(*) AS n, MIN(l.price) AS lo, CAST(AVG(l.price) AS INTEGER) AS avg, MAX(l.price) AS hi';
-    const base = `FROM listings l WHERE l.status = 'active' AND l.price IS NOT NULL AND l.price > 0 AND ${VISIBLE_SELLER}`;
-    const rs = await d.batch([
-      { sql: `SELECT ${agg} ${base}`, params: [] },
-      { sql: `SELECT l.network AS k, ${agg} ${base} GROUP BY l.network`, params: [] },
-      ...patternKeys.map((k) => ({ sql: `SELECT ${agg} ${base} AND instr(l.pats, ?) > 0`, params: [` ${k} `] })),
-    ]);
-    const v = {
-      all: rs[0].rows[0],
-      network: Object.fromEntries(rs[1].rows.map((r) => [r.k, r])),
-      pattern: Object.fromEntries(patternKeys.map((k, i) => [k, rs[2 + i].rows[0]])),
-    };
-    statsCache = { v, at: Date.now() };
-    return v;
   }
 
   async function countActiveByUser(userId) {
@@ -793,7 +772,6 @@ function createStore(d) {
     getListing,
     searchListings,
     similarListings,
-    priceStats,
     countActiveByUser,
     numberIsListed,
     insertListing,

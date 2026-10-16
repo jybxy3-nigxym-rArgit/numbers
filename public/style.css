@@ -2085,24 +2085,35 @@ a.adv:focus-visible {
   animation: none;
 }
 
-/* Similar numbers under an ad, and the prices table. */
+/* Similar numbers under an ad. */
 .similar {
   margin-block: 1.5rem 0.5rem;
 }
 .similar h2 {
   margin-bottom: 0.8rem;
 }
-table.prices {
-  width: 100%;
-  border-collapse: collapse;
+
+/* Link to the newest numbers, under the search bar. */
+.new-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: max-content;
+  margin: 0.9rem auto 0;
+  padding: 0.45rem 1.1rem;
+  border: 1.5px solid var(--gold);
+  border-radius: 999px;
+  color: var(--gold);
+  font-weight: 700;
+  text-decoration: none;
 }
-table.prices {
-  min-width: 0;
-  font-size: 0.88rem;
+.new-link:hover,
+.new-link:focus-visible {
+  background: var(--gold);
+  color: var(--deep);
 }
-table.prices th,
-table.prices td {
-  padding: 0.5rem 0.4rem;
-  text-align: start;
-  border-bottom: 1px solid var(--line, #ddd);
+.new-link .ico {
+  width: 1.2em;
+  height: 1.2em;
 }
