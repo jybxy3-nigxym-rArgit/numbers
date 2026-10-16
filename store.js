@@ -163,10 +163,10 @@ function createStore(d) {
     if (stmts.length) await d.batch(stmts);
   }
 
-  async function isDeviceBanned(ip, dev) {
+  async function isDeviceBanned(dev) {
     return !!(await d.first(
-      "SELECT 1 AS x FROM banned_devices WHERE (kind = 'ip' AND val = ?) OR (kind = 'dev' AND val = ?) LIMIT 1",
-      [ip || '', dev || '']
+      "SELECT 1 AS x FROM banned_devices WHERE kind = 'dev' AND val = ? LIMIT 1",
+      [dev || '']
     ));
   }
 
@@ -342,7 +342,7 @@ function createStore(d) {
     return { active: rs[0].rows[0].c, pending: rs[1].rows[0].c, users: rs[2].rows[0].c, reports: rs[3].rows[0].c };
   }
 
-  // Banning a user also bans every device (browser id and internet address) he used; unbanning lifts them.
+  // Banning a user also bans every browser he used (the internet address is only saved for the admin to see, because many people can share one address); unbanning lifts it.
   async function setUserBanned(id, banned) {
     const stmts = [{ sql: 'UPDATE users SET banned = ? WHERE id = ? AND is_admin = 0', params: [banned ? 1 : 0, id] }];
     if (banned) {
@@ -353,7 +353,7 @@ function createStore(d) {
       stmts.push({
         sql: `INSERT OR IGNORE INTO banned_devices (kind, val, user_id)
               SELECT kind, val, user_id FROM user_devices
-              WHERE user_id = ? AND (SELECT is_admin FROM users WHERE id = ?) = 0`,
+              WHERE kind = 'dev' AND user_id = ? AND (SELECT is_admin FROM users WHERE id = ?) = 0`,
         params: [id, id],
       });
     } else {

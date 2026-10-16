@@ -271,13 +271,19 @@ async function main() {
     const banned = await bannedClient.post('/login', { phone: '0555000111', password: 'secret-pass-1' });
     check('banned user cannot log in and ads are hidden', banned.status === 403 && (await anon.get('/n/1')).status === 404);
     const evader = await newClient(base);
+    evader.jar.did = a.jar.did; // same browser as the banned user
     r = await register(evader, 'Evader', '0566000999');
-    check('banned device cannot register a new number', r.status === 403, r.status);
+    check('banned browser cannot register a new number', r.status === 403, r.status);
+    const other = await newClient(base); // different browser, same address: not blocked
+    r = await register(other, 'Neighbour', '0566000888');
+    check('another browser on the same address is not blocked', r.status === 303, r.status);
     r = await admin.get('/admin?tab=users');
     check('admin sees the saved address and device ban', r.text.includes('127.0.0.1') && r.text.includes('device blocked'));
     await admin.post('/admin/u/1/unban', { tab: 'users' });
-    r = await register(await newClient(base), 'Evader', '0566000999');
-    check('after unban the device can register again', r.status === 303, r.status);
+    const evader2 = await newClient(base);
+    evader2.jar.did = a.jar.did;
+    r = await register(evader2, 'Evader', '0566000999');
+    check('after unban the browser can register again', r.status === 303, r.status);
     r = await admin.post('/admin/l/2/delete', { tab: 'all' });
     check('admin deletes ad', (await anon.get('/n/2')).status === 404);
 

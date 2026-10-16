@@ -505,7 +505,7 @@ route('POST', '/register', async (ctx) => {
   if (Object.keys(errors).length) return html(ctx, 400, views.registerPage(ctx, v, errors));
 
   ensureDevice(ctx);
-  if (await ctx.store.isDeviceBanned(ctx.ip, ctx.device)) {
+  if (await ctx.store.isDeviceBanned(ctx.device)) {
     return html(ctx, 403, views.registerPage(ctx, v, { phone: 'err_banned' }));
   }
 
@@ -541,7 +541,7 @@ route('POST', '/login', async (ctx) => {
   if (nat && !(await ctx.store.allow(`login-phone:${nat}:${ctx.ip}`, 10, 15 * 60 * 1000))) return tooMany(ctx);
 
   ensureDevice(ctx);
-  if (await ctx.store.isDeviceBanned(ctx.ip, ctx.device)) {
+  if (await ctx.store.isDeviceBanned(ctx.device)) {
     return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
   }
 
