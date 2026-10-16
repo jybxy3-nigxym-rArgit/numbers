@@ -896,6 +896,27 @@ function importPage(ctx, v = {}) {
   return layout(ctx, { title: t('import_title'), body, noindex: true });
 }
 
+function syncPage(ctx) {
+  const { t } = ctx;
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('sync_title'))}</h1>
+    <p class="lede">${esc(t('sync_intro'))}</p>
+    <form method="post" action="/admin/sync" class="form" novalidate>
+      ${csrfInput(ctx)}
+      <div class="field">
+        <label for="lines">${esc(t('import_lines'))}</label>
+        <textarea id="lines" name="lines" rows="14" dir="ltr" placeholder="0555123456 5000 stc riyadh"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn" type="submit">${esc(t('sync_submit'))}</button>
+        <a class="btn btn-ghost" href="/admin?tab=all">${esc(t('cancel'))}</a>
+      </div>
+    </form>
+  </section>`;
+  return layout(ctx, { title: t('sync_title'), body, noindex: true });
+}
+
 function profilePage(ctx, v = {}, errors = {}) {
   const { t } = ctx;
   const body = `
@@ -951,7 +972,7 @@ function adminPage(ctx, tab, data) {
   const tabs = senior ? allTabs : allTabs.filter(([k]) => ['reported', 'all', 'users'].includes(k));
   const tabNav = `<nav class="tabs" aria-label="Admin">${tabs
     .map(([k, label]) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(label)}</a>`)
-    .join('')}${senior ? `<a href="/admin/import">${esc(t('a_import'))}</a><a href="/admin/export/numbers.csv">${esc(t('a_export_numbers'))}</a><a href="/admin/export/users.csv">${esc(t('a_export_users'))}</a>` : ''}</nav>`;
+    .join('')}${senior ? `<a href="/admin/import">${esc(t('a_import'))}</a><a href="/admin/sync">${esc(t('a_sync'))}</a><a href="/admin/export/numbers.csv">${esc(t('a_export_numbers'))}</a><a href="/admin/export/users.csv">${esc(t('a_export_users'))}</a>` : ''}</nav>`;
 
   const roleBadge = (u) =>
     u.is_admin
@@ -1303,6 +1324,7 @@ function errorPage(ctx, status) {
 }
 
 module.exports = {
+  syncPage,
   homePage,
   listingPage,
   postPage,

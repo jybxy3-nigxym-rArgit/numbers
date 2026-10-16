@@ -447,6 +447,27 @@ function createStore(d) {
     return 'added';
   }
 
+  // Whole-list sync: `items` = every number available in the store right now.
+  // Missing ones are added (or shown again), prices updated, and the admin's other live ads are hidden.
+  async function syncStoreList(items) {
+    const admin = await d.first('SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
+    if (!admin) return null;
+    const have = new Set(items.map((x) => x.number));
+    const res = { added: 0, shown: 0, updated: 0, hidden: 0, taken: 0 };
+    for (const it of items) {
+      const r = await applyStoreProduct({ ...it, available: true });
+      if (r in res) res[r]++;
+    }
+    const live = await d.all("SELECT id, number FROM listings WHERE user_id = ? AND status IN ('active','pending')", [admin.id]);
+    for (const l of live) {
+      if (have.has(l.number)) continue;
+      await d.run("UPDATE listings SET status = 'hidden', hidden_by = -1, pinned = 0 WHERE id = ?", [l.id]);
+      res.hidden++;
+    }
+    dropCounts();
+    return res;
+  }
+
   // An ad nobody refreshed for a whole year is removed (sold ads stay as records).
   async function purgeStale() {
     const r = await d.run(
@@ -719,6 +740,7 @@ function createStore(d) {
     numberIsListed,
     insertListing,
     applyStoreProduct,
+    syncStoreList,
     updateListing,
     userListings,
     setListingStatus,

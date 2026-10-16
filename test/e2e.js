@@ -839,6 +839,13 @@ async function main() {
     await hook({ ...prod(), event: 'product.deleted' }, { authorization: 'Bearer store-secret-1' });
     check('deleted product is hidden', !(await reader.get('/')).text.includes('0505 355 300'));
     check('hidden store numbers do not clutter the reported tab', !(await adm.get('/admin?tab=reported')).text.includes('0505355300'));
+    // whole-list sync (for stores without webhooks)
+    await adm.post('/admin/sync', { lines: '0505355300 700 stc riyadh\n0555111222 450 zain jeddah' });
+    const sy = (await reader.get('/')).text;
+    check('sync adds a missing number and updates the price', sy.includes('0555 111 222') && sy.includes('700'));
+    await adm.post('/admin/sync', { lines: '0555111222 450 zain jeddah' });
+    const sy2 = (await reader.get('/')).text;
+    check('sync hides a number that left the store', sy2.includes('0555 111 222') && !sy2.includes('0505 355 300'));
     void ad;
   } finally {
     srv8.stop();

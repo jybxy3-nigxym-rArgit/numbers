@@ -1148,6 +1148,26 @@ route('POST', '/admin/import', async (ctx) => {
   redirect(ctx, '/admin?tab=all');
 });
 
+// Sync with the store: paste every number available in the store; the rest of the admin's ads are hidden.
+route('GET', '/admin/sync', (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  html(ctx, 200, views.syncPage(ctx));
+});
+
+route('POST', '/admin/sync', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  const { items } = parseImport(str(ctx.body.lines, 19000), 'stc', 'other');
+  if (!items.length) {
+    flash(ctx, 'error', 'import_none');
+    return redirect(ctx, '/admin/sync');
+  }
+  if (needConfirm(ctx, 'sync', { back: '/admin/sync' })) return;
+  const r = await ctx.store.syncStoreList(items);
+  await audit(ctx, 'sync', `${r.added}`, `${r.hidden}`);
+  flash(ctx, 'ok', 'sync_done', r);
+  redirect(ctx, '/admin?tab=all');
+});
+
 // ---- Static pages and SEO files ----
 
 
