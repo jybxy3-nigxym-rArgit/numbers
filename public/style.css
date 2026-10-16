@@ -2195,3 +2195,9 @@ a.adv:focus-visible {
     grid-template-columns: 6.5rem minmax(0, 1fr) 7rem 3.6rem;
   }
 }
+
+@media (max-width: 759px) {
+  .my-number .digits {
+    text-align: center;
+  }
+}
