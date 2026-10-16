@@ -7,7 +7,13 @@
   "assets": { "directory": "./public" },
   // No database_id on purpose: Cloudflare creates the database on first deploy.
   "d1_databases": [{ "binding": "DB", "database_name": "numbers-db" }],
+  // The site's own address. Cloudflare attaches these names to the Worker on deploy.
+  "routes": [
+    { "pattern": "basmatameel.com", "custom_domain": true },
+    { "pattern": "www.basmatameel.com", "custom_domain": true }
+  ],
   "vars": {
+    "BASE_URL": "https://basmatameel.com",
     // Whoever registers with this phone becomes the admin.
     "ADMIN_PHONE": "0599900079",
     // "true" = every new ad waits for your approval
