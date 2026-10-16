@@ -198,6 +198,7 @@ async function buildContext(request, url, ip, store, waitUntil) {
     ip,
     waitUntil,
     theme: cookies.theme === 'dark' ? 'dark' : 'light',
+    ack: cookies.ack === '1',
   });
   if (user && util.rankOf(user) >= 1) {
     const a = await store.adminAlerts();
@@ -382,6 +383,12 @@ route('GET', '/under/:key', async (ctx) => {
 route('GET', '/theme/:mode', (ctx) => {
   const mode = ctx.params.mode === 'dark' ? 'dark' : 'light';
   ctx.extraCookies.push(`theme=${mode}; Path=/; SameSite=Lax; Max-Age=${365 * 24 * 3600}` + (ctx.secure ? '; Secure' : ''));
+  redirect(ctx, safeNext(ctx.query.next), 302);
+});
+
+// Notice for new visitors: remembered for 30 days once they press "Got it".
+route('GET', '/ack', (ctx) => {
+  ctx.extraCookies.push(`ack=1; Path=/; SameSite=Lax; Max-Age=${30 * 24 * 3600}` + (ctx.secure ? '; Secure' : ''));
   redirect(ctx, safeNext(ctx.query.next), 302);
 });
 
@@ -1149,7 +1156,7 @@ route('GET', '/robots.txt', (ctx) => {
     ctx,
     200,
     'text/plain; charset=utf-8',
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\nDisallow: /theme/\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\nDisallow: /theme/\nDisallow: /ack\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
     { 'Cache-Control': 'public, max-age=3600' }
   );
 });

@@ -1751,3 +1751,22 @@ div.actions{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
     animation: none !important;
   }
 }
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1.2rem;
+  margin-block: 0 1rem;
+  padding: 0.8rem 1.1rem;
+  border: 1px solid var(--gold, #f0b64a);
+  border-radius: 14px;
+  background: rgba(240, 182, 74, 0.14);
+}
+.notice ul {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
