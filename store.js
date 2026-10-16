@@ -641,6 +641,7 @@ function createStore(d) {
       { sql: `SELECT network AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY network`, params: [] },
       { sql: `SELECT city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY city`, params: [] },
       { sql: `SELECT ${unders} FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
+      { sql: `SELECT network || '/' || city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY network, city`, params: [] },
     ]);
     const toMap = (rows) => Object.fromEntries(rows.map((r) => [r.k, r.c]));
     const u = rs[2].rows[0] || {};
@@ -648,6 +649,7 @@ function createStore(d) {
       network: toMap(rs[0].rows),
       city: toMap(rs[1].rows),
       under: Object.fromEntries(UNDER_PRICES.map((n) => [n, Number(u['u' + n] || 0)])),
+      combo: toMap(rs[3].rows),
     };
     countsCache = { at: Date.now(), value };
     return value;

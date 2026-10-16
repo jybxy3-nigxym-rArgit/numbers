@@ -319,11 +319,38 @@ function landingInfo(ctx, landing) {
     const title = t('under_title', { name: p });
     return { path: `/under/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc: t('under_desc', { name: p }), lede: t('under_desc', { name: p }), name: p };
   }
+  if (landing.type === 'netcity') {
+    const [nk, ck] = key.split('/');
+    const vars = { net: netName(ctx, nk), city: cityName(ctx, ck) };
+    const title = t('nc_title', vars);
+    const desc = t('nc_desc', vars);
+    return { path: `/network/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc, lede: desc, name: title };
+  }
   const name = landing.type === 'network' ? netName(ctx, key) : landing.type === 'city' ? cityName(ctx, key) : t('pat_' + key);
   const prefix = landing.type;
   const title = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_title`, { name });
   const desc = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_desc`, { name });
   return { path: `/${landing.type}/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc, lede: desc, name };
+}
+
+function comboLinks(ctx, counts, landing) {
+  const { t } = ctx;
+  if (!landing || !counts.combo) return '';
+  const chip = (href, label, n) => `<a class="chip" href="${href}">${esc(label)} <small>${esc(n)}</small></a>`;
+  let head = '';
+  let chips = '';
+  if (landing.type === 'network') {
+    head = t('nc_h_city', { name: netName(ctx, landing.key) });
+    chips = CITIES.filter((c) => c.key !== 'other' && counts.combo[`${landing.key}/${c.key}`])
+      .map((c) => chip(`/network/${landing.key}/${c.key}`, c[ctx.lang], counts.combo[`${landing.key}/${c.key}`]))
+      .join('');
+  } else if (landing.type === 'city') {
+    head = t('nc_h_net', { name: cityName(ctx, landing.key) });
+    chips = NETWORKS.filter((n) => counts.combo[`${n.key}/${landing.key}`])
+      .map((n) => chip(`/network/${n.key}/${landing.key}`, n[ctx.lang], counts.combo[`${n.key}/${landing.key}`]))
+      .join('');
+  }
+  return chips ? `<nav class="browse"><h2>${esc(head)}</h2><div class="chips">${chips}</div></nav>` : '';
 }
 
 function browseLinks(ctx, counts) {
@@ -407,6 +434,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
     </div>
     ${results}
   </section>
+  ${comboLinks(ctx, counts, landing)}
   ${browseLinks(ctx, counts)}
   <section class="about">
     <h2>${esc(t('about_title'))}</h2>
@@ -1193,6 +1221,7 @@ function contactPage(ctx) {
     <p class="lede">${esc(t('contact_lede'))}</p>
     <ul class="contact-list">
       ${wa ? `<li><a class="btn btn-wa" href="${esc(wa)}" target="_blank" rel="noopener">${esc(t('contact_wa'))}</a></li>` : ''}
+      <li><a class="btn btn-ghost" href="${esc(LINKS.store)}" target="_blank" rel="noopener">${esc(t('contact_store'))}</a></li>
       <li><a class="btn btn-ghost" href="${esc(LINKS.snap)}" target="_blank" rel="noopener">${esc(t('contact_snap'))}</a></li>
     </ul>
     <p>${esc(t('contact_verify'))}</p>

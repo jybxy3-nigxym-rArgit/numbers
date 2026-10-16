@@ -354,6 +354,12 @@ route('GET', '/network/:key', async (ctx) => {
   const f = { ...parseFilters(ctx.query), network: ctx.params.key, city: '', q: '', qRaw: '', maxRaw: '', max: null };
   await renderHome(ctx, f, { type: 'network', key: ctx.params.key });
 });
+route('GET', '/network/:net/:city', async (ctx) => {
+  const { net, city } = ctx.params;
+  if (!NETWORK_BY_KEY[net] || !CITY_BY_KEY[city] || city === 'other') return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), network: net, city, q: '', qRaw: '', maxRaw: '', max: null };
+  await renderHome(ctx, f, { type: 'netcity', key: `${net}/${city}` });
+});
 route('GET', '/city/:key', async (ctx) => {
   if (!CITY_BY_KEY[ctx.params.key]) return notFound(ctx);
   const f = { ...parseFilters(ctx.query), city: ctx.params.key, network: '', q: '', qRaw: '', maxRaw: '', max: null };
@@ -1188,6 +1194,7 @@ route('GET', '/sitemap.xml', async (ctx) => {
   const counts = await ctx.store.landingCounts();
   for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });
   for (const k of Object.keys(CITY_BY_KEY)) if (counts.city[k]) urls.push({ loc: `${ctx.base}/city/${k}` });
+  for (const n of Object.keys(NETWORK_BY_KEY)) for (const c of Object.keys(CITY_BY_KEY)) if (c !== 'other' && counts.combo[`${n}/${c}`]) urls.push({ loc: `${ctx.base}/network/${n}/${c}` });
   for (const k of PATTERN_KEYS) urls.push({ loc: `${ctx.base}/type/${k}` });
   for (const n of UNDER_PRICES) if (counts.under[n]) urls.push({ loc: `${ctx.base}/under/${n}` });
   for (const p of ['/faq', '/articles', '/about', '/contact']) urls.push({ loc: ctx.base + p });

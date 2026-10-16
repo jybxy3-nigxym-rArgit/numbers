@@ -800,6 +800,29 @@ async function main() {
     check('style.css is complete (guards against a cut file)', css.length > 30000 && ['.popup', '.tabbar', '.plate', '@keyframes feat-sheen', '.admin-search'].every((x) => css.includes(x)));
   }
 
+  {
+    // network + city pages
+    const srvC = await startServer(port + 8, {});
+    try {
+      const u = await newClient(srvC.base);
+      await register(u, 'Combo', '0555000444');
+      await u.post('/post', { ...AD, number: '0555888111', network: 'stc', city: 'riyadh' });
+      await u.post('/post', { ...AD, number: '0555888222', network: 'zain', city: 'riyadh' });
+      const g = await newClient(srvC.base);
+      const pg = await g.get('/network/stc/riyadh');
+      check('network+city page opens with its own title', pg.status === 200 && pg.text.includes('Premium STC numbers for sale in Riyadh'));
+      check('network+city page lists only matching ads', pg.text.includes('0555 888 111') && !pg.text.includes('0555 888 222'));
+      check('unknown combination is 404', (await g.get('/network/stc/nowhere')).status === 404);
+      check('network page links to its cities', (await g.get('/network/stc')).text.includes('/network/stc/riyadh'));
+      check('city page links to its networks', (await g.get('/city/riyadh')).text.includes('/network/zain/riyadh'));
+      const sm = await g.get('/sitemap.xml');
+      check('sitemap has the combination page', sm.text.includes('/network/stc/riyadh') && !sm.text.includes('/network/stc/jeddah'));
+      check('contact page links the store', (await g.get('/contact')).text.includes('souq3rb.com'));
+    } finally {
+      srvC.stop();
+    }
+  }
+
   const srv7 = await startServer(port + 6, {});
   try {
     const g = await newClient(srv7.base);
