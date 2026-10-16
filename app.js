@@ -8,7 +8,9 @@ const views = require('./views');
 const { t } = require('./i18n');
 const util = require('./util');
 const wc = require('./webcrypto');
-const { NETWORK_BY_KEY, CITY_BY_KEY, PATTERN_KEYS, REPORT_REASONS } = require('./data');
+const notifier = require('./notify');
+const content = require('./content');
+const { NETWORK_BY_KEY, CITY_BY_KEY, PATTERN_KEYS, REPORT_REASONS, UNDER_PRICES, PRICE_TYPES } = require('./data');
 
 const SESSION_MAX_AGE = 30 * 24 * 3600; // seconds
 const MAX_BODY = 20000;
@@ -103,6 +105,29 @@ function flash(ctx, type, key, vars) {
   ctx.dirty = true;
 }
 
+// Work that may finish after the page is sent (a WhatsApp alert); never lets an error reach the visitor.
+function later(ctx, promise) {
+  const p = Promise.resolve(promise).catch((err) => console.error('background task failed', err && err.message));
+  if (ctx.waitUntil) ctx.waitUntil(p);
+}
+
+// Free WhatsApp alert to the owner (needs CALLMEBOT_KEY). Capped per hour so a flood cannot hammer the service.
+function notify(ctx, text) {
+  if (!notifier.enabled()) return;
+  later(
+    ctx,
+    (async () => {
+      if (!(await ctx.store.allow('notify', 120, 3600 * 1000))) return;
+      await notifier.send(text);
+    })()
+  );
+}
+
+// Every staff action is written to the log (who, what, on whom).
+const audit = (ctx, action, target, detail) => ctx.store.logAction(ctx.user.id, ctx.user.name, action, target, detail);
+
+const ar = (key, vars) => t('ar', key, vars);
+
 const notFound = (ctx) => html(ctx, 404, views.errorPage(ctx, 404));
 const tooMany = (ctx) => html(ctx, 429, views.errorPage(ctx, 429), { 'Retry-After': '600' });
 
@@ -128,7 +153,7 @@ function makeCtx(request, url, extra) {
   return ctx;
 }
 
-async function buildContext(request, url, ip, store) {
+async function buildContext(request, url, ip, store, waitUntil) {
   const secret = await store.getSecret();
   let session = await readSession(request, secret);
   let dirty = false;
@@ -161,7 +186,13 @@ async function buildContext(request, url, ip, store) {
     lang: session.lang,
     csrf: session.csrf,
     ip,
+    waitUntil,
+    theme: cookies.theme === 'dark' ? 'dark' : 'light',
   });
+  if (user && util.rankOf(user) >= 1) {
+    const a = await store.adminAlerts();
+    ctx.alerts = util.rankOf(user) >= 2 ? a.pending + a.review + a.reports : a.reports;
+  }
 
   // The flash message is shown once, then removed from the session.
   let flashValue;
@@ -327,6 +358,33 @@ route('GET', '/type/:key', async (ctx) => {
   await renderHome(ctx, f, { type: 'type', key: ctx.params.key });
 });
 
+// "Numbers under 500 riyals" and similar: indexed pages for the most searched price ceilings.
+route('GET', '/under/:key', async (ctx) => {
+  const n = Number(ctx.params.key);
+  if (!UNDER_PRICES.includes(n)) return notFound(ctx);
+  const f = { ...parseFilters(ctx.query), max: n, maxRaw: '', min: null, minRaw: '', network: '', city: '', q: '', qRaw: '' };
+  await renderHome(ctx, f, { type: 'under', key: String(n) });
+});
+
+// Night / day mode: remembered in a cookie (no scripts needed).
+route('GET', '/theme/:mode', (ctx) => {
+  const mode = ctx.params.mode === 'dark' ? 'dark' : 'light';
+  ctx.extraCookies.push(`theme=${mode}; Path=/; SameSite=Lax; Max-Age=${365 * 24 * 3600}` + (ctx.secure ? '; Secure' : ''));
+  redirect(ctx, safeNext(ctx.query.next), 302);
+});
+
+// ---- Information pages (they also bring visitors from Google) ----
+
+route('GET', '/about', (ctx) => html(ctx, 200, views.aboutPage(ctx)));
+route('GET', '/contact', (ctx) => html(ctx, 200, views.contactPage(ctx)));
+route('GET', '/faq', (ctx) => html(ctx, 200, views.faqPage(ctx, content.FAQ)));
+route('GET', '/articles', (ctx) => html(ctx, 200, views.articlesPage(ctx, content.ARTICLES)));
+route('GET', '/articles/:slug', (ctx) => {
+  const a = content.ARTICLE_BY_SLUG[ctx.params.slug];
+  if (!a) return notFound(ctx);
+  html(ctx, 200, views.articlePage(ctx, a, content.ARTICLES));
+});
+
 route('GET', '/n/:id', async (ctx) => {
   const id = Number(ctx.params.id);
   const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
@@ -335,7 +393,10 @@ route('GET', '/n/:id', async (ctx) => {
   const publicVisible = (l.status === 'active' || l.status === 'sold') && !l.seller_banned && !l.seller_suspended;
   if (!publicVisible && !canManage) return notFound(ctx);
 
-  if (l.status === 'active' && !(ctx.user && ctx.user.id === l.user_id)) {
+  const isBot = /bot|crawl|spider|slurp|preview|facebookexternalhit|curl|wget|python|node-fetch|go-http/i.test(
+    ctx.request.headers.get('user-agent') || ''
+  );
+  if (l.status === 'active' && !isBot && !(ctx.user && ctx.user.id === l.user_id)) {
     const seen = Array.isArray(ctx.session.seen) ? ctx.session.seen : [];
     if (!seen.includes(l.id)) {
       await ctx.store.bumpViews(l.id);
@@ -355,8 +416,14 @@ route('POST', '/n/:id/report', async (ctx) => {
   const reason = REPORT_REASONS.includes(ctx.body.reason) ? ctx.body.reason : 'other';
   if (!(ctx.user && ctx.user.id === l.user_id)) {
     const key = ctx.user ? `u${ctx.user.id}` : 'ip' + (await wc.sha256Hex(ctx.ip + ctx.secret)).slice(0, 16);
+    // One person can send only a few reports a day, so reports cannot be used to attack other advertisers.
+    if (!(await ctx.store.allow(`report-day:${key}`, 5, 24 * 3600 * 1000))) {
+      flash(ctx, 'error', 'err_report_limit');
+      return redirect(ctx, `/n/${l.id}`);
+    }
     const count = await ctx.store.addReport(l.id, key, reason);
     if (count >= config.reportHideAt) await ctx.store.setListingStatus(l.id, 'hidden');
+    notify(ctx, ar('wa_alert_report', { number: l.number, reason: ctx.t('r_' + reason), n: count, url: `${ctx.base}/admin?tab=reported` }));
   }
   flash(ctx, 'ok', 'reported');
   const after = await ctx.store.getListing(l.id);
@@ -374,6 +441,7 @@ function readAdFields(ctx) {
     price: str(b.price, 15).trim(),
     contact: str(b.contact, 25).trim(),
     description: str(b.description, 1000).replace(/\r\n?/g, '\n').trim(),
+    priceType: PRICE_TYPES.includes(b.price_type) ? b.price_type : '',
   };
   const errors = {};
   if (!NETWORK_BY_KEY[v.network]) errors.network = 'err_network';
@@ -383,7 +451,12 @@ function readAdFields(ctx) {
   if (v.price) {
     price = parsePrice(v.price);
     if (price === null || price > 10000000) errors.price = 'err_price';
+    // A price that looks like a typo or a trick must be confirmed once before it goes live.
+    else if ((price < 100 || price > 3000000) && b.price_ok !== '1') {
+      errors.price = { key: 'warn_price', vars: { price: util.formatPrice(price) } };
+    }
   }
+  if (!price) v.priceType = '';
 
   let contact = util.toIntl(ctx.user.phone);
   if (v.contact) {
@@ -395,6 +468,11 @@ function readAdFields(ctx) {
   return { v, errors, price, contact };
 }
 
+// A blocked phone cannot be an ad's number or contact.
+async function checkBlocked(ctx, errors, contact) {
+  if (!errors.contact && contact && (await ctx.store.isPhoneBlocked(contact.slice(3)))) errors.contact = 'err_blocked_number';
+}
+
 
 route('GET', '/post', (ctx) => {
   if (!requireLogin(ctx)) return;
@@ -403,7 +481,7 @@ route('GET', '/post', (ctx) => {
 
 route('POST', '/post', async (ctx) => {
   if (!requireLogin(ctx)) return;
-  if (!(await ctx.store.allow(`post:${ctx.ip}`, 30, 3600 * 1000))) return tooMany(ctx);
+  if (!(await ctx.store.allow(`post:${ctx.ip}`, config.postPerHour, 3600 * 1000))) return tooMany(ctx);
 
   const { v, errors, price, contact } = readAdFields(ctx);
   v.number = str(ctx.body.number, 25).trim();
@@ -417,8 +495,15 @@ route('POST', '/post', async (ctx) => {
       errors.number = { key: 'err_limit', vars: { n: config.maxActiveAdsPerUser } };
     } else if (await ctx.store.numberIsListed(number)) {
       errors.number = 'err_dup';
+    } else if (await ctx.store.isPhoneBlocked(nat)) {
+      errors.number = 'err_blocked_number';
+    } else {
+      // The same number cannot come back right after its owner deleted it.
+      const left = await ctx.store.penaltyDaysLeft(number);
+      if (left > 0) errors.number = { key: 'err_penalty', vars: { n: left } };
     }
   }
+  await checkBlocked(ctx, errors, contact);
 
   // At most N new numbers per advertiser in any 24 hours. Deleted ads still count, so delete-and-repost does not get around it.
   if (!Object.keys(errors).length && !(await ctx.store.allow(`ads-day:${ctx.user.id}`, config.maxAdsPerDay, 24 * 3600 * 1000))) {
@@ -436,8 +521,12 @@ route('POST', '/post', async (ctx) => {
     price,
     contact,
     description: v.description,
+    priceType: v.priceType,
     status,
   });
+  if (!ctx.user.is_admin) {
+    notify(ctx, ar('wa_alert_ad', { number: util.toLocal(nat), name: ctx.user.name, state: status === 'pending' ? ar('wa_pending') : '', url: `${ctx.base}/n/${id}` }));
+  }
   flash(ctx, 'ok', status === 'pending' ? 'pending_notice' : 'published_notice');
   redirect(ctx, `/n/${id}`);
 });
@@ -460,6 +549,8 @@ route('GET', '/n/:id/edit', async (ctx) => {
     price: l.price == null ? '' : String(l.price),
     contact: util.intlToLocal(l.contact),
     description: l.description,
+    priceType: l.price_type,
+    priceOk: l.price != null && (l.price < 100 || l.price > 3000000) ? '1' : '',
   };
   html(ctx, 200, views.editPage(ctx, l, v));
 });
@@ -471,6 +562,7 @@ route('POST', '/n/:id/edit', async (ctx) => {
   if (!l) return notFound(ctx);
 
   const { v, errors, price, contact } = readAdFields(ctx);
+  await checkBlocked(ctx, errors, contact);
   if (Object.keys(errors).length) return html(ctx, 400, views.editPage(ctx, l, v, errors));
 
   // With approval mode on, a changed live ad goes back to review so contact details cannot be swapped after approval.
@@ -483,6 +575,7 @@ route('POST', '/n/:id/edit', async (ctx) => {
     price,
     contact,
     description: v.description,
+    priceType: v.priceType,
     status,
   });
   flash(ctx, 'ok', status === 'pending' ? 'pending_notice' : 'updated');
@@ -509,6 +602,7 @@ route('POST', '/register', async (ctx) => {
   const nat = util.normPhone(phoneRaw);
   if (!nat) errors.phone = 'err_phone';
   else if (await ctx.store.getUserByPhone(nat)) errors.phone = 'err_phone_taken';
+  else if (await ctx.store.isPhoneBlocked(nat)) errors.phone = 'err_banned';
   if (password.length < 8) errors.password = 'err_pass';
   if (Object.keys(errors).length) return html(ctx, 400, views.registerPage(ctx, v, errors));
 
@@ -528,6 +622,7 @@ route('POST', '/register', async (ctx) => {
   await ctx.store.recordDevice(id, ctx.device);
   logIn(ctx, id);
   rememberPhone(ctx, nat);
+  notify(ctx, ar('wa_alert_register', { name, phone: util.toLocal(nat), url: `${ctx.base}/admin?tab=users` }));
   flash(ctx, 'ok', 'welcome');
   const next = ctx.session.next ? safeNext(ctx.session.next) : '/post';
   delete ctx.session.next;
@@ -553,6 +648,10 @@ route('POST', '/login', async (ctx) => {
     return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
   }
 
+  if (nat && (await ctx.store.isPhoneBlocked(nat))) {
+    return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
+  }
+
   const user = nat ? await ctx.store.getUserByPhone(nat) : undefined;
   const ok = await wc.verifyPassword(password, user ? user.pass_hash : dummyHash(), config.pbkdf2Iterations);
   if (!user || !ok) return html(ctx, 401, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_login' }));
@@ -562,6 +661,7 @@ route('POST', '/login', async (ctx) => {
   await ctx.store.recordDevice(user.id, ctx.device);
   logIn(ctx, user.id);
   rememberPhone(ctx, nat);
+  if (!user.is_admin) notify(ctx, ar('wa_alert_login', { name: user.name, phone: util.toLocal(nat) }));
   flash(ctx, 'ok', 'welcome_back');
   const next = ctx.session.next ? safeNext(ctx.session.next) : '/';
   delete ctx.session.next;
@@ -613,8 +713,19 @@ route('GET', '/my', async (ctx) => {
   html(ctx, 200, views.myPage(ctx, await ctx.store.userListings(ctx.user.id)));
 });
 
+// Before anything that cannot be undone, ask "are you sure?" on a page of its own (the site uses no scripts).
+// The first POST shows the question with the same fields hidden; the second POST carries confirm=1.
+// With `ask`, staff also pick a reason, which feeds the ready-made message to the member.
+function needConfirm(ctx, what, { back = '/', ask = false } = {}) {
+  if (ctx.body.confirm === '1') return false;
+  const fields = Object.entries(ctx.body).filter(([k]) => k !== '_csrf' && k !== 'confirm' && k !== 'reason');
+  html(ctx, 200, views.confirmPage(ctx, { action: ctx.url.pathname, fields, what, back, ask }));
+  return true;
+}
+
 route('POST', '/my/:id/sold', async (ctx) => {
   if (!requireLogin(ctx)) return;
+  if (needConfirm(ctx, 'sold', { back: ctx.body.next ? safeNext(ctx.body.next) : '/my' })) return;
   await ctx.store.setOwnListingStatus(Number(ctx.params.id), ctx.user.id, 'sold');
   flash(ctx, 'ok', 'updated');
   redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/my');
@@ -622,16 +733,60 @@ route('POST', '/my/:id/sold', async (ctx) => {
 
 route('POST', '/my/:id/delete', async (ctx) => {
   if (!requireLogin(ctx)) return;
+  if (needConfirm(ctx, 'delete_own', { back: '/my' })) return;
   await ctx.store.deleteOwnListing(Number(ctx.params.id), ctx.user.id);
   flash(ctx, 'ok', 'deleted');
   redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/my');
 });
 
+// Move an ad back to the top: once every few days.
+route('POST', '/my/:id/renew', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const r = await ctx.store.renewListing(Number(ctx.params.id), ctx.user.id);
+  if (r.ok) flash(ctx, 'ok', 'renewed');
+  else if (r.missing) flash(ctx, 'error', 'err_renew_state');
+  else flash(ctx, 'error', 'err_renew_wait', { n: r.daysLeft });
+  redirect(ctx, '/my');
+});
+
+// Verified advertisers add up to 5 numbers at a time (same free-text format as the admin import).
+const BULK_MAX = 5;
+route('GET', '/my/bulk', (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!ctx.user.verified && util.rankOf(ctx.user) < 2) return notFound(ctx);
+  html(ctx, 200, views.bulkPage(ctx, { max: BULK_MAX }));
+});
+route('POST', '/my/bulk', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!ctx.user.verified && util.rankOf(ctx.user) < 2) return notFound(ctx);
+  if (!(await ctx.store.allow(`bulk:${ctx.user.id}`, 12, 3600 * 1000))) return tooMany(ctx);
+  const network = NETWORK_BY_KEY[ctx.body.network] ? ctx.body.network : 'stc';
+  const city = CITY_BY_KEY[ctx.body.city] ? ctx.body.city : 'riyadh';
+  const parsed = parseImport(str(ctx.body.lines, 2000), network, city);
+  const room = Math.max(0, config.maxActiveAdsPerUser - (await ctx.store.countActiveByUser(ctx.user.id)));
+  const items = [];
+  for (const it of parsed.items) {
+    if (items.some((x) => x.number === it.number)) continue;
+    if (await ctx.store.isPhoneBlocked(it.number.slice(1))) continue;
+    items.push(it);
+  }
+  const take = items.slice(0, Math.min(BULK_MAX, room));
+  if (!take.length) {
+    flash(ctx, 'error', room ? 'import_none' : 'err_limit_bulk', { n: config.maxActiveAdsPerUser });
+    return redirect(ctx, '/my/bulk');
+  }
+  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true });
+  const extra = parsed.items.length - r.added;
+  flash(ctx, 'ok', 'bulk_done', { added: r.added, skipped: Math.max(0, extra) });
+  redirect(ctx, '/my');
+});
+
 // ---- Admin ----
 
-const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users'];
+const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users', 'blocked', 'log'];
 const TABS_MOD = ['reported', 'all', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
+const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
 
 route('GET', '/admin', async (ctx) => {
   if (!requireStaff(ctx, 1)) return;
@@ -640,6 +795,8 @@ route('GET', '/admin', async (ctx) => {
   const data = {};
   if (tab === 'stats') data.stats = await ctx.store.adminStats();
   else if (tab === 'users') data.users = await ctx.store.adminUsers();
+  else if (tab === 'blocked') data.blocked = await ctx.store.blockedPhones();
+  else if (tab === 'log') data.log = await ctx.store.auditLog();
   else {
     data.listings = await ctx.store.adminListings(tab);
     if (tab === 'review') data.suspended = await ctx.store.suspendedUsers();
@@ -648,6 +805,7 @@ route('GET', '/admin', async (ctx) => {
 });
 
 const sellerOf = (l) => ({ id: l.user_id, is_admin: l.seller_is_admin, role: l.seller_role });
+const reasonOf = (ctx) => (WHY.includes(ctx.body.reason) ? ctx.body.reason : '');
 
 route('POST', '/admin/l/:id/:action', async (ctx) => {
   if (!requireStaff(ctx, 1)) return;
@@ -661,22 +819,39 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   if (rank < 2 && !modOk) return notFound(ctx);
   if (!util.canActOn(ctx.user, sellerOf(l))) return notFound(ctx);
 
-  if ((action === 'pin') && l.status !== 'active') {
+  if ((action === 'pin' || action === 'feature') && l.status !== 'active') {
     flash(ctx, 'error', 'err_pin_live');
     return redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : '/admin?tab=all');
   }
+  const tabs = adminTabs(ctx);
+  const tab = tabs.includes(ctx.body.tab) ? ctx.body.tab : tabs[0];
+  const back = ctx.body.next ? safeNext(ctx.body.next) : `/admin?tab=${tab}`;
+  if (action === 'hide' && needConfirm(ctx, 'hide', { back, ask: true })) return;
+  if (action === 'delete' && needConfirm(ctx, 'delete_admin', { back })) return;
+
+  let msg = 'updated';
   if (action === 'approve') await ctx.store.setListingStatus(id, 'active');
   else if (action === 'hide') await ctx.store.setListingStatus(id, 'hidden', rank === 1 ? ctx.user.id : 0);
   else if (action === 'restore') {
     await ctx.store.setListingStatus(id, 'active');
     await ctx.store.clearReports(id);
   } else if (action === 'delete') await ctx.store.deleteListing(id);
-  else if (action === 'pin' || action === 'unpin') await ctx.store.setPinned(id, action === 'pin');
-  else return notFound(ctx);
-  const tabs = adminTabs(ctx);
-  const tab = tabs.includes(ctx.body.tab) ? ctx.body.tab : tabs[0];
-  flash(ctx, 'ok', action === 'pin' ? 'pinned' : action === 'unpin' ? 'unpinned' : 'updated');
-  redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : `/admin?tab=${tab}`);
+  else if (action === 'pin' || action === 'unpin') {
+    await ctx.store.setPinned(id, action === 'pin');
+    msg = action === 'pin' ? 'pinned' : 'unpinned';
+  } else if (action === 'feature' || action === 'unfeature') {
+    await ctx.store.setFeatured(id, action === 'feature');
+    msg = action === 'feature' ? 'featured_on' : 'featured_off';
+  } else return notFound(ctx);
+
+  const reason = action === 'hide' ? reasonOf(ctx) : '';
+  await audit(ctx, 'ad_' + action, `${l.number} (#${l.id})`, reason ? 'why_' + reason : '');
+  flash(ctx, 'ok', msg);
+  if (reason && l.user_id !== ctx.user.id) {
+    const to = `/admin/notify?${new URLSearchParams({ u: l.user_id, a: 'hide', r: reason, n: l.number, back })}`;
+    return redirect(ctx, to);
+  }
+  redirect(ctx, back);
 });
 
 const cleanName = (raw) => str(raw, 80).replace(/\s+/g, ' ').trim();
@@ -691,6 +866,7 @@ route('POST', '/admin/u/:id/name', async (ctx) => {
   if (!nameOk(name)) flash(ctx, 'error', 'err_name');
   else {
     await ctx.store.setUserName(user.id, name);
+    await audit(ctx, 'user_name', `${user.name} (#${user.id})`, name);
     flash(ctx, 'ok', 'updated');
   }
   redirect(ctx, '/admin?tab=users');
@@ -716,8 +892,10 @@ route('POST', '/admin/u/:id/reset', async (ctx) => {
   if (!(await ctx.store.allow(`reset:${ctx.user.id}`, 30, 3600 * 1000))) return tooMany(ctx);
   const user = await ctx.store.getUser(Number(ctx.params.id));
   if (!user || util.rankOf(ctx.user) <= util.rankOf(user)) return notFound(ctx);
+  if (needConfirm(ctx, 'reset', { back: '/admin?tab=users' })) return;
   const pass = wc.randomPassword(10);
   await ctx.store.setUserPassword(user.id, await wc.hashPassword(pass, config.pbkdf2Iterations));
+  await audit(ctx, 'user_reset', `${user.name} (#${user.id})`);
   html(ctx, 200, views.adminResetPage(ctx, user, pass), { 'Cache-Control': 'no-store' });
 });
 
@@ -731,6 +909,19 @@ route('POST', '/admin/u/:id/role', async (ctx) => {
   if (!user || user.is_admin || !role || user.id === ctx.user.id) return notFound(ctx);
   if (rank < 3 && util.rankOf(user) >= rank) return notFound(ctx);
   await ctx.store.setUserRole(user.id, role);
+  await audit(ctx, 'user_role', `${user.name} (#${user.id})`, role);
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, '/admin?tab=users');
+});
+
+// Internal note about a member: only staff see it.
+route('POST', '/admin/u/:id/note', async (ctx) => {
+  if (!requireStaff(ctx, 1)) return;
+  const user = await ctx.store.getUser(Number(ctx.params.id));
+  if (!user || !util.canActOn(ctx.user, user)) return notFound(ctx);
+  const note = str(ctx.body.note, 300).replace(/\s+/g, ' ').trim();
+  await ctx.store.setUserNote(user.id, note);
+  await audit(ctx, 'user_note', `${user.name} (#${user.id})`, note);
   flash(ctx, 'ok', 'updated');
   redirect(ctx, '/admin?tab=users');
 });
@@ -743,20 +934,95 @@ route('POST', '/admin/u/:id/:action', async (ctx) => {
   if (!user || id === ctx.user.id) return notFound(ctx);
   const rank = util.rankOf(ctx.user);
   const tab = ctx.body.tab === 'review' ? 'review' : 'users';
+  const back = `/admin?tab=${tab}`;
   if (!util.canActOn(ctx.user, user)) return notFound(ctx);
 
+  let reason = '';
   if (action === 'suspend') {
+    if (needConfirm(ctx, 'suspend', { back, ask: true })) return;
     await ctx.store.suspendUser(user.id, ctx.user.id);
+    reason = reasonOf(ctx);
   } else if (action === 'unsuspend') {
     // A moderator can only undo his own suspension; the rest is for the general moderators and the owner.
     if (rank < 2 && user.suspended !== ctx.user.id) return notFound(ctx);
     await ctx.store.unsuspendUser(user.id);
   } else if (action === 'ban' || action === 'unban') {
     if (rank < 2) return notFound(ctx);
+    if (action === 'ban' && needConfirm(ctx, 'ban', { back, ask: true })) return;
     await ctx.store.setUserBanned(user.id, action === 'ban');
+    if (action === 'ban') reason = reasonOf(ctx);
+  } else if (action === 'verify' || action === 'unverify') {
+    if (rank < 2) return notFound(ctx);
+    await ctx.store.setVerified(user.id, action === 'verify');
   } else return notFound(ctx);
+  await audit(ctx, 'user_' + action, `${user.name} (#${user.id})`, reason ? 'why_' + reason : '');
   flash(ctx, 'ok', 'updated');
-  redirect(ctx, `/admin?tab=${tab}`);
+  if (reason) {
+    return redirect(ctx, `/admin/notify?${new URLSearchParams({ u: user.id, a: action, r: reason, back })}`);
+  }
+  redirect(ctx, back);
+});
+
+// A ready-made WhatsApp message to the member, with the reason, after a hide / suspend / ban.
+route('GET', '/admin/notify', async (ctx) => {
+  if (!requireStaff(ctx, 1)) return;
+  const user = await ctx.store.getUser(Number(ctx.query.u));
+  const action = ['hide', 'suspend', 'ban'].includes(ctx.query.a) ? ctx.query.a : '';
+  const reason = WHY.includes(ctx.query.r) ? ctx.query.r : 'other';
+  if (!user || !action || !util.canActOn(ctx.user, user)) return notFound(ctx);
+  const number = /^05\d{8}$/.test(ctx.query.n || '') ? ctx.query.n : '';
+  const text = ctx.t('msg_' + action, { name: user.name, reason: ctx.t('why_' + reason), number });
+  html(ctx, 200, views.notifyPage(ctx, { user, text, back: safeNext(ctx.query.back || '/admin') }));
+});
+
+// Phones that can never register, log in or be used in an ad.
+route('POST', '/admin/block', async (ctx) => {
+  if (!requireStaff(ctx, 2)) return;
+  const nat = util.normPhone(str(ctx.body.phone, 25));
+  if (!nat || nat === config.adminNational) {
+    flash(ctx, 'error', 'err_phone');
+    return redirect(ctx, '/admin?tab=blocked');
+  }
+  await ctx.store.blockPhone(nat, ctx.user.id);
+  await audit(ctx, 'phone_block', util.toLocal(nat));
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, '/admin?tab=blocked');
+});
+route('POST', '/admin/unblock/:phone', async (ctx) => {
+  if (!requireStaff(ctx, 2)) return;
+  const nat = util.normPhone(ctx.params.phone);
+  if (nat) {
+    await ctx.store.unblockPhone(nat);
+    await audit(ctx, 'phone_unblock', util.toLocal(nat));
+  }
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, '/admin?tab=blocked');
+});
+
+// Spreadsheet files (open in Excel). Cells that start with = + - @ get a quote in front so a formula cannot run.
+const csvCell = (v) => {
+  let x = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(x)) x = "'" + x;
+  return /[",\n\r]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x;
+};
+const toCsv = (cols, rows) => '﻿' + [cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\r\n') + '\r\n';
+
+route('GET', '/admin/export/:what', async (ctx) => {
+  if (!requireStaff(ctx, 2)) return;
+  const day = new Date().toISOString().slice(0, 10);
+  let body;
+  if (ctx.params.what === 'users.csv') {
+    const rows = (await ctx.store.exportUsers()).map((u) => ({ ...u, phone: '0' + u.phone }));
+    body = toCsv(['id', 'name', 'phone', 'role', 'is_admin', 'verified', 'banned', 'suspended', 'ads', 'created_at'], rows);
+  } else if (ctx.params.what === 'numbers.csv') {
+    const rows = (await ctx.store.exportListings()).map((l) => ({ ...l, seller_phone: '0' + l.seller_phone }));
+    body = toCsv(['id', 'number', 'network', 'city', 'price', 'price_type', 'status', 'views', 'pinned', 'featured', 'seller', 'seller_phone', 'created_at'], rows);
+  } else return notFound(ctx);
+  await audit(ctx, 'export', ctx.params.what);
+  send(ctx, 200, 'text/csv; charset=utf-8', body, {
+    'Content-Disposition': `attachment; filename="${ctx.params.what.replace('.csv', '')}-${day}.csv"`,
+    'Cache-Control': 'no-store',
+  });
 });
 
 // ---- Admin: add many numbers at once ----
@@ -837,6 +1103,7 @@ route('POST', '/admin/import', async (ctx) => {
     return redirect(ctx, '/admin/import');
   }
   const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), items);
+  await audit(ctx, 'import', `${r.added}`, `${r.skipped}`);
   flash(ctx, 'ok', 'import_done', { added: r.added, skipped: r.skipped, bad });
   redirect(ctx, '/admin?tab=all');
 });
@@ -849,7 +1116,7 @@ route('GET', '/robots.txt', (ctx) => {
     ctx,
     200,
     'text/plain; charset=utf-8',
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /my\nDisallow: /password\nDisallow: /post\nDisallow: /login\nDisallow: /register\nDisallow: /lang/\nDisallow: /theme/\n\nSitemap: ${ctx.base}/sitemap.xml\n`,
     { 'Cache-Control': 'public, max-age=3600' }
   );
 });
@@ -860,6 +1127,9 @@ route('GET', '/sitemap.xml', async (ctx) => {
   for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });
   for (const k of Object.keys(CITY_BY_KEY)) if (counts.city[k]) urls.push({ loc: `${ctx.base}/city/${k}` });
   for (const k of PATTERN_KEYS) urls.push({ loc: `${ctx.base}/type/${k}` });
+  for (const n of UNDER_PRICES) if (counts.under[n]) urls.push({ loc: `${ctx.base}/under/${n}` });
+  for (const p of ['/faq', '/articles', '/about', '/contact']) urls.push({ loc: ctx.base + p });
+  for (const a of content.ARTICLES) urls.push({ loc: `${ctx.base}/articles/${a.slug}`, lastmod: a.date });
   for (const l of await ctx.store.sitemapListings()) {
     urls.push({ loc: `${ctx.base}/n/${l.id}`, lastmod: String(l.created_at).slice(0, 10) });
   }
@@ -894,13 +1164,13 @@ async function fail(request, url, status) {
 }
 
 // store: the database (see store.js). ip: the visitor's address, worked out by the caller.
-async function handle(request, { store, ip }) {
+async function handle(request, { store, ip, waitUntil }) {
   const url = new URL(request.url);
   const method = request.method;
   const wanted = method === 'HEAD' ? 'GET' : method;
 
   try {
-    const ctx = await buildContext(request, url, ip, store);
+    const ctx = await buildContext(request, url, ip, store, waitUntil);
 
     let matched = null;
     for (const r of routes) {

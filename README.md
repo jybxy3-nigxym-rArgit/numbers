@@ -66,3 +66,15 @@ TARGET=worker node --disable-warning=ExperimentalWarning test/e2e.js   # نسخ�
 - رقم جوال البائع **غير موثّق برسالة SMS** حالياً. لو تبي توثيق، نضيف شركة رسائل لاحقاً.
 - الحماية: كلمات المرور مشفّرة (scrypt)، حماية من CSRF، تحديد محاولات الدخول، وتنظيف كل المدخلات.
 - قاعدة البيانات SQLite، تكفي لآلاف الإعلانات. خذ نسخة احتياطية من مجلد `DATA_DIR` بشكل دوري.
+
+## Free WhatsApp alerts to the owner (optional)
+
+The site can message the owner on WhatsApp for free through CallMeBot (https://www.callmebot.com): new member, login, new ad and report.
+
+1. Activate CallMeBot once from the owner's WhatsApp (follow the steps on callmebot.com) and keep the API key it sends back.
+2. In Cloudflare add a secret named `CALLMEBOT_KEY` with that key (Workers > numbers > Settings > Variables and Secrets).
+3. If the number that activated CallMeBot is not the admin phone, also add `CALLMEBOT_PHONE` (international digits, e.g. 966599900079).
+
+Without `CALLMEBOT_KEY` nothing is sent. CallMeBot is a third-party free service and can change or stop.
+
+Other optional settings: `RENEW_DAYS` (default 3), `REPOST_PENALTY_DAYS` (default 5), `POST_PER_HOUR` (default 30).

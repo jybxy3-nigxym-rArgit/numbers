@@ -10,7 +10,8 @@
 //   batch([{sql, params}]) -> [{ rows, changes, lastId }] (all or nothing)
 
 const config = require('./config');
-const { patternTags } = require('./util');
+const { patternTags, parseDbDate } = require('./util');
+const { UNDER_PRICES } = require('./data');
 const { randomToken } = require('./webcrypto');
 
 const SCHEMA = [
@@ -62,6 +63,26 @@ const SCHEMA = [
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (kind, val)
   )`,
+  `CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_id   INTEGER NOT NULL,
+    actor_name TEXT NOT NULL,
+    action     TEXT NOT NULL,
+    target     TEXT NOT NULL DEFAULT '',
+    detail     TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS blocked_phones (
+    phone      TEXT PRIMARY KEY,
+    by_id      INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS deleted_numbers (
+    number     TEXT PRIMARY KEY,
+    user_id    INTEGER NOT NULL,
+    deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  'CREATE TABLE IF NOT EXISTS views_daily (day TEXT PRIMARY KEY, views INTEGER NOT NULL DEFAULT 0)',
   'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS rate_events (k TEXT NOT NULL, ts INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_rate_k ON rate_events(k, ts)',
@@ -69,7 +90,7 @@ const SCHEMA = [
 
 const LISTING_SELECT = `
   SELECT l.*, u.name AS seller, u.banned AS seller_banned, u.suspended AS seller_suspended,
-         u.is_admin AS seller_is_admin, u.role AS seller_role
+         u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified
   FROM listings l JOIN users u ON u.id = l.user_id`;
 
 // Ads of banned or suspended members stay out of every public list.
@@ -77,9 +98,16 @@ const VISIBLE_SELLER = 'l.user_id NOT IN (SELECT id FROM users WHERE banned = 1 
 
 const REPORT_COUNT_SQL = '(SELECT COUNT(*) FROM reports r WHERE r.listing_id = l.id)';
 
+const DAY_MS = 86400000;
+
 function createStore(d) {
   let readyPromise = null;
   let secretCache = null;
+  // Counts for the landing pages change slowly: keep them for a minute, and drop them when this server writes an ad.
+  let countsCache = null;
+  const dropCounts = () => {
+    countsCache = null;
+  };
 
   // Creates the tables if they are missing and promotes the admin phone. Runs once per process.
   function ready() {
@@ -98,6 +126,12 @@ function createStore(d) {
         if (!cols.includes('hidden_by')) {
           await d.run('ALTER TABLE listings ADD COLUMN hidden_by INTEGER NOT NULL DEFAULT 0').catch(() => {});
         }
+        const addCol = (table, col, ddl) => d.run(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`).catch(() => {});
+        if (!ucols.includes('verified')) await addCol('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+        if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
+        if (!cols.includes('renewed_at')) await addCol('listings', 'renewed_at', "TEXT NOT NULL DEFAULT ''");
+        if (!cols.includes('price_type')) await addCol('listings', 'price_type', "TEXT NOT NULL DEFAULT ''");
+        if (!cols.includes('featured')) await addCol('listings', 'featured', 'INTEGER NOT NULL DEFAULT 0');
         if (!cols.includes('pinned')) {
           await d.run('ALTER TABLE listings ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0').catch(() => {});
         }
@@ -162,8 +196,16 @@ function createStore(d) {
 
   const setUserRole = (id, role) => d.run('UPDATE users SET role = ? WHERE id = ? AND is_admin = 0', [role, id]);
   // Suspension is temporary and reversible: the member cannot sign in and his ads leave the public pages, nothing is deleted.
-  const suspendUser = (id, by) => d.run('UPDATE users SET suspended = ? WHERE id = ? AND is_admin = 0', [by, id]);
-  const unsuspendUser = (id) => d.run('UPDATE users SET suspended = 0 WHERE id = ?', [id]);
+  const suspendUser = (id, by) => {
+    dropCounts();
+    return d.run('UPDATE users SET suspended = ? WHERE id = ? AND is_admin = 0', [by, id]);
+  };
+  const unsuspendUser = (id) => {
+    dropCounts();
+    return d.run('UPDATE users SET suspended = 0 WHERE id = ?', [id]);
+  };
+  const setVerified = (id, on) => d.run('UPDATE users SET verified = ? WHERE id = ?', [on ? 1 : 0, id]);
+  const setUserNote = (id, note) => d.run('UPDATE users SET note = ? WHERE id = ?', [note, id]);
   const suspendedUsers = () =>
     d.all(
       `SELECT u.*, s.name AS suspended_by_name FROM users u LEFT JOIN users s ON s.id = u.suspended
@@ -236,7 +278,7 @@ function createStore(d) {
         : f.sort === 'price_desc'
           ? '(l.price IS NULL), l.price DESC, l.id DESC'
           : 'l.created_at DESC, l.id DESC';
-    const pinnedFirst = f.pinFirst === false ? '' : 'l.pinned DESC, ';
+    const pinnedFirst = f.pinFirst === false ? '' : 'l.pinned DESC, l.featured DESC, ';
 
     const [count, list] = await d.batch([
       { sql: `SELECT COUNT(*) AS c FROM listings l WHERE ${w}`, params },
@@ -263,18 +305,19 @@ function createStore(d) {
 
   async function insertListing(l) {
     const r = await d.run(
-      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [l.userId, l.number, l.network, l.city, l.price ?? null, l.contact, l.description, l.status, patternTags(l.number)]
+      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, price_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [l.userId, l.number, l.network, l.city, l.price ?? null, l.contact, l.description, l.status, patternTags(l.number), l.priceType || '']
     );
+    dropCounts();
     return r.lastId;
   }
 
   async function updateListing(l) {
     return (
       await d.run(
-        'UPDATE listings SET network = ?, city = ?, price = ?, contact = ?, description = ?, status = ? WHERE id = ? AND user_id = ?',
-        [l.network, l.city, l.price ?? null, l.contact, l.description, l.status, l.id, l.userId]
+        'UPDATE listings SET network = ?, city = ?, price = ?, contact = ?, description = ?, status = ?, price_type = ? WHERE id = ? AND user_id = ?',
+        [l.network, l.city, l.price ?? null, l.contact, l.description, l.status, l.priceType || '', l.id, l.userId]
       )
     ).changes;
   }
@@ -284,10 +327,12 @@ function createStore(d) {
 
   // `by` is the moderator who hid the ad (0 when anyone else did), so the senior staff can review it.
   async function setListingStatus(id, status, by = 0) {
+    dropCounts();
     return (await d.run('UPDATE listings SET status = ?, hidden_by = ? WHERE id = ?', [status, status === 'hidden' ? by : 0, id]))
       .changes;
   }
   async function setOwnListingStatus(id, userId, status) {
+    dropCounts();
     return (
       await d.run("UPDATE listings SET status = ?, pinned = 0 WHERE id = ? AND user_id = ? AND status = 'active'", [
         status,
@@ -297,17 +342,55 @@ function createStore(d) {
     ).changes;
   }
   async function deleteListing(id) {
+    dropCounts();
     return (await d.run('DELETE FROM listings WHERE id = ?', [id])).changes;
   }
   // A sold ad stays as a record: its owner cannot delete it (the admin still can).
+  // The number is remembered, so the same number cannot be posted again for a few days (penalty for delete-and-repost).
   async function deleteOwnListing(id, userId) {
-    return (await d.run("DELETE FROM listings WHERE id = ? AND user_id = ? AND status != 'sold'", [id, userId])).changes;
+    const l = await d.first("SELECT number FROM listings WHERE id = ? AND user_id = ? AND status != 'sold'", [id, userId]);
+    if (!l) return 0;
+    dropCounts();
+    const rs = await d.batch([
+      { sql: 'DELETE FROM listings WHERE id = ? AND user_id = ?', params: [id, userId] },
+      {
+        sql: "INSERT OR REPLACE INTO deleted_numbers (number, user_id, deleted_at) VALUES (?, ?, datetime('now'))",
+        params: [l.number, userId],
+      },
+    ]);
+    return rs[0].changes;
+  }
+  // Days left before this number may be posted again (0 = free to post).
+  async function penaltyDaysLeft(number) {
+    const r = await d.first('SELECT deleted_at FROM deleted_numbers WHERE number = ?', [number]);
+    if (!r) return 0;
+    const left = config.repostPenaltyDays * DAY_MS - (Date.now() - parseDbDate(r.deleted_at).getTime());
+    return left > 0 ? Math.ceil(left / DAY_MS) : 0;
+  }
+  // Move an ad back to the top. Allowed again every `renewDays` days; returns { ok } or { ok:false, daysLeft }.
+  async function renewListing(id, userId) {
+    const l = await d.first("SELECT created_at, renewed_at FROM listings WHERE id = ? AND user_id = ? AND status = 'active'", [id, userId]);
+    if (!l) return { ok: false, daysLeft: 0, missing: true };
+    const last = parseDbDate(l.renewed_at || l.created_at).getTime();
+    const left = config.renewDays * DAY_MS - (Date.now() - last);
+    if (left > 0) return { ok: false, daysLeft: Math.ceil(left / DAY_MS) };
+    await d.run("UPDATE listings SET created_at = datetime('now'), renewed_at = datetime('now') WHERE id = ?", [id]);
+    return { ok: true };
   }
   async function setPinned(id, pinned) {
     return (await d.run('UPDATE listings SET pinned = ? WHERE id = ?', [pinned ? 1 : 0, id])).changes;
   }
+  async function setFeatured(id, on) {
+    return (await d.run('UPDATE listings SET featured = ? WHERE id = ?', [on ? 1 : 0, id])).changes;
+  }
   async function bumpViews(id) {
-    await d.run('UPDATE listings SET views = views + 1 WHERE id = ?', [id]);
+    await d.batch([
+      { sql: 'UPDATE listings SET views = views + 1 WHERE id = ?', params: [id] },
+      {
+        sql: "INSERT INTO views_daily (day, views) VALUES (date('now'), 1) ON CONFLICT (day) DO UPDATE SET views = views + 1",
+        params: [],
+      },
+    ]);
   }
 
   // ---- Reports ----
@@ -335,7 +418,7 @@ function createStore(d) {
     else if (tab === 'review') where = "(l.status = 'hidden' AND l.hidden_by > 0)";
     return d.all(
       `SELECT l.*, u.name AS seller, u.phone AS seller_phone, u.banned AS seller_banned, u.suspended AS seller_suspended,
-              u.is_admin AS seller_is_admin, u.role AS seller_role, ${REPORT_COUNT_SQL} AS report_count
+              u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified, ${REPORT_COUNT_SQL} AS report_count
        FROM listings l JOIN users u ON u.id = l.user_id
        WHERE ${where}
        ORDER BY l.created_at DESC, l.id DESC LIMIT 300`
@@ -350,21 +433,57 @@ function createStore(d) {
     );
 
   async function adminStats() {
+    const one = (sql) => ({ sql, params: [] });
     const rs = await d.batch([
-      { sql: "SELECT COUNT(*) AS c FROM listings WHERE status = 'active'", params: [] },
-      { sql: "SELECT COUNT(*) AS c FROM listings WHERE status = 'pending'", params: [] },
-      { sql: 'SELECT COUNT(*) AS c FROM users', params: [] },
-      {
-        sql: `SELECT COUNT(*) AS c FROM reports r JOIN listings l ON l.id = r.listing_id
-              WHERE l.status IN ('active','pending')`,
-        params: [],
-      },
+      one("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'"),
+      one("SELECT COUNT(*) AS c FROM listings WHERE status = 'pending'"),
+      one('SELECT COUNT(*) AS c FROM users'),
+      one(`SELECT COUNT(*) AS c FROM reports r JOIN listings l ON l.id = r.listing_id WHERE l.status IN ('active','pending')`),
+      one("SELECT COUNT(*) AS c FROM listings WHERE status = 'sold'"),
+      one("SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now','-1 day')"),
+      one("SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now','-7 day')"),
+      one("SELECT COUNT(*) AS c FROM listings WHERE created_at >= datetime('now','-1 day')"),
+      one("SELECT COUNT(*) AS c FROM listings WHERE created_at >= datetime('now','-7 day')"),
+      one('SELECT COALESCE(SUM(views),0) AS c FROM listings'),
+      one("SELECT COALESCE(SUM(views),0) AS c FROM views_daily WHERE day = date('now')"),
+      one("SELECT COALESCE(SUM(views),0) AS c FROM views_daily WHERE day >= date('now','-6 day')"),
+      one("SELECT id, number, views FROM listings WHERE status = 'active' AND views > 0 ORDER BY views DESC, id DESC LIMIT 5"),
+      one("SELECT city AS k, COUNT(*) AS c FROM listings WHERE status = 'active' GROUP BY city ORDER BY c DESC LIMIT 5"),
+      one("SELECT network AS k, COUNT(*) AS c FROM listings WHERE status = 'active' GROUP BY network ORDER BY c DESC"),
     ]);
-    return { active: rs[0].rows[0].c, pending: rs[1].rows[0].c, users: rs[2].rows[0].c, reports: rs[3].rows[0].c };
+    const c = (i) => rs[i].rows[0].c;
+    return {
+      active: c(0),
+      pending: c(1),
+      users: c(2),
+      reports: c(3),
+      sold: c(4),
+      users1: c(5),
+      users7: c(6),
+      ads1: c(7),
+      ads7: c(8),
+      viewsAll: c(9),
+      viewsToday: c(10),
+      views7: c(11),
+      top: rs[12].rows,
+      cities: rs[13].rows,
+      networks: rs[14].rows,
+    };
+  }
+
+  // Small numbers for the "needs your attention" badge in the header (staff only).
+  async function adminAlerts() {
+    const r = await d.first(`SELECT
+      (SELECT COUNT(*) FROM listings WHERE status = 'pending') AS pending,
+      (SELECT COUNT(*) FROM listings WHERE status = 'hidden' AND hidden_by > 0) AS review,
+      (SELECT COUNT(*) FROM users WHERE suspended > 0 AND banned = 0) AS suspended,
+      (SELECT COUNT(*) FROM reports r JOIN listings l ON l.id = r.listing_id WHERE l.status IN ('active','pending')) AS reports`);
+    return r;
   }
 
   // Banning a user also bans every browser he used (the internet address is not used at all); unbanning lifts it.
   async function setUserBanned(id, banned) {
+    dropCounts();
     const stmts = [{ sql: 'UPDATE users SET banned = ? WHERE id = ? AND is_admin = 0', params: [banned ? 1 : 0, id] }];
     if (banned) {
       stmts.push({
@@ -386,18 +505,63 @@ function createStore(d) {
   const sitemapListings = () =>
     d.all(`SELECT id, created_at FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} ORDER BY id DESC LIMIT 5000`);
 
-  // How many live ads each network and city has (for landing pages, links and the sitemap).
+  // How many live ads each network, city and price ceiling has (for landing pages, links and the sitemap).
   async function landingCounts() {
+    if (countsCache && Date.now() - countsCache.at < 60000) return countsCache.value;
+    const unders = UNDER_PRICES.map((n) => `SUM(CASE WHEN price IS NOT NULL AND price <= ${Number(n)} THEN 1 ELSE 0 END) AS u${Number(n)}`).join(', ');
     const rs = await d.batch([
       { sql: `SELECT network AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY network`, params: [] },
       { sql: `SELECT city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY city`, params: [] },
+      { sql: `SELECT ${unders} FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
     ]);
     const toMap = (rows) => Object.fromEntries(rows.map((r) => [r.k, r.c]));
-    return { network: toMap(rs[0].rows), city: toMap(rs[1].rows) };
+    const u = rs[2].rows[0] || {};
+    const value = {
+      network: toMap(rs[0].rows),
+      city: toMap(rs[1].rows),
+      under: Object.fromEntries(UNDER_PRICES.map((n) => [n, Number(u['u' + n] || 0)])),
+    };
+    countsCache = { at: Date.now(), value };
+    return value;
   }
 
+  // ---- Staff tools: audit log, blocked phones, exports ----
+
+  const logAction = (actorId, actorName, action, target = '', detail = '') =>
+    d.run('INSERT INTO audit_log (actor_id, actor_name, action, target, detail) VALUES (?, ?, ?, ?, ?)', [
+      actorId,
+      actorName,
+      action,
+      String(target).slice(0, 120),
+      String(detail).slice(0, 300),
+    ]);
+  const auditLog = () => d.all('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200');
+
+  const isPhoneBlocked = async (nat) => !!(await d.first('SELECT 1 AS x FROM blocked_phones WHERE phone = ?', [nat]));
+  const blockPhone = (nat, by) => d.run('INSERT OR IGNORE INTO blocked_phones (phone, by_id) VALUES (?, ?)', [nat, by]);
+  const unblockPhone = (nat) => d.run('DELETE FROM blocked_phones WHERE phone = ?', [nat]);
+  const blockedPhones = () =>
+    d.all(
+      `SELECT b.phone, b.created_at, u.name AS by_name FROM blocked_phones b LEFT JOIN users u ON u.id = b.by_id
+       ORDER BY b.created_at DESC LIMIT 500`
+    );
+
+  const exportUsers = () =>
+    d.all(
+      `SELECT u.id, u.name, u.phone, u.role, u.is_admin, u.verified, u.banned, u.suspended, u.created_at,
+              (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads
+       FROM users u ORDER BY u.id LIMIT 50000`
+    );
+  const exportListings = () =>
+    d.all(
+      `SELECT l.id, l.number, l.network, l.city, l.price, l.price_type, l.status, l.views, l.pinned, l.featured,
+              l.created_at, u.name AS seller, u.phone AS seller_phone
+       FROM listings l JOIN users u ON u.id = l.user_id ORDER BY l.id LIMIT 50000`
+    );
+
   // Bulk add for the admin: skips numbers that are already live. Returns { added, skipped }.
-  async function importListings(userId, contact, items) {
+  async function importListings(userId, contact, items, { penalty = false } = {}) {
+    dropCounts();
     const uniq = [];
     const seen = new Set();
     for (const it of items) {
@@ -413,6 +577,9 @@ function createStore(d) {
         chunk.map((x) => x.number)
       );
       for (const r of rows) taken.add(r.number);
+    }
+    if (penalty) {
+      for (const x of uniq) if (!taken.has(x.number) && (await penaltyDaysLeft(x.number)) > 0) taken.add(x.number);
     }
     const fresh = uniq.filter((x) => !taken.has(x.number));
     for (let i = 0; i < fresh.length; i += 50) {
@@ -464,6 +631,20 @@ function createStore(d) {
     landingCounts,
     importListings,
     setPinned,
+    setFeatured,
+    setVerified,
+    setUserNote,
+    penaltyDaysLeft,
+    renewListing,
+    adminAlerts,
+    logAction,
+    auditLog,
+    isPhoneBlocked,
+    blockPhone,
+    unblockPhone,
+    blockedPhones,
+    exportUsers,
+    exportListings,
   };
 }
 

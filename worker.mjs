@@ -7,9 +7,13 @@ import app from './app.js';
 import d1 from './d1.js';
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, execCtx) {
     config.apply(env);
     const store = d1.storeFor(env.DB);
-    return app.handle(request, { store, ip: request.headers.get('cf-connecting-ip') || 'unknown' });
+    return app.handle(request, {
+      store,
+      ip: request.headers.get('cf-connecting-ip') || 'unknown',
+      waitUntil: execCtx && execCtx.waitUntil ? (p) => execCtx.waitUntil(p) : undefined,
+    });
   },
 };

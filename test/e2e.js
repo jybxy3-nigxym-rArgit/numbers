@@ -4,6 +4,7 @@
 // Run with:  npm test
 
 const { spawn } = require('child_process');
+const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -23,7 +24,7 @@ async function startServer(port, env = {}) {
     process.execPath,
     ['--disable-warning=ExperimentalWarning', path.join(__dirname, process.env.TARGET === 'worker' ? 'worker-sim.js' : '../server.js')],
     {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', REGISTER_PER_HOUR: '100', ...env },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', REGISTER_PER_HOUR: '100', POST_PER_HOUR: '500', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   );
@@ -54,9 +55,10 @@ class HttpClient {
     this.base = base;
     this.jar = {};
     this.auth = false;
+    this.headers = {};
   }
   async req(method, p, form) {
-    const headers = {};
+    const headers = { ...this.headers };
     const cookie = Object.entries(this.jar)
       .map(([k, v]) => `${k}=${v}`)
       .join('; ');
@@ -85,7 +87,7 @@ class HttpClient {
   }
   async post(p, form = {}) {
     const _csrf = await this.csrf();
-    return this.req('POST', p, { _csrf, ...form });
+    return this.req('POST', p, { _csrf, confirm: '1', ...form });
   }
 }
 
@@ -507,6 +509,136 @@ async function main() {
     await admin.post(`/admin/u/${modId}/role`, { role: 'user' });
     check('owner takes the role away', (await mod.get('/admin')).status === 404);
 
+    console.log('\nNew features');
+    const nora = await newClient(base);
+    const omar = await newClient(base);
+    await register(nora, 'Nora', '0566000001');
+    await register(omar, 'Omar', '0566000002');
+    const noraId = await idOf('0566000001');
+    const omarId = await idOf('0566000002');
+    const homeText = async () => (await anon.get('/')).text;
+
+    // price type, odd price warning
+    let rr = await nora.post('/post', { ...AD, number: '0566111001', price: '5000', price_type: 'negotiable' });
+    const adA = rr.location.split('/').pop();
+    check('ad with a price type is published', rr.status === 303);
+    rr = await anon.get('/n/' + adA);
+    check('listing page shows the price type, share button and copy line', rr.text.includes('Negotiable') && rr.text.includes('https://wa.me/?text=') && rr.text.includes('copy-num'));
+    rr = await nora.post('/post', { ...AD, number: '0566111002', price: '5' });
+    check('a strange price asks for confirmation', rr.status === 400 && rr.text.includes('name="price_ok"') && rr.text.includes('looks unusual'));
+    rr = await nora.post('/post', { ...AD, number: '0566111002', price: '5', price_ok: '1' });
+    check('confirmed strange price is published', rr.status === 303);
+    check('admin list marks the odd price', (await admin.get('/admin?tab=all')).text.includes('Odd price'));
+
+    // view counter with eye icon, search engines not counted
+    const viewsOf = async (id) => {
+      const card = (await homeText()).split('class="plate-card').find((x) => x.includes(`href="/n/${id}"`)) || '';
+      return /views-chip[\s\S]*?<bdi>(\d+)<\/bdi>/.exec(card);
+    };
+    const bot = await newClient(base);
+    bot.headers['user-agent'] = 'Mozilla/5.0 (compatible; Googlebot/2.1)';
+    await bot.get('/n/' + adA);
+    check('home shows the eye with the view count', /views-chip/.test(await homeText()));
+    const v0 = Number((await viewsOf(adA))[1]);
+    await bot.get('/n/' + adA);
+    check('search engine visits are not counted', Number((await viewsOf(adA))[1]) === v0);
+    const visitor = await newClient(base);
+    await visitor.get('/n/' + adA);
+    await visitor.get('/n/' + adA);
+    check('a real visitor counts once', Number((await viewsOf(adA))[1]) === v0 + 1);
+
+    // are you sure?
+    let raw = await nora.req('POST', `/my/${adA}/delete`, { _csrf: await nora.csrf() });
+    check('delete asks "are you sure" first', raw.status === 200 && raw.text.includes('Yes, continue') && (await anon.get('/n/' + adA)).status === 200);
+    raw = await nora.req('POST', `/my/${adA}/sold`, { _csrf: await nora.csrf() });
+    check('sold asks "are you sure" first', raw.status === 200 && raw.text.includes('Yes, continue') && !(await anon.get('/n/' + adA)).text.includes('sold-stamp'));
+
+    // renew
+    rr = await nora.post(`/my/${adA}/renew`);
+    check('a fresh ad cannot be renewed yet', rr.status === 303 && (await nora.get('/my')).text.includes('Renew in'));
+
+    // delete and repost penalty
+    const adB = (await omar.post('/post', { ...AD, number: '0566111003' })).location.split('/').pop();
+    await omar.post(`/my/${adB}/delete`);
+    rr = await omar.post('/post', { ...AD, number: '0566111003' });
+    check('a deleted number cannot be reposted right away', rr.status === 400 && rr.text.includes('5 day'));
+    rr = await nora.post('/post', { ...AD, number: '0566111003' });
+    check('nobody else can post it during the wait', rr.status === 400);
+
+    // report limit: five reports a day for one person
+    const pat = await newClient(base);
+    await register(pat, 'Pat', '0566000003');
+    const patAds = [];
+    for (let k = 0; k < 6; k++) patAds.push((await pat.post('/post', { ...AD, number: '056622200' + k })).location.split('/').pop());
+    const rita = await newClient(base);
+    await register(rita, 'Rita', '0566000004');
+    let last;
+    for (const id of patAds) last = await rita.post(`/n/${id}/report`, { reason: 'spam' });
+    check('a person can send only a few reports a day', (await rita.get('/')).text.includes('many reports'), last.status);
+
+    // blocked phones
+    check('only staff can block phones', (await nora.post('/admin/block', { phone: '0566000099' })).status === 404);
+    check('owner blocks a phone', (await admin.post('/admin/block', { phone: '0566000099' })).status === 303 && (await admin.get('/admin?tab=blocked')).text.includes('0566000099'));
+    const blk = await newClient(base);
+    rr = await blk.req('POST', '/register', { _csrf: /name="_csrf" value="([^"]+)"/.exec((await blk.get('/register')).text)[1], name: 'Blocked', phone: '0566000099', password: 'secret-pass-1' });
+    check('a blocked phone cannot register', rr.status === 400);
+    rr = await nora.post('/post', { ...AD, number: '0566000099' });
+    check('a blocked phone cannot be an ad number', rr.status === 400 && rr.text.includes('not allowed'));
+    rr = await nora.post('/post', { ...AD, number: '0566111005', contact: '0566000099' });
+    check('a blocked phone cannot be an ad contact', rr.status === 400);
+    await admin.post('/admin/unblock/566000099');
+    check('unblock works', !(await admin.get('/admin?tab=blocked')).text.includes('0566000099'));
+
+    // verified advertisers and bulk add
+    check('plain member has no bulk page', (await nora.get('/my/bulk')).status === 404);
+    check('owner verifies a member', (await admin.post(`/admin/u/${noraId}/verify`, { tab: 'users' })).status === 303);
+    check('verified mark shows on plates', (await homeText()).includes('class="vmark"'));
+    check('verified member opens the bulk page', (await nora.get('/my/bulk')).status === 200);
+    rr = await nora.post('/my/bulk', { network: 'stc', city: 'riyadh', lines: '0566333001 100\n0566333002 200\n0566333003 300\n0566333004 400\n0566333005 500\n0566333006 600\n0566333007 700' });
+    check('bulk add is capped at 5 numbers', rr.status === 303 && (await nora.get('/my')).text.includes('Added 5'));
+    check('the sixth number was not added', !(await anon.get('/')).text.includes('0566333006'));
+
+    // featured ads, notes, hide with a reason, activity log
+    check('owner features an ad', (await admin.post(`/admin/l/${adA}/feature`, { next: '/' })).status === 303);
+    rr = await anon.get('/');
+    check('featured ad gets the gold frame and badge', rr.text.includes('is-featured') && rr.text.includes('feat-badge'));
+    await admin.post(`/admin/l/${adA}/unfeature`, { next: '/' });
+    check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get('/admin?tab=users')).text.includes('calls late at night'));
+    rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
+    check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));
+    rr = await admin.get(rr.location);
+    check('ready message has the reason and a WhatsApp link', rr.status === 200 && rr.text.includes('Misleading price') && rr.text.includes('wa.me/966566000001'));
+    await admin.post(`/admin/l/${adA}/restore`, { tab: 'all' });
+    rr = await admin.get('/admin?tab=log');
+    check('activity log records staff actions', rr.text.includes('Hid an ad') && rr.text.includes('Featured an ad') && rr.text.includes('Blocked a phone') && rr.text.includes('Misleading price'));
+    check('only senior staff see the log and exports', (await nora.get('/admin?tab=log')).status === 404 && (await nora.get('/admin/export/users.csv')).status === 404 && (await anon.get('/admin/export/users.csv')).status === 404);
+    rr = await admin.get('/admin/export/users.csv');
+    check('members export is a csv file', rr.status === 200 && String(rr.headers.get('content-type')).startsWith('text/csv') && rr.text.includes('Nora') && rr.text.includes('0566000001'));
+    rr = await admin.get('/admin/export/numbers.csv');
+    check('numbers export is a csv file', rr.status === 200 && rr.text.includes('0566111001'));
+    check('stats show views and top lists', (await admin.get('/admin?tab=stats')).text.includes('Most viewed'));
+
+    // under-price pages, information pages, articles
+    await nora.post('/post', { ...AD, number: '0566444001', price: '300' });
+    rr = await anon.get('/under/500');
+    check('under-price page lists cheap numbers and is indexed', rr.status === 200 && rr.text.includes('0566 444 001') && !rr.text.includes('noindex'));
+    check('unknown price ceiling is 404', (await anon.get('/under/123')).status === 404);
+    check('home links to the under-price page', (await homeText()).includes('/under/500'));
+    rr = await anon.get('/faq');
+    check('faq page has FAQPage data', rr.status === 200 && rr.text.includes('FAQPage'));
+    check('articles list and article page work', (await anon.get('/articles')).status === 200 && (await anon.get('/articles/sawa-packages')).text.includes('2120') && (await anon.get('/articles/nope')).status === 404);
+    check('about and contact pages work', (await anon.get('/about')).status === 200 && (await anon.get('/contact')).text.includes('wa.me'));
+    rr = await anon.get('/sitemap.xml');
+    check('sitemap lists info pages, articles and the under-price page', rr.text.includes('/faq') && rr.text.includes('/articles/sawa-packages') && rr.text.includes('/under/500'));
+    check('promo banner shows for visitors, not for members', (await anon.get('/faq')).text.includes('class="promo"') && !(await nora.get('/faq')).text.includes('class="promo"'));
+    check('footer links, back-to-top and bottom bar exist', (await homeText()).includes('class="to-top"') && (await homeText()).includes('class="tabbar"'));
+
+    // night mode
+    const night = await newClient(base);
+    rr = await night.get('/theme/dark?next=/');
+    check('night mode sets a cookie', rr.status === 302 && night.jar.theme === 'dark');
+    check('night mode marks the page', (await night.get('/')).text.includes('data-theme="dark"') && !(await homeText()).includes('data-theme="dark"'));
+
     console.log('\nSEO files');
     const seoId = (await a3.post('/post', { ...AD, number: '0599123456' })).location.split('/').pop();
     r = await anon.get('/sitemap.xml');
@@ -549,10 +681,52 @@ async function main() {
     await register(ad, 'Owner', '0500000001');
     r = await ad.get('/admin?tab=pending');
     check('admin sees pending ad', r.text.includes('0555 777 888'));
+    check('admin header shows what is waiting', (await ad.get('/')).text.includes('alert-dot'));
     await ad.post('/admin/l/1/approve', { tab: 'pending' });
     check('approved ad is public', (await anon2.get('/n/1')).status === 200);
   } finally {
     srv2.stop();
+  }
+
+  console.log('\nRenew and alerts');
+  const srv3 = await startServer(port + 2, { RENEW_DAYS: '0' });
+  try {
+    const u = await newClient(srv3.base);
+    await register(u, 'Lama', '0555000888');
+    const id = (await u.post('/post', AD)).location.split('/').pop();
+    let r = await u.post(`/my/${id}/renew`);
+    check('renew moves the ad back to the top', r.status === 303 && (await u.get('/my')).text.includes('back at the top'));
+  } finally {
+    srv3.stop();
+  }
+
+  // A stand-in for the WhatsApp service: it just records what the site sends.
+  const seen = [];
+  const mock = http.createServer((req, res) => {
+    seen.push(new URL(req.url, 'http://x').searchParams);
+    res.end('ok');
+  });
+  await new Promise((resolve) => mock.listen(port + 20, '127.0.0.1', resolve));
+  const srv4 = await startServer(port + 3, { CALLMEBOT_KEY: 'k123', CALLMEBOT_URL: `http://127.0.0.1:${port + 20}/send` });
+  try {
+    const u = await newClient(srv4.base);
+    await register(u, 'Dana', '0555000999');
+    await u.post('/post', AD);
+    const id = 1;
+    const v = await newClient(srv4.base);
+    await v.post(`/n/${id}/report`, { reason: 'scam' });
+    const u2 = await newClient(srv4.base);
+    await u2.post('/login', { phone: '0555000999', password: 'secret-pass-1' });
+    await new Promise((r) => setTimeout(r, 400));
+    const texts = seen.map((p) => p.get('text') || '');
+    check('owner is alerted about a new member', texts.some((x) => x.includes('Dana')));
+    check('owner is alerted about a new ad', texts.some((x) => x.includes('0555777888') && x.includes('Dana')));
+    check('owner is alerted about a report', texts.some((x) => x.includes('0555777888') && x.includes('scam') === false && x.length > 10));
+    check('owner is alerted about a login', texts.filter((x) => x.includes('Dana')).length >= 3);
+    check('alerts carry the key and the owner phone', seen.every((p) => p.get('apikey') === 'k123' && p.get('phone') === '+966500000001'));
+  } finally {
+    srv4.stop();
+    mock.close();
   }
 
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');

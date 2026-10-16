@@ -47,6 +47,16 @@ const CITIES = [
 const PATTERN_KEYS = ['triple', 'quad', 'ends_same', 'mirror', 'sequence', 'pairs'];
 const REPORT_REASONS = ['scam', 'sold', 'price', 'spam', 'other'];
 
+// Price ceilings that get their own indexed page ("numbers under 500 riyals").
+const UNDER_PRICES = [200, 300, 500, 1000, 2000, 3000, 5000, 10000];
+const PRICE_TYPES = ['negotiable', 'final'];
+// Public links of the store (used on the contact page).
+const LINKS = {
+  store: 'https://souq3rb.com',
+  group: 'https://chat.whatsapp.com/F2V5yGPdaR68R80hbO6wvu',
+  snap: 'https://snapchat.com/t/XR6iSrS1',
+};
+
 const byKey = (list) => Object.fromEntries(list.map((x) => [x.key, x]));
 
 module.exports = {
@@ -54,6 +64,9 @@ module.exports = {
   CITIES,
   PATTERN_KEYS,
   REPORT_REASONS,
+  UNDER_PRICES,
+  PRICE_TYPES,
+  LINKS,
   NETWORK_BY_KEY: byKey(NETWORKS),
   CITY_BY_KEY: byKey(CITIES),
 };

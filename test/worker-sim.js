@@ -53,7 +53,7 @@ const DB = {
   },
 };
 
-const env = { DB, ADMIN_PHONE: process.env.ADMIN_PHONE || '', REQUIRE_APPROVAL: process.env.REQUIRE_APPROVAL || '', REGISTER_PER_HOUR: '100' };
+const env = { DB, ADMIN_PHONE: process.env.ADMIN_PHONE || '', REQUIRE_APPROVAL: process.env.REQUIRE_APPROVAL || '', REGISTER_PER_HOUR: '100', POST_PER_HOUR: '500', RENEW_DAYS: process.env.RENEW_DAYS, REPOST_PENALTY_DAYS: process.env.REPOST_PENALTY_DAYS, CALLMEBOT_KEY: process.env.CALLMEBOT_KEY || '', CALLMEBOT_URL: process.env.CALLMEBOT_URL || '' };
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 (async () => {

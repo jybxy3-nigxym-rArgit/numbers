@@ -32,9 +32,17 @@ function apply(env = {}) {
 
     reportHideAt: Number(env.REPORT_HIDE_AT) || 3,
     maxActiveAdsPerUser: Number(env.MAX_ADS_PER_USER) || 20,
+    postPerHour: Number(env.POST_PER_HOUR) || 30,
     registerPerHour: Number(env.REGISTER_PER_HOUR) || 8,
     maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
     pageSize: 24,
+    renewDays: env.RENEW_DAYS !== undefined && env.RENEW_DAYS !== '' ? Number(env.RENEW_DAYS) : 3, // an ad can be moved back to the top once in this many days
+    repostPenaltyDays: env.REPOST_PENALTY_DAYS !== undefined && env.REPOST_PENALTY_DAYS !== '' ? Number(env.REPOST_PENALTY_DAYS) : 5, // wait before a deleted number can be posted again
+
+    // Free WhatsApp alerts to the owner through CallMeBot (optional): set CALLMEBOT_KEY, and CALLMEBOT_PHONE if it is not the admin phone.
+    callmebotKey: env.CALLMEBOT_KEY || '',
+    callmebotPhone: (env.CALLMEBOT_PHONE || (adminNational ? '966' + adminNational : '')).replace(/\D/g, ''),
+    callmebotUrl: env.CALLMEBOT_URL || 'https://api.callmebot.com/whatsapp.php',
 
     // Password hashing cost. Higher is safer but uses more CPU (Cloudflare's free plan gives 10 ms per request).
     pbkdf2Iterations: Math.min(100000, Number(env.PBKDF2_ITERATIONS) || 30000),
