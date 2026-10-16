@@ -441,7 +441,9 @@ async function main() {
     await admin.post(`/admin/u/${modId}/role`, { role: 'mod' });
     check('general moderator opens the admin panel', (await sup.get('/admin')).status === 200);
     check('moderator opens the admin panel', (await mod.get('/admin')).status === 200);
-    check('only the owner gives roles', (await sup.post(`/admin/u/${modId}/role`, { role: 'user' })).status === 404 && (await mod.get('/admin')).status === 200);
+    check('a moderator cannot give roles', (await mod.post(`/admin/u/${vicId}/role`, { role: 'mod' })).status === 404);
+    check('a general moderator cannot make a general moderator', (await sup.post(`/admin/u/${vicId}/role`, { role: 'super' })).status === 404 && (await sup.post(`/admin/u/${sup2Id}/role`, { role: 'user' })).status === 404 && (await sup.post(`/admin/u/${ownerId}/role`, { role: 'user' })).status === 404);
+    check('a general moderator makes a moderator and takes it back', (await sup.post(`/admin/u/${vicId}/role`, { role: 'mod' })).status === 303 && (await vic.get('/admin')).status === 200 && (await sup.post(`/admin/u/${vicId}/role`, { role: 'user' })).status === 303 && (await vic.get('/admin')).status === 404);
     check('moderator panel has no import and no stats', !(await mod.get('/admin')).text.includes('/admin/import'));
 
     const ownerAd = (await admin.post('/post', { ...AD, number: '0500999888' })).location.split('/').pop();

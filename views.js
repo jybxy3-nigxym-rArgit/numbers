@@ -786,12 +786,11 @@ function adminPage(ctx, tab, data) {
                 );
               }
             }
-            if (rank >= 3 && !u.is_admin) {
+            if (senior && !u.is_admin && mayAct && !mine) {
+              const roles = rank >= 3 ? [['user', t('role_user')], ['mod', t('role_mod')], ['super', t('role_super')]] : [['user', t('role_user')], ['mod', t('role_mod')]];
               acts.push(
                 `<form method="post" action="/admin/u/${u.id}/role" class="name-edit">${csrfInput(ctx)}<select name="role" aria-label="${esc(t('a_role'))}">
-                  ${[['user', t('role_user')], ['mod', t('role_mod')], ['super', t('role_super')]]
-                    .map(([k, label]) => `<option value="${k}"${(u.role || 'user') === k ? ' selected' : ''}>${esc(label)}</option>`)
-                    .join('')}
+                  ${roles.map(([k, label]) => `<option value="${k}"${(u.role || 'user') === k ? ' selected' : ''}>${esc(label)}</option>`).join('')}
                 </select><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
               );
             }

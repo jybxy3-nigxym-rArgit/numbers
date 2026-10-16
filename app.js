@@ -715,12 +715,15 @@ route('POST', '/admin/u/:id/reset', async (ctx) => {
   html(ctx, 200, views.adminResetPage(ctx, user, pass), { 'Cache-Control': 'no-store' });
 });
 
-// Only the owner gives or takes away moderator roles.
+// The owner sets any role. A general moderator can only make a member a moderator, or take that role away.
 route('POST', '/admin/u/:id/role', async (ctx) => {
-  if (!requireStaff(ctx, 3)) return;
+  if (!requireStaff(ctx, 2)) return;
+  const rank = util.rankOf(ctx.user);
   const user = await ctx.store.getUser(Number(ctx.params.id));
-  const role = ['user', 'mod', 'super'].includes(ctx.body.role) ? ctx.body.role : null;
-  if (!user || user.is_admin || !role) return notFound(ctx);
+  const allowed = rank >= 3 ? ['user', 'mod', 'super'] : ['user', 'mod'];
+  const role = allowed.includes(ctx.body.role) ? ctx.body.role : null;
+  if (!user || user.is_admin || !role || user.id === ctx.user.id) return notFound(ctx);
+  if (rank < 3 && util.rankOf(user) >= rank) return notFound(ctx);
   await ctx.store.setUserRole(user.id, role);
   flash(ctx, 'ok', 'updated');
   redirect(ctx, '/admin?tab=users');
