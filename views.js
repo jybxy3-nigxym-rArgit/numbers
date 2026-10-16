@@ -161,9 +161,6 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
 <link rel="icon" href="/favicon.png" type="image/png" sizes="128x128">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&amp;display=swap">
 <link rel="stylesheet" href="/style.css?v=${esc(ASSET_V)}">
 ${jsonLd(ld)}
 ${gtm ? `<!-- Google Tag Manager -->

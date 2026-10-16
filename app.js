@@ -71,12 +71,12 @@ function safeNext(next) {
 function securityHeaders(secure, gtmNonce) {
   const csp = gtmNonce
     ? `default-src 'self'; script-src 'nonce-${gtmNonce}' https://www.googletagmanager.com; ` +
-      "style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; " +
+      "style-src 'self'; font-src 'self'; " +
       "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://www.google.com; " +
       "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; " +
       "frame-src https://www.googletagmanager.com; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
-    : "default-src 'self'; script-src 'none'; style-src 'self' https://fonts.googleapis.com; " +
-      "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; form-action 'self'; " +
+    : "default-src 'self'; script-src 'none'; style-src 'self'; " +
+      "font-src 'self'; img-src 'self' data:; form-action 'self'; " +
       "base-uri 'none'; frame-ancestors 'none'; object-src 'none'";
   const h = {
     'Content-Security-Policy': csp,
