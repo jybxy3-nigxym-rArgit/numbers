@@ -21,7 +21,7 @@ const dict = {
     // search
     search_title: 'Find your number',
     search_label: 'Search by digits',
-    search_ph: 'Digits you want, like 777 or 0555',
+    search_ph: 'Search here',
     search: 'Search',
     quick: 'Quick patterns',
     more_filters: 'More filters',
@@ -272,7 +272,7 @@ const dict = {
 
     search_title: 'دوّر على رقمك',
     search_label: 'ابحث بالأرقام',
-    search_ph: 'الأرقام اللي تبيها، مثل 777 أو 0555',
+    search_ph: 'ابحث هنا',
     search: 'بحث',
     quick: 'أنماط سريعة',
     more_filters: 'فلاتر أكثر',

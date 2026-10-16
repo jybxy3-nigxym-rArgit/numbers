@@ -1013,3 +1013,52 @@ td.actions form {
   background: var(--gold-soft);
   color: var(--deep);
 }
+
+/* ---- Everything centred ---- */
+
+main,
+.results-head,
+.browse,
+.about,
+.pager {
+  text-align: center;
+}
+.results-head {
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+.browse .chips,
+.chips {
+  justify-content: center;
+}
+.about,
+.narrow,
+.prose,
+.empty {
+  margin-inline: auto;
+}
+.pager {
+  justify-content: center;
+  gap: 1.5rem;
+}
+.bar {
+  justify-content: center;
+}
+.foot-bar {
+  justify-content: center;
+  text-align: center;
+}
+.field label,
+.hint,
+.error-text,
+.form,
+.facts,
+.desc {
+  text-align: start;
+}
+.plate-actions,
+.form-actions {
+  justify-content: center;
+}
