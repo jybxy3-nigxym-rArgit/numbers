@@ -2084,3 +2084,25 @@ a.adv:focus-visible {
 [data-plate="elite"] .is-featured .feat-badge {
   animation: none;
 }
+
+/* Similar numbers under an ad, and the prices table. */
+.similar {
+  margin-block: 1.5rem 0.5rem;
+}
+.similar h2 {
+  margin-bottom: 0.8rem;
+}
+table.prices {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.prices {
+  min-width: 0;
+  font-size: 0.88rem;
+}
+table.prices th,
+table.prices td {
+  padding: 0.5rem 0.4rem;
+  text-align: start;
+  border-bottom: 1px solid var(--line, #ddd);
+}

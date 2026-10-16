@@ -190,6 +190,8 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
 </main>
 <footer class="foot">
   <div class="wrap foot-links">
+    <a href="/new">${esc(t('page_new'))}</a>
+    <a href="/prices">${esc(t('page_prices'))}</a>
     <a href="/faq">${esc(t('page_faq'))}</a>
     <a href="/articles">${esc(t('page_articles'))}</a>
     <a href="/about">${esc(t('page_about'))}</a>
@@ -315,6 +317,11 @@ function landingInfo(ctx, landing) {
     const p = `${formatPrice(Number(key))} ${t('sar')}`;
     const title = t('under_title', { name: p });
     return { path: `/under/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc: t('under_desc', { name: p }), lede: t('under_desc', { name: p }), name: p };
+  }
+  if (landing.type === 'new') {
+    const title = t('new_title');
+    const desc = t('new_desc');
+    return { path: '/new', h1: title, fullTitle: `${title} | ${t('site_name')}`, desc, lede: desc, name: title };
   }
   if (landing.type === 'seller') {
     const title = t('seller_title', { name: landing.name });
@@ -508,7 +515,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
 
 // ---- Listing page ----------------------------------------------------------
 
-function listingPage(ctx, l, { canManage }) {
+function listingPage(ctx, l, { canManage, similar = [] }) {
   const { t } = ctx;
   const waText = t('wa_message', { number: l.number });
   const wa = `https://wa.me/${encodeURIComponent(l.contact)}?text=${encodeURIComponent(waText)}`;
@@ -574,6 +581,7 @@ function listingPage(ctx, l, { canManage }) {
     </details>`
         : ''
     }
+    ${similar.length ? `<section class="similar"><h2>${esc(t(isLive ? 'similar_title' : 'similar_sold'))}</h2><div class="grid">${similar.map((x) => plate(ctx, x)).join('')}</div></section>` : ''}
   </article>`;
 
   const plain = formatNumberPlain(l.number);
@@ -619,7 +627,7 @@ function listingPage(ctx, l, { canManage }) {
     fullTitle: `${title} | ${t('site_name')}`,
     desc,
     body,
-    noindex: !isLive,
+    noindex: !isLive && l.status !== 'sold',
     canonical: url,
     ld,
     promo: true,
@@ -945,6 +953,50 @@ function syncPage(ctx) {
     </form>
   </section>`;
   return layout(ctx, { title: t('sync_title'), body, noindex: true });
+}
+
+function pricesPage(ctx, st) {
+  const { t } = ctx;
+  const fmt = (n) => `${formatPrice(n)} ${t('sar')}`;
+  const row = (label, r, href) =>
+    r && r.n
+      ? `<tr><th scope="row">${href ? `<a href="${href}">${esc(label)}</a>` : esc(label)}</th><td>${esc(r.n)}</td><td>${esc(formatPrice(r.lo))}</td><td>${esc(formatPrice(r.avg))}</td><td>${esc(formatPrice(r.hi))}</td></tr>`
+      : '';
+  const head = `<thead><tr><th scope="col"></th><th scope="col">${esc(t('pr_count'))}</th><th scope="col">${esc(t('pr_low'))}</th><th scope="col">${esc(t('pr_avg'))}</th><th scope="col">${esc(t('pr_high'))}</th></tr></thead>`;
+  const table = (rows) => (rows ? `<div class="table-wrap"><table class="prices">${head}<tbody>${rows}</tbody></table></div>` : '');
+  const nets = NETWORKS.map((n) => row(n[ctx.lang], st.network[n.key], `/network/${n.key}`)).join('');
+  const pats = PATTERN_KEYS.map((k) => row(t('pat_' + k), st.pattern[k], `/type/${k}`)).join('');
+  const has = st.all && st.all.n > 0;
+  const body = `
+  <article class="narrow prose">
+    <h1>${esc(t('prices_title'))}</h1>
+    <p class="lede">${esc(t('prices_lede'))}</p>
+    ${
+      has
+        ? `<p>${esc(t('prices_all', { n: st.all.n, lo: fmt(st.all.lo), avg: fmt(st.all.avg), hi: fmt(st.all.hi) }))}</p>
+    <h2>${esc(t('prices_by_net'))}</h2>${table(nets)}
+    <h2>${esc(t('prices_by_type'))}</h2>${table(pats)}
+    <p>${esc(t('prices_note'))}</p>`
+        : `<p>${esc(t('prices_none'))}</p>`
+    }
+    <p class="form-actions"><a class="btn" href="/">${esc(t('prices_browse'))}</a></p>
+  </article>`;
+  return layout(ctx, {
+    fullTitle: `${t('prices_title')} | ${t('site_name')}`,
+    desc: t('prices_lede'),
+    body,
+    canonical: ctx.base + '/prices',
+    ld: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: t('site_name'), item: absNum(ctx, '/') },
+          { '@type': 'ListItem', position: 2, name: t('prices_title'), item: absNum(ctx, '/prices') },
+        ],
+      },
+    ],
+  });
 }
 
 function designPage(ctx) {
@@ -1386,6 +1438,7 @@ function errorPage(ctx, status) {
 module.exports = {
   syncPage,
   designPage,
+  pricesPage,
   homePage,
   listingPage,
   postPage,

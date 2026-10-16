@@ -366,6 +366,16 @@ route('GET', '/city/:key', async (ctx) => {
   const f = { ...parseFilters(ctx.query), city: ctx.params.key, network: '', q: '', qRaw: '', maxRaw: '', max: null };
   await renderHome(ctx, f, { type: 'city', key: ctx.params.key });
 });
+// Newest ads first, no pinned ads on top. Google sees fresh content here.
+route('GET', '/new', async (ctx) => {
+  const f = { ...parseFilters(ctx.query), pinFirst: false, network: '', city: '', q: '', qRaw: '', maxRaw: '', max: null };
+  await renderHome(ctx, f, { type: 'new', key: 'new' });
+});
+// What premium numbers cost on this site, worked out from the live ads.
+route('GET', '/prices', async (ctx) => {
+  const stats = await ctx.store.priceStats(PATTERN_KEYS);
+  html(ctx, 200, views.pricesPage(ctx, stats));
+});
 // A member's public page: every live ad of one advertiser. Not indexed by Google.
 route('GET', '/u/:id', async (ctx) => {
   const id = /^\d{1,9}$/.test(ctx.params.id) ? Number(ctx.params.id) : 0;
@@ -439,7 +449,8 @@ route('GET', '/n/:id', async (ctx) => {
       ctx.dirty = true;
     }
   }
-  html(ctx, 200, views.listingPage(ctx, l, { canManage }));
+  const similar = publicVisible ? await ctx.store.similarListings(l, 6) : [];
+  html(ctx, 200, views.listingPage(ctx, l, { canManage, similar }));
 });
 
 route('POST', '/n/:id/report', async (ctx) => {
@@ -1220,7 +1231,7 @@ route('GET', '/sitemap.xml', async (ctx) => {
   for (const n of Object.keys(NETWORK_BY_KEY)) for (const c of Object.keys(CITY_BY_KEY)) if (c !== 'other' && counts.combo[`${n}/${c}`]) urls.push({ loc: `${ctx.base}/network/${n}/${c}` });
   for (const k of PATTERN_KEYS) urls.push({ loc: `${ctx.base}/type/${k}` });
   for (const n of UNDER_PRICES) if (counts.under[n]) urls.push({ loc: `${ctx.base}/under/${n}` });
-  for (const p of ['/faq', '/articles', '/about', '/contact']) urls.push({ loc: ctx.base + p });
+  for (const p of ['/new', '/prices', '/faq', '/articles', '/about', '/contact']) urls.push({ loc: ctx.base + p });
   for (const a of content.ARTICLES) urls.push({ loc: `${ctx.base}/articles/${a.slug}`, lastmod: a.date });
   for (const l of await ctx.store.sitemapListings()) {
     urls.push({ loc: `${ctx.base}/n/${l.id}`, lastmod: String(l.created_at).slice(0, 10) });
