@@ -2,7 +2,6 @@
 
 const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY } = require('./data');
 const util = require('./util');
-const { mailEnabled } = require('./mailer');
 const { esc, plateDigits, formatNumberPlain, intlToLocal, daysSince, formatPrice } = require('./util');
 const config = require('./config');
 
@@ -397,9 +396,7 @@ function registerPage(ctx, v = {}, errors = {}) {
     <form method="post" action="/register" class="form" novalidate>
       ${csrfInput(ctx)}
       ${field(ctx, { id: 'name', name: 'name', label: t('f_name'), value: v.name, error: errors.name, attrs: 'autocomplete="name" required' })}
-      ${field(ctx, { id: 'email', name: 'email', label: t('f_email'), hint: t('f_email_hint'), value: v.email, type: 'email', error: errors.email, attrs: 'inputmode="email" autocomplete="email" required' })}
-      <p class="warn-note" role="note">${esc(t('email_warning'))}</p>
-      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), hint: t('f_phone_hint'), value: v.phone, error: errors.phone, attrs: 'inputmode="tel" autocomplete="tel" required' })}
+      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), hint: t('f_number_hint'), value: v.phone, error: errors.phone, attrs: 'inputmode="tel" autocomplete="tel" required' })}
       ${field(ctx, { id: 'password', name: 'password', label: t('f_pass'), hint: t('f_pass_hint'), type: 'password', error: errors.password, attrs: 'autocomplete="new-password" required minlength="8"' })}
       <button class="btn" type="submit">${esc(t('register'))}</button>
     </form>
@@ -416,11 +413,10 @@ function loginPage(ctx, v = {}, errors = {}) {
     ${errors.form ? `<div class="notice error" role="alert">${esc(t(errors.form))}</div>` : ''}
     <form method="post" action="/login" class="form" novalidate>
       ${csrfInput(ctx)}
-      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_login'), value: v.phone, attrs: 'autocomplete="username" required' })}
+      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), value: v.phone, attrs: 'inputmode="tel" autocomplete="username" required' })}
       ${field(ctx, { id: 'password', name: 'password', label: t('f_pass'), type: 'password', attrs: 'autocomplete="current-password" required' })}
       <button class="btn" type="submit">${esc(t('login'))}</button>
     </form>
-    ${mailEnabled() ? `<p class="alt"><a href="/forgot">${esc(t('forgot_link'))}</a></p>` : ''}
     <p class="alt">${esc(t('no_account'))} <a href="/register">${esc(t('register'))}</a></p>
     ${
       config.adminLocal
@@ -430,42 +426,6 @@ function loginPage(ctx, v = {}, errors = {}) {
     }
   </section>`;
   return layout(ctx, { title: t('login'), body, noindex: true });
-}
-
-function forgotPage(ctx, { sent = false, email = '' } = {}) {
-  const { t } = ctx;
-  const body = `
-  <section class="narrow">
-    <h1>${esc(t('forgot_title'))}</h1>
-    ${
-      sent
-        ? `<div class="notice ok" role="status">${esc(t('forgot_sent'))}</div><p><a class="btn btn-ghost" href="/login">${esc(t('login'))}</a></p>`
-        : mailEnabled()
-          ? `<p class="lede">${esc(t('forgot_intro'))}</p>
-    <form method="post" action="/forgot" class="form" novalidate>
-      ${csrfInput(ctx)}
-      ${field(ctx, { id: 'email', name: 'email', label: t('f_email'), value: email, type: 'email', attrs: 'inputmode="email" autocomplete="email" required' })}
-      <button class="btn" type="submit">${esc(t('forgot_send'))}</button>
-    </form>`
-          : `<div class="notice">${esc(t('forgot_off'))}</div>`
-    }
-  </section>`;
-  return layout(ctx, { title: t('forgot_title'), body, noindex: true });
-}
-
-function resetPage(ctx, token, { bad = false, errors = {} } = {}) {
-  const { t } = ctx;
-  const body = bad
-    ? `<section class="narrow"><h1>${esc(t('reset_page_title'))}</h1><div class="notice error" role="alert">${esc(t('reset_bad_link'))}</div><p><a class="btn" href="/forgot">${esc(t('forgot_link'))}</a></p></section>`
-    : `<section class="narrow">
-    <h1>${esc(t('reset_page_title'))}</h1>
-    <form method="post" action="/reset/${esc(token)}" class="form" novalidate>
-      ${csrfInput(ctx)}
-      ${field(ctx, { id: 'password', name: 'password', label: t('f_pass_new'), type: 'password', error: errors.password, attrs: 'autocomplete="new-password" required minlength="8"' })}
-      <button class="btn" type="submit">${esc(t('reset_save'))}</button>
-    </form>
-  </section>`;
-  return layout(ctx, { title: t('reset_page_title'), body, noindex: true });
 }
 
 // ---- My ads ----------------------------------------------------------------
@@ -563,13 +523,12 @@ function adminPage(ctx, tab, data) {
   } else if (tab === 'users') {
     content = data.users.length
       ? `<div class="table-wrap"><table>
-        <thead><tr><th>${esc(t('a_col_name'))}</th><th>${esc(t('a_col_phone'))}</th><th>${esc(t('a_col_email'))}</th><th>${esc(t('a_col_ads'))}</th><th>${esc(t('a_col_joined'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
+        <thead><tr><th>${esc(t('a_col_name'))}</th><th>${esc(t('a_col_phone'))}</th><th>${esc(t('a_col_ads'))}</th><th>${esc(t('a_col_joined'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
         <tbody>${data.users
           .map(
             (u) => `<tr>
           <td>${esc(u.name)}${u.is_admin ? ' ★' : ''}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}</td>
           <td dir="ltr">0${esc(u.phone)}</td>
-          <td dir="ltr">${esc(u.email || '')}</td>
           <td>${u.ads}</td>
           <td>${esc(String(u.created_at).slice(0, 10))}</td>
           <td>${
@@ -645,8 +604,6 @@ module.exports = {
   editPage,
   adminResetPage,
   passwordPage,
-  forgotPage,
-  resetPage,
   registerPage,
   loginPage,
   myPage,

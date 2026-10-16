@@ -32,17 +32,11 @@ function apply(env = {}) {
 
     reportHideAt: Number(env.REPORT_HIDE_AT) || 3,
     maxActiveAdsPerUser: Number(env.MAX_ADS_PER_USER) || 20,
-    registerPerHour: Number(env.REGISTER_PER_HOUR) || 8,
     maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
     pageSize: 24,
 
     // Password hashing cost. Higher is safer but uses more CPU (Cloudflare's free plan gives 10 ms per request).
     pbkdf2Iterations: Math.min(100000, Number(env.PBKDF2_ITERATIONS) || 30000),
-
-    // Password-reset emails go through Resend (resend.com). Without a key the site still works,
-    // and the login page tells people to contact the admin instead.
-    resendKey: env.RESEND_API_KEY || '',
-    mailFrom: env.MAIL_FROM || 'Basmat Ameel <no-reply@basmatameel.com>',
 
     sessionSecret: env.SESSION_SECRET || '',
     assetVersion: env.ASSET_V || '1',
