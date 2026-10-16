@@ -1645,7 +1645,8 @@ blockquote.msg {
   border-color: var(--line);
 }
 [data-theme="dark"] .is-featured .plate {
-  background: linear-gradient(180deg, #fffaf0, #fff0c2);
+  --feat-top: #fffaf0;
+  --feat-bot: #fff0c2;
 }
 [data-theme="dark"] .report,
 [data-theme="dark"] .facts,
@@ -1714,35 +1715,45 @@ div.actions{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
   z-index: 1;
 }
 .is-featured .plate {
+  --feat-top: #fffaf0;
+  --feat-bot: #fff3d0;
   position: relative;
   overflow: hidden;
-  animation: feat-glow 3.2s ease-in-out infinite;
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, var(--feat-top), var(--feat-bot)) padding-box,
+    linear-gradient(90deg, #d99a22, #ffe38f, #fffbe6, #ffe38f, #d99a22, #ffe38f, #fffbe6, #ffe38f, #d99a22) border-box;
+  background-size: 100% 100%, 200% 100%;
+  background-repeat: no-repeat, repeat-x;
+  box-shadow: 0 8px 20px -8px rgba(217, 154, 34, 0.85);
+  animation: feat-flow 2.8s linear infinite;
 }
 .is-featured .plate::after {
   content: "";
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  width: 38%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.85), transparent);
-  transform: translateX(-130%) skewX(-18deg);
-  animation: feat-sheen 4.5s ease-in-out infinite;
+  width: 30%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+  animation: feat-sheen 2.6s linear infinite;
   pointer-events: none;
+  will-change: transform;
 }
 .is-featured .feat-badge {
-  animation: feat-pulse 2.2s ease-in-out infinite;
+  animation: feat-pulse 1.6s ease-in-out infinite;
 }
-@keyframes feat-glow {
-  0%, 100% { box-shadow: 0 0 0 3px var(--gold), 0 8px 22px -8px rgba(217, 154, 34, 0.75); }
-  50% { box-shadow: 0 0 0 3px var(--gold), 0 0 26px 2px rgba(242, 184, 75, 0.85); }
+@keyframes feat-flow {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 100% 0; }
 }
 @keyframes feat-sheen {
-  0%, 55% { transform: translateX(-130%) skewX(-18deg); }
-  100% { transform: translateX(420%) skewX(-18deg); }
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(480%) skewX(-18deg); }
 }
 @keyframes feat-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  50% { transform: scale(1.08); }
 }
 @media (prefers-reduced-motion: reduce) {
   .is-featured .plate,
