@@ -528,7 +528,7 @@ function createStore(d) {
                      u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified, ${REPORT_COUNT_SQL} AS report_count
               FROM listings l JOIN users u ON u.id = l.user_id
               WHERE ${w}
-              ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
+              ORDER BY l.pinned DESC, l.featured DESC, l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
         params: [...params, limit, offset],
       },
     ]);
@@ -552,7 +552,8 @@ function createStore(d) {
       {
         sql: `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads,
                      (SELECT COUNT(*) FROM banned_devices b WHERE b.user_id = u.id) AS banned_devices
-              FROM users u WHERE ${w} ORDER BY u.created_at DESC, u.id DESC LIMIT ? OFFSET ?`,
+              FROM users u WHERE ${w}
+              ORDER BY COALESCE((SELECT MAX(last_seen) FROM user_devices x WHERE x.user_id = u.id), u.created_at) DESC, u.id DESC LIMIT ? OFFSET ?`,
         params: [...params, limit, offset],
       },
     ]);

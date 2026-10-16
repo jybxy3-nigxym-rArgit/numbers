@@ -846,6 +846,17 @@ async function main() {
     await adm.post('/admin/sync', { lines: '0555111222 450 zain jeddah' });
     const sy2 = (await reader.get('/')).text;
     check('sync hides a number that left the store', sy2.includes('0555 111 222') && !sy2.includes('0505 355 300'));
+    // admin list: pinned and featured first
+    const o1 = await adm.get('/admin?tab=all');
+    check('admin list opens', o1.status === 200);
+    const first = (txt) => (txt.match(/0\d{3} \d{3} \d{3}|0\d{9}/) || [''])[0].replace(/ /g, '');
+    const idNew = (await adm.post('/post', { ...AD, number: '0555777001' })).location.split('/').pop();
+    void idNew;
+    const idOld = (await adm.post('/post', { ...AD, number: '0555777002' })).location.split('/').pop();
+    check('newest ad is first in the admin list', first((await adm.get('/admin?tab=all')).text) === '0555777002');
+    await adm.post(`/admin/l/${idNew}/feature`);
+    check('a featured ad goes first in the admin list', first((await adm.get('/admin?tab=all')).text) === '0555777001');
+    void idOld;
     void ad;
   } finally {
     srv8.stop();
