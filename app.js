@@ -121,6 +121,7 @@ function makeCtx(request, url, extra) {
     secure: url.protocol === 'https:',
     base: config.baseUrl || url.origin,
     path: url.pathname + url.search,
+    extraCookies: [],
     ...extra,
   };
   ctx.t = (key, vars) => t(ctx.lang, key, vars);
@@ -147,7 +148,9 @@ async function buildContext(request, url, ip, store) {
     dirty = true;
   }
 
+  const lp = parseCookies(request.headers.get('cookie')).lp;
   const ctx = makeCtx(request, url, {
+    lastPhone: /^5\d{8}$/.test(lp || '') ? lp : '',
     store,
     secret,
     session,
@@ -191,6 +194,13 @@ function requireAdmin(ctx) {
   if (ctx.user && ctx.user.is_admin) return true;
   notFound(ctx);
   return false;
+}
+
+// Remember the phone in this browser only, so the login form can fill it in next time.
+function rememberPhone(ctx, nat) {
+  ctx.extraCookies.push(
+    `lp=${nat}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${365 * 24 * 3600}` + (ctx.secure ? '; Secure' : '')
+  );
 }
 
 function logIn(ctx, userId) {
@@ -491,6 +501,7 @@ route('POST', '/register', async (ctx) => {
     return html(ctx, 400, views.registerPage(ctx, v, { phone: 'err_phone_taken' }));
   }
   logIn(ctx, id);
+  rememberPhone(ctx, nat);
   flash(ctx, 'ok', 'welcome');
   const next = ctx.session.next ? safeNext(ctx.session.next) : '/post';
   delete ctx.session.next;
@@ -516,6 +527,7 @@ route('POST', '/login', async (ctx) => {
   if (user.banned) return html(ctx, 403, views.loginPage(ctx, { phone: phoneRaw }, { form: 'err_banned' }));
 
   logIn(ctx, user.id);
+  rememberPhone(ctx, nat);
   flash(ctx, 'ok', 'welcome_back');
   const next = ctx.session.next ? safeNext(ctx.session.next) : '/';
   delete ctx.session.next;
@@ -793,9 +805,10 @@ route('GET', '/healthz', async (ctx) => {
 
 // ---- Main handler ----------------------------------------------------------
 
-function toResponse(request, out, setCookie, secure) {
+function toResponse(request, out, setCookie, secure, extraCookies = []) {
   const headers = new Headers({ ...securityHeaders(secure), ...out.headers });
   if (setCookie) headers.append('Set-Cookie', setCookie);
+  for (const c of extraCookies) headers.append('Set-Cookie', c);
   const noBody = request.method === 'HEAD' || out.status === 204 || out.status === 304;
   return new Response(noBody ? null : out.body, { status: out.status, headers });
 }
@@ -849,7 +862,7 @@ async function handle(request, { store, ip }) {
     }
 
     const cookie = ctx.dirty ? await sessionCookie(ctx) : '';
-    return toResponse(request, ctx.out, cookie, ctx.secure);
+    return toResponse(request, ctx.out, cookie, ctx.secure, ctx.extraCookies);
   } catch (err) {
     console.error(err);
     try {

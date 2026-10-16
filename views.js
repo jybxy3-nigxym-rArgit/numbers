@@ -563,6 +563,11 @@ function registerPage(ctx, v = {}, errors = {}) {
   <section class="narrow">
     <h1>${esc(t('reg_title'))}</h1>
     <p class="lede">${esc(t('reg_intro'))}</p>
+    ${
+      ctx.lastPhone
+        ? `<div class="notice">${esc(t('last_phone_note'))} <bdi dir="ltr">${esc(util.toLocal(ctx.lastPhone))}</bdi>. <a href="/login">${esc(t('last_phone_login'))}</a></div>`
+        : ''
+    }
     ${hasErrors ? `<div class="notice error" role="alert">${esc(t('err_fix'))}</div>` : ''}
     <form method="post" action="/register" class="form" novalidate>
       ${csrfInput(ctx)}
@@ -578,9 +583,16 @@ function registerPage(ctx, v = {}, errors = {}) {
 
 function loginPage(ctx, v = {}, errors = {}) {
   const { t } = ctx;
+  const remembered = ctx.lastPhone ? util.toLocal(ctx.lastPhone) : '';
+  if (v.phone === undefined && remembered) v = { ...v, phone: remembered };
   const body = `
   <section class="narrow">
     <h1>${esc(t('login_title'))}</h1>
+    ${
+      remembered && v.phone === remembered
+        ? `<div class="notice">${esc(t('last_phone_note'))} <bdi dir="ltr">${esc(remembered)}</bdi>. ${esc(t('last_phone_change'))}</div>`
+        : ''
+    }
     ${errors.form ? `<div class="notice error" role="alert">${esc(t(errors.form))}</div>` : ''}
     <form method="post" action="/login" class="form" novalidate>
       ${csrfInput(ctx)}

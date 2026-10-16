@@ -390,6 +390,17 @@ async function main() {
     check('too short name refused', r.status === 400);
     await a3.post('/profile', { name: 'Ahmed' });
 
+    const lpc = await newClient(base);
+    await lpc.post('/login', { phone: '0555000111', password: 'secret-pass-1' });
+    lpc.auth = true;
+    await lpc.post('/logout');
+    r = await lpc.get('/login');
+    check('login page remembers the last phone and lets you change it', r.text.includes('value="0555000111"') && r.text.includes('Last time you signed in'));
+    r = await lpc.get('/register');
+    check('register page points to login for a known device', r.text.includes('Sign in instead'));
+    r = await (await newClient(base)).get('/login');
+    check('new device sees an empty phone box', !r.text.includes('Last time you signed in'));
+
     console.log('\nSEO files');
     const seoId = (await a3.post('/post', { ...AD, number: '0599123456' })).location.split('/').pop();
     r = await anon.get('/sitemap.xml');
