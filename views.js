@@ -514,11 +514,11 @@ function postPage(ctx, v = {}, errors = {}) {
     ${hasErrors ? `<div class="notice error" role="alert">${esc(t('err_fix'))}</div>` : ''}
     <form method="post" action="/post" class="form" novalidate>
       ${csrfInput(ctx)}
-      ${field(ctx, { id: 'number', name: 'number', label: t('f_number'), hint: t('f_number_hint'), value: v.number, error: errors.number, attrs: 'inputmode="numeric" autocomplete="off" required' })}
+      ${field(ctx, { id: 'number', name: 'number', label: t('f_number'), hint: t('f_number_hint'), value: v.number, error: errors.number, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx" required' })}
       ${selectField(ctx, { id: 'network', name: 'network', label: t('f_network'), options: networkOptions(ctx), value: v.network, error: errors.network, placeholder: t('f_choose') })}
       ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose') })}
       ${field(ctx, { id: 'price', name: 'price', label: t('f_price'), hint: t('f_price_hint'), value: v.price, error: errors.price, attrs: 'inputmode="numeric" autocomplete="off"' })}
-      ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="tel" autocomplete="off"' })}
+      ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx"' })}
       <div class="field${errors.description ? ' has-error' : ''}">
         <label for="description">${esc(t('f_desc'))}</label>
         <p class="hint" id="description-hint">${esc(t('f_desc_hint'))}</p>
@@ -545,7 +545,7 @@ function editPage(ctx, l, v = {}, errors = {}) {
       ${selectField(ctx, { id: 'network', name: 'network', label: t('f_network'), options: networkOptions(ctx), value: v.network, error: errors.network, placeholder: t('f_choose') })}
       ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose') })}
       ${field(ctx, { id: 'price', name: 'price', label: t('f_price'), hint: t('f_price_hint'), value: v.price, error: errors.price, attrs: 'inputmode="numeric" autocomplete="off"' })}
-      ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="tel" autocomplete="off"' })}
+      ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx"' })}
       <div class="field${errors.description ? ' has-error' : ''}">
         <label for="description">${esc(t('f_desc'))}</label>
         <p class="hint" id="description-hint">${esc(t('f_desc_hint'))}</p>
@@ -579,7 +579,7 @@ function registerPage(ctx, v = {}, errors = {}) {
     <form method="post" action="/register" class="form" novalidate>
       ${csrfInput(ctx)}
       ${field(ctx, { id: 'name', name: 'name', label: t('f_name'), value: v.name, error: errors.name, attrs: 'autocomplete="name" required' })}
-      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), hint: t('f_number_hint'), value: v.phone, error: errors.phone, attrs: 'inputmode="tel" autocomplete="tel" required' })}
+      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), hint: t('f_number_hint'), value: v.phone, error: errors.phone, attrs: 'inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="05xxxxxxxx" required' })}
       ${field(ctx, { id: 'password', name: 'password', label: t('f_pass'), hint: t('f_pass_hint'), type: 'password', error: errors.password, attrs: 'autocomplete="new-password" required minlength="8"' })}
       <button class="btn" type="submit">${esc(t('register'))}</button>
     </form>
@@ -603,7 +603,7 @@ function loginPage(ctx, v = {}, errors = {}) {
     ${errors.form ? `<div class="notice error" role="alert">${esc(t(errors.form))}</div>` : ''}
     <form method="post" action="/login" class="form" novalidate>
       ${csrfInput(ctx)}
-      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), value: v.phone, attrs: 'inputmode="tel" autocomplete="username" required' })}
+      ${field(ctx, { id: 'phone', name: 'phone', label: t('f_phone'), value: v.phone, attrs: 'inputmode="numeric" autocomplete="username" maxlength="10" placeholder="05xxxxxxxx" required' })}
       ${field(ctx, { id: 'password', name: 'password', label: t('f_pass'), type: 'password', attrs: 'autocomplete="current-password" required' })}
       <button class="btn" type="submit">${esc(t('login'))}</button>
     </form>
