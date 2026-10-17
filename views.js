@@ -182,7 +182,7 @@ ${gtm ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${es
       ${themeLink}
       <a class="nav-add" href="/post">${esc(t('post_ad'))}</a>
     </nav>
-    ${user ? `<a class="who" href="/profile" title="${esc(t('profile_title'))}">${ICON.user}<span>${esc(t('logged_as', { name: user.name }))}</span></a>` : ''}
+    ${user ? `<a class="who" href="/profile" title="${esc(t('account_title'))}">${ICON.user}<span>${esc(user.name)}</span></a>` : ''}
   </div>
 </header>
 ${hero}
@@ -1062,21 +1062,34 @@ function designPage(ctx) {
   return layout(ctx, { title: t('design_title'), body, noindex: true });
 }
 
-function profilePage(ctx, v = {}, errors = {}) {
+function profilePage(ctx, v = {}, errors = {}, ads = 0) {
   const { t } = ctx;
+  const u = ctx.user;
+  const rank = util.rankOf(u);
+  const roleName = rank >= 3 ? t('role_owner') : rank === 2 ? t('role_super') : rank === 1 ? t('role_mod') : t('role_user');
+  const row = (k, val) => `<div class="acc-row"><dt>${esc(k)}</dt><dd>${val}</dd></div>`;
   const body = `
   <section class="narrow">
-    <h1>${esc(t('profile_title'))}</h1>
+    <h1>${esc(t('account_title'))}</h1>
+    <dl class="acc-card">
+      ${row(t('f_name'), esc(u.name))}
+      ${row(t('a_col_phone'), `<bdi dir="ltr">0${esc(u.phone)}</bdi>`)}
+      ${row(t('acc_type'), `${esc(roleName)}${u.verified ? ` · ${esc(t('verified'))}` : ''}`)}
+      ${u.created_at ? row(t('a_col_joined'), esc(String(u.created_at).slice(0, 10))) : ''}
+      ${row(t('acc_ads'), esc(ads))}
+    </dl>
+    <h2>${esc(t('profile_title'))}</h2>
     <form method="post" action="/profile" class="form" novalidate>
       ${csrfInput(ctx)}
       ${field(ctx, { id: 'name', name: 'name', label: t('f_name'), value: v.name, error: errors.name, attrs: 'autocomplete="name" required' })}
       <div class="form-actions">
         <button class="btn" type="submit">${esc(t('save'))}</button>
-        <a class="btn btn-ghost" href="/my">${esc(t('cancel'))}</a>
+        <a class="btn btn-ghost" href="/my">${esc(t('my_ads'))}</a>
+        <a class="btn btn-ghost" href="/password">${esc(t('change_password'))}</a>
       </div>
     </form>
   </section>`;
-  return layout(ctx, { title: t('profile_title'), body, noindex: true });
+  return layout(ctx, { title: t('account_title'), body, noindex: true });
 }
 
 function passwordPage(ctx, errors = {}) {

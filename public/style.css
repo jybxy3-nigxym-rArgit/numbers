@@ -2365,3 +2365,10 @@ a.adv:focus-visible {
 .who .ico { width: 1.05rem; height: 1.05rem; flex: none; }
 .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .who:hover { background: rgba(255,255,255,0.18); }
+
+/* ---- My details page ---- */
+.acc-card { margin: 1rem 0 1.5rem; padding: 0.3rem 1rem; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); }
+.acc-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid var(--line); }
+.acc-row:first-child { border-top: 0; }
+.acc-row dt { color: var(--muted); }
+.acc-row dd { margin: 0; font-weight: 700; text-align: end; }

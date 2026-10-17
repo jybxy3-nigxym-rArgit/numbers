@@ -957,17 +957,17 @@ route('GET', '/admin/u/:id', async (ctx) => {
 });
 
 // Everyone can change their own name.
-route('GET', '/profile', (ctx) => {
+route('GET', '/profile', async (ctx) => {
   if (!requireLogin(ctx)) return;
-  html(ctx, 200, views.profilePage(ctx, { name: ctx.user.name }));
+  html(ctx, 200, views.profilePage(ctx, { name: ctx.user.name }, {}, await ctx.store.countActiveByUser(ctx.user.id)));
 });
 route('POST', '/profile', async (ctx) => {
   if (!requireLogin(ctx)) return;
   const name = cleanName(ctx.body.name);
-  if (!nameOk(name)) return html(ctx, 400, views.profilePage(ctx, { name }, { name: 'err_name' }));
+  if (!nameOk(name)) return html(ctx, 400, views.profilePage(ctx, { name }, { name: 'err_name' }, await ctx.store.countActiveByUser(ctx.user.id)));
   await ctx.store.setUserName(ctx.user.id, name);
   flash(ctx, 'ok', 'updated');
-  redirect(ctx, '/my');
+  redirect(ctx, '/profile');
 });
 
 // The admin gives a user a temporary password (shown once, nothing is stored in clear text).
