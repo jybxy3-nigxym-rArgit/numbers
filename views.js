@@ -1226,14 +1226,8 @@ function adminPage(ctx, tab, data) {
       : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('ratings'), tl('users')])
   }</nav>`;
 
-  const roleBadge = (u) =>
-    u.is_admin
-      ? ` <span class="badge badge-pin">${esc(t('role_owner'))}</span>`
-      : u.role === 'super'
-        ? ` <span class="badge badge-pin">${esc(t('role_super'))}</span>`
-        : u.role === 'mod'
-          ? ` <span class="badge badge-pin">${esc(t('role_mod'))}</span>`
-          : '';
+  const roleLabel = (u) => (u.is_admin ? t('role_owner') : u.role === 'super' ? t('role_super') : u.role === 'mod' ? t('role_mod') : t('role_user'));
+  const roleBadge = (u) => `<span class="badge ${u.is_admin || u.role === 'super' || u.role === 'mod' ? 'badge-pin' : ''}">${esc(roleLabel(u))}</span>`;
 
   // Buttons share one form per row (formaction), which keeps long lists light.
   const userForm = (u, action, label, cls = 'btn-ghost') =>
@@ -1245,8 +1239,11 @@ function adminPage(ctx, tab, data) {
       ? `<ul class="user-list">${users
           .map(
             (u) => `<li><a class="user-row" href="/admin/u/${u.id}">
-          <span class="ur-main"><b>${esc(u.name)}</b>${u.verified ? ` ${verifiedMark(ctx)}` : ''}${roleBadge(u)}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}</span>
-          <span class="ur-meta"><bdi dir="ltr">0${esc(u.phone)}</bdi> · ${esc(t('a_col_ads'))}: ${u.ads ?? 0}${u.suspended_by_name ? ` · ${esc(t('suspended_by', { name: u.suspended_by_name }))}` : ''}</span>
+          <span class="ur-name"><b>${esc(u.name)}</b>${u.verified ? verifiedMark(ctx) : ''}</span>
+          <span class="ur-role">${roleBadge(u)}</span>
+          <span class="ur-phone"><bdi dir="ltr">0${esc(u.phone)}</bdi></span>
+          <span class="ur-ads">${esc(t('a_col_ads'))}: ${u.ads ?? 0}</span>
+          ${u.banned || u.suspended || u.banned_devices ? `<span class="ur-flags">${u.banned ? statusBadge(ctx, 'hidden') : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}${u.suspended_by_name ? ` <small>${esc(t('suspended_by', { name: u.suspended_by_name }))}</small>` : ''}</span>` : ''}
         </a></li>`,
           )
           .join('')}</ul>`

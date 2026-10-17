@@ -2293,7 +2293,7 @@ a.adv:focus-visible {
 /* ---- Admin: members list and member page ---- */
 .user-list { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: 0.5rem; }
 .user-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem 0.8rem; align-items: center;
   padding: 0.8rem 1rem; border: 1px solid var(--line, #ddd); border-radius: 12px;
   background: var(--card, #fff); color: inherit; text-decoration: none;
 }
@@ -2434,3 +2434,11 @@ a.adv:focus-visible {
 .stars .h { background: linear-gradient(90deg, #e0a100 50%, #d4cde4 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .adv-row .adv-stars { display: block; clear: both; text-align: center; margin-top: 0.2rem; text-decoration: none; font-size: 1.05rem; line-height: 1; }
 .facts .adv-stars { display: inline-block; font-size: 1.05rem; text-decoration: none; }
+
+/* Members list: name + role on the first line, phone + ad count on the second. */
+.user-row .ur-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
+.user-row .ur-name b { font-size: 1.05rem; }
+.user-row .ur-role { justify-self: end; white-space: nowrap; }
+.user-row .ur-phone { color: var(--muted, #666); font-size: 0.9rem; text-align: start; }
+.user-row .ur-ads { justify-self: end; color: var(--muted, #666); font-size: 0.9rem; white-space: nowrap; }
+.user-row .ur-flags { grid-column: 1 / -1; font-size: 0.85rem; }
