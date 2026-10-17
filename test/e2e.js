@@ -658,6 +658,12 @@ async function main() {
     r = await admin.post('/admin/sync', { network: 'zain', city: 'jeddah', lines: '0591234567 : 4000' });
     r = await anon.get('/network/zain/jeddah');
     check('batch page uses the chosen network and city', r.text.includes('0591 234 567'));
+    const bid = /href="\/n\/(\d+)"[^>]*>[^<]*0591 234 567/.exec(r.text) || /\/n\/(\d+)[^]*?0591 234 567/.exec(r.text);
+    if (bid) {
+      await admin.post(`/admin/l/${bid[1]}/hide`, { tab: 'all' });
+      await admin.post('/admin/sync', { network: 'zain', city: 'jeddah', lines: '0591234567 : 4000' });
+      check('batch page does not bring back a hidden number', !(await anon.get('/network/zain/jeddah')).text.includes('0591 234 567'));
+    }
 
     // night mode
     const night = await newClient(base);
@@ -926,13 +932,12 @@ async function main() {
     await hook({ ...prod(), event: 'product.deleted' }, { authorization: 'Bearer store-secret-1' });
     check('deleted product is hidden', !(await reader.get('/')).text.includes('0505 355 300'));
     check('hidden store numbers do not clutter the reported tab', !(await adm.get('/admin?tab=reported')).text.includes('0505355300'));
-    // whole-list sync (for stores without webhooks)
-    await adm.post('/admin/sync', { lines: '0505355300 700 stc riyadh\n0555111222 450 zain jeddah' });
+    // batch send: only adds new numbers, never hides, skips hidden ones
+    await adm.post('/admin/sync', { network: 'zain', city: 'jeddah', lines: '0505355300 : 700\n0555111222 : 450' });
     const sy = (await reader.get('/')).text;
-    check('sync adds a missing number and updates the price', sy.includes('0555 111 222') && sy.includes('700'));
-    await adm.post('/admin/sync', { lines: '0555111222 450 zain jeddah' });
-    const sy2 = (await reader.get('/')).text;
-    check('sync hides a number that left the store', sy2.includes('0555 111 222') && !sy2.includes('0505 355 300'));
+    check('batch adds a new number and skips a hidden one', sy.includes('0555 111 222') && !sy.includes('0505 355 300'));
+    await adm.post('/admin/sync', { network: 'zain', city: 'jeddah', lines: '0555333444 : 450' });
+    check('batch never hides other ads', (await reader.get('/')).text.includes('0555 111 222'));
     // admin list: pinned and featured first
     const o1 = await adm.get('/admin?tab=all');
     check('admin list opens', o1.status === 200);

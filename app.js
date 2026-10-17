@@ -1189,15 +1189,14 @@ route('POST', '/admin/sync', async (ctx) => {
   if (!requireAdmin(ctx)) return;
   const network = NETWORK_BY_KEY[ctx.body.network] ? ctx.body.network : 'stc';
   const city = CITY_BY_KEY[ctx.body.city] ? ctx.body.city : 'riyadh';
-  const { items } = parseImport(str(ctx.body.lines, 19000), network, city);
+  const { items, bad } = parseImport(str(ctx.body.lines, 19000), network, city);
   if (!items.length) {
     flash(ctx, 'error', 'import_none');
     return redirect(ctx, '/admin/sync');
   }
-  if (needConfirm(ctx, 'sync', { back: '/admin/sync' })) return;
-  const r = await ctx.store.syncStoreList(items);
-  await audit(ctx, 'sync', `${r.added}`, `${r.hidden}`);
-  flash(ctx, 'ok', 'sync_done', r);
+  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), items, { penalty: true, skipHidden: true });
+  await audit(ctx, 'import', `${r.added}`, `${r.skipped}`);
+  flash(ctx, 'ok', 'import_done', { added: r.added, skipped: r.skipped, bad });
   redirect(ctx, '/admin?tab=all');
 });
 

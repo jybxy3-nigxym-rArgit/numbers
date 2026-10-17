@@ -731,7 +731,7 @@ function createStore(d) {
     );
 
   // Bulk add for the admin: skips numbers that are already live. Returns { added, skipped }.
-  async function importListings(userId, contact, items, { penalty = false, auto = false } = {}) {
+  async function importListings(userId, contact, items, { penalty = false, auto = false, skipHidden = false } = {}) {
     dropCounts();
     const uniq = [];
     const seen = new Set();
@@ -751,6 +751,17 @@ function createStore(d) {
     }
     if (penalty) {
       for (const x of uniq) if (!taken.has(x.number) && (await penaltyDaysLeft(x.number)) > 0) taken.add(x.number);
+    }
+    // Numbers that are hidden stay hidden (staff, reports, or the owner): this only adds new ones.
+    if (skipHidden) {
+      for (let i = 0; i < uniq.length; i += 80) {
+        const chunk = uniq.slice(i, i + 80);
+        const rows = await d.all(
+          `SELECT number FROM listings WHERE status = 'hidden' AND number IN (${chunk.map(() => '?').join(',')})`,
+          chunk.map((x) => x.number)
+        );
+        for (const r of rows) taken.add(r.number);
+      }
     }
     const fresh = uniq.filter((x) => !taken.has(x.number));
     for (let i = 0; i < fresh.length; i += 50) {
