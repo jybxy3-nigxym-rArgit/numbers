@@ -2449,7 +2449,7 @@ a.adv:focus-visible {
 .log-filters label { display: grid; gap: 0.15rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
 .log-filters select, .log-filters input { max-width: 100%; }
 .log-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.log-table th, .log-table td { padding: 0.5rem 0.7rem; border: 1px solid var(--line); text-align: start; vertical-align: top; }
+.log-table th, .log-table td { padding: 0.5rem 0.7rem; border: 1px solid var(--line); text-align: center; vertical-align: middle; }
 .log-table thead th { position: sticky; top: 0; background: var(--card); white-space: nowrap; }
 .log-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--line) 25%, transparent); }
 .sort-link { display: inline-flex; gap: 0.35rem; align-items: center; color: var(--ink); text-decoration: none; font-weight: 800; }
