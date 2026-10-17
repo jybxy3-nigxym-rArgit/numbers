@@ -314,9 +314,15 @@ function shareHref(ctx, l) {
 
 // Stars as text (no inline styles: the page security rules forbid them).
 const starsHtml = (avg) => {
-  const full = Math.max(0, Math.min(5, Math.round(Number(avg) || 0)));
-  return `<span class="stars" aria-hidden="true"><span class="on">${'★'.repeat(full)}</span><span class="off">${'★'.repeat(5 - full)}</span></span>`;
+  const v = Number(avg) || 0;
+  const one = (i) => (v >= i - 0.25 ? '<i class="f">★</i>' : v >= i - 0.75 ? '<i class="h">★</i>' : '<i class="e">★</i>');
+  return `<span class="stars" aria-hidden="true">${[1, 2, 3, 4, 5].map(one).join('')}</span>`;
 };
+// Five stars under the advertiser's name: the rating of the person, not of the number.
+const sellerStars = (ctx, l) =>
+  l.seller_rating_n
+    ? `<a class="adv-stars" href="/u/${esc(l.user_id)}#ratings" title="${esc(`${l.seller_rating} / 5 · ${ctx.t('ratings_count', { n: l.seller_rating_n })}`)}" aria-label="${esc(`${l.seller_rating} / 5`)}">${starsHtml(l.seller_rating)}</a>`
+    : '';
 
 // The heart: members like an ad with one tap; a visitor is sent to sign in.
 function likeButton(ctx, l, { big = false } = {}) {
@@ -337,11 +343,11 @@ function plate(ctx, l) {
   <div class="${cardClass(l)}">
     ${plateBadges(ctx, l)}
     <div class="plate">${plateFace(ctx, l, 'span', { links: true, numHref: `/n/${l.id}` })}</div>
-    <div class="adv-row">${advTab(ctx, l)}${l.seller_rating_n ? `<a class="adv-rate" href="/u/${esc(l.user_id)}" title="${esc(t('ratings_count', { n: l.seller_rating_n }))}"><span class="star-one">★</span><bdi>${esc(l.seller_rating)}</bdi></a>` : ''}${
+    <div class="adv-row">${advTab(ctx, l)}${
       l.status === 'active'
         ? `<span class="mini-acts">${likeButton(ctx, l)}<a class="share-mini" href="${esc(shareHref(ctx, l))}" target="_blank" rel="noopener nofollow" title="${esc(t('share_wa'))}" aria-label="${esc(t('share_wa'))}">${ICON.share2}</a></span>`
         : ''
-    }</div>
+    }${sellerStars(ctx, l)}</div>
     ${cardActions(ctx, l)}
   </div>`;
 }
@@ -647,7 +653,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('network'))}</dt><dd><a href="/network/${esc(l.network)}">${esc(netName(ctx, l.network))}</a></dd></div>
         <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
         ${l.price != null && l.price_type ? `<div><dt>${esc(t('price_word'))}</dt><dd>${esc(t('pt_' + l.price_type))}</dd></div>` : ''}
-        <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}${l.seller_rating_n ? ` <a class="adv-rate" href="/u/${esc(l.user_id)}"><span class="star-one">★</span><bdi>${esc(l.seller_rating)}</bdi></a>` : ''}</dd></div>
+        <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}${l.seller_rating_n ? `<br>${sellerStars(ctx, l)}` : ''}</dd></div>
         <div><dt>${esc(t('ad_ref'))}</dt><dd dir="ltr">#${esc(l.id)}</dd></div>
         <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>

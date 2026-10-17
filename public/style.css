@@ -2381,8 +2381,6 @@ a.adv:focus-visible {
 
 /* ---- Ratings, likes and stars ---- */
 .stars { letter-spacing: 0.08em; white-space: nowrap; }
-.stars .on { color: #e0a100; }
-.stars .off { color: #d4cde4; }
 .star-one { color: #e0a100; }
 .adv-rate { display: inline-flex; align-items: center; gap: 0.2rem; font-weight: 800; font-size: 0.85rem; color: #7a5600; text-decoration: none; }
 .adv-row .adv-rate { position: absolute; inset-inline-start: 14px; top: -2px; height: 30px; padding: 0 0.55rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--gold); }
@@ -2426,3 +2424,12 @@ a.adv:focus-visible {
 .rate-login { margin: 0.8rem 0 0; }
 .adm-comment { margin: 0.4rem 0 0; }
 .adm-stars .stars { font-size: 1.25rem; }
+
+/* Stars: whole, half and empty */
+.stars { direction: ltr; unicode-bidi: isolate; display: inline-flex; letter-spacing: 0; }
+.stars i { font-style: normal; }
+.stars .f { color: #e0a100; }
+.stars .e { color: #d4cde4; }
+.stars .h { background: linear-gradient(90deg, #e0a100 50%, #d4cde4 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.adv-row .adv-stars { display: block; clear: both; text-align: center; margin-top: 0.2rem; text-decoration: none; font-size: 1.05rem; line-height: 1; }
+.facts .adv-stars { display: inline-block; font-size: 1.05rem; text-decoration: none; }

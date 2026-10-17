@@ -704,7 +704,7 @@ async function main() {
     const ratingId = (/\/admin\/rating\/(\d+)\/approve/.exec((await admin.get('/admin?tab=ratings')).text) || [])[1];
     check('a plain member cannot answer ratings', (await fan.post(`/admin/rating/${ratingId}/approve`)).status === 404);
     check('staff accept the rating', (await admin.post(`/admin/rating/${ratingId}/approve`)).status === 303 && (await anon.get(`/u/${sellerId}`)).text.includes('Great seller'));
-    check('an accepted rating shows stars on the ads of that seller', (await anon.get(`/u/${sellerId}`)).text.includes('adv-rate'));
+    check('an accepted rating shows stars on the ads of that seller', (await anon.get(`/u/${sellerId}`)).text.includes('adv-stars'));
     await fan.post(`/u/${sellerId}/rate`, { stars: '2', comment: 'changed my mind' });
     check('editing a rating sends it back to review', !(await anon.get(`/u/${sellerId}`)).text.includes('changed my mind') && !(await anon.get(`/u/${sellerId}`)).text.includes('Great seller'));
     await admin.post(`/admin/rating/${ratingId}/reject`);
