@@ -628,10 +628,14 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
     seller: l.seller,
   });
   const url = `${ctx.base}/n/${l.id}`;
+  const validUntil = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+  // Google needs a price for a product: an ad without one only gets the breadcrumb data (no half-filled product).
   const ld = [
-    {
+    ...(l.price == null ? [] : [{
       '@context': 'https://schema.org',
       '@type': 'Product',
+      sku: `basma-${l.id}`,
+      mpn: `basma-${l.id}`,
       name: `${plain} - ${netName(ctx, l.network)}`,
       description: desc,
       category: 'Phone number',
@@ -642,7 +646,9 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         '@type': 'Offer',
         url,
         priceCurrency: 'SAR',
-        ...(l.price != null ? { price: String(l.price) } : {}),
+        price: String(l.price),
+        priceValidUntil: validUntil,
+        itemCondition: 'https://schema.org/NewCondition',
         availability: isLive ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
         seller: { '@type': 'Person', name: l.seller },
         // A phone number is handed over by the seller, not shipped: free, no delivery time, no returns.
@@ -662,7 +668,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
           returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
         },
       },
-    },
+    }]),
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
