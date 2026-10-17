@@ -616,6 +616,8 @@ async function main() {
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));
     rr = await admin.get(rr.location);
     check('ready message has the reason and a WhatsApp link', rr.status === 200 && rr.text.includes('Misleading price') && rr.text.includes('wa.me/966566000001'));
+    rr = await omar.post('/post', { ...AD, number: '0566111001', price: '5000' });
+    check('a number hidden by staff cannot be posted again by a member', rr.status === 400 && rr.text.includes('hidden ad'), rr.status);
     await admin.post(`/admin/l/${adA}/restore`, { tab: 'all' });
     rr = await admin.get('/admin?tab=log');
     check('activity log records staff actions', rr.text.includes('Hid an ad') && rr.text.includes('Featured an ad') && rr.text.includes('Blocked a phone') && rr.text.includes('Misleading price'));

@@ -536,6 +536,8 @@ route('POST', '/post', async (ctx) => {
       errors.number = { key: 'err_limit', vars: { n: config.maxActiveAdsPerUser } };
     } else if (await ctx.store.numberIsListed(number)) {
       errors.number = 'err_dup';
+    } else if (util.rankOf(ctx.user) < 1 && (await ctx.store.numberIsHeld(number))) {
+      errors.number = 'err_held';
     } else if (await ctx.store.isPhoneBlocked(nat)) {
       errors.number = 'err_blocked_number';
     } else {

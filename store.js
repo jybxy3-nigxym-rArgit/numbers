@@ -329,6 +329,14 @@ function createStore(d) {
     ]));
   }
 
+  // A hidden number (by staff, reports or its own owner) stays reserved: it cannot simply be posted again. Store-sync hides (-1) do not count.
+  async function numberIsHeld(number) {
+    return !!(await d.first(
+      "SELECT 1 AS x FROM listings WHERE number = ? AND status = 'hidden' AND hidden_by <> -1 LIMIT 1",
+      [number]
+    ));
+  }
+
   async function insertListing(l) {
     const r = await d.run(
       `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, price_type, auto_until)
@@ -777,6 +785,7 @@ function createStore(d) {
     similarListings,
     countActiveByUser,
     numberIsListed,
+    numberIsHeld,
     insertListing,
     applyStoreProduct,
     syncStoreList,
