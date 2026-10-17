@@ -688,6 +688,7 @@ function postPage(ctx, v = {}, errors = {}) {
   const body = `
   <section class="narrow">
     <h1>${esc(t('post_title'))}</h1>
+    <div class="notice warn" role="note">${esc(t('post_legal'))}</div>
     <p class="lede">${esc(t('post_intro'))}</p>
     ${hasErrors ? `<div class="notice error" role="alert">${esc(t('err_fix'))}</div>` : ''}
     <form method="post" action="/post" class="form" novalidate>
@@ -865,6 +866,7 @@ function bulkPage(ctx, { max }) {
   const body = `
   <section class="narrow">
     <h1>${esc(t('bulk_title'))}</h1>
+    <div class="notice warn" role="note">${esc(t('post_legal'))}</div>
     <p class="lede">${esc(t('bulk_intro', { n: max }))}</p>
     <form method="post" action="/my/bulk" class="form" novalidate>
       ${csrfInput(ctx)}
@@ -1121,7 +1123,7 @@ function adminPage(ctx, tab, data) {
         grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all')]) +
         grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
         grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users'))])
-      : grp(t('admin'), [tl('reported'), tl('all'), tl('users')])
+      : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('users')])
   }</nav>`;
 
   const roleBadge = (u) =>
@@ -1168,13 +1170,14 @@ function adminPage(ctx, tab, data) {
                 if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
                 acts.push(act(l, 'delete', t('delete'), 'btn-danger'));
               } else {
+                if (l.status === 'pending') acts.push(act(l, 'approve', t('approve'), 'btn'));
                 if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
               }
             }
             const badges = `${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.featured ? ` <span class="badge badge-pin">${esc(t('featured_badge'))}</span>` : ''}${l.price != null && (l.price < 100 || l.price > 3000000) ? ` <span class="badge badge-pending">${esc(t('odd_price'))}</span>` : ''}${l.report_count ? ` <span class="badge badge-pending">${esc(t('reports_n', { n: l.report_count }))}</span>` : ''}`;
             return `<li class="adm-ad">
           <div class="adm-ad-top"><a class="adm-num" href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><span class="adm-badges">${badges}</span></div>
-          <p class="adm-meta">${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}${l.hidden_by ? ` · ${esc(t('hidden_by_mod'))}` : ''}</p>
+          <p class="adm-meta">${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}${l.hidden_by > 0 ? ` · ${esc(t('hidden_by_mod'))}` : ''}${l.hidden_by === -2 ? ` · ${esc(t('held_badge'))}` : ''}</p>
           <p class="adm-meta adm-seller">${esc(l.seller)} · <bdi dir="ltr">0${esc(l.seller_phone)}</bdi>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</p>
           ${acts.length ? `<form method="post" action="/admin/l/${l.id}/hide" class="adm-acts">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}">${acts.join('')}</form>` : ''}
         </li>`;

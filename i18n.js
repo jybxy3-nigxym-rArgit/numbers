@@ -110,6 +110,9 @@ const dict = {
     f_desc_hint: 'Up to 300 characters',
     publish: 'Publish ad',
     pending_notice: 'Your ad is waiting for review. It will appear after approval.',
+    held_badge: 'held until checked',
+    held_notice: 'We received your ad. It stays hidden until the admin checks the number.',
+    post_legal: 'Warning: you bear full legal responsibility if you list a number you do not own.',
     published_notice: 'Your ad is live.',
 
     // errors
@@ -585,6 +588,9 @@ const dict = {
     f_desc_hint: 'حتى 300 حرف',
     publish: 'انشر الإعلان',
     pending_notice: 'إعلانك ينتظر المراجعة. بيظهر بعد الموافقة.',
+    held_badge: 'مخفي لين التأكد',
+    held_notice: 'استلمنا إعلانك، وهو مخفي لين تتأكد الإدارة من الرقم.',
+    post_legal: 'تنبيه: تتحمّل المسؤولية القانونية الكاملة في حال سجّلت رقمًا لا تملكه.',
     published_notice: 'إعلانك صار منشور.',
 
     err_number: 'اكتب رقم جوال سعودي، مثل 0555123456.',
@@ -899,6 +905,7 @@ const dict = {
     wa_alert_report: '🚩 بلاغ جديد على الرقم {number}\nالسبب: {reason}\nعدد البلاغات: {n}\n{url}',
     wa_alert_ad: '📢 إعلان جديد {state}\n{number}\nالمعلن: {name}\n{url}',
     wa_pending: '(بانتظار الموافقة)',
+    wa_held: '(مخفي لين التأكد من الرقم)',
     wa_alert_register: '👤 عضو جديد\n{name} {phone}\n{url}',
     wa_alert_login: '🔑 دخول: {name} {phone}',
     about_page_title: 'عن بصمة عميل',

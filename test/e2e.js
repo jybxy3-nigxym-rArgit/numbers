@@ -666,6 +666,22 @@ async function main() {
       check('batch page does not bring back a hidden number', !(await anon.get('/network/zain/jeddah')).text.includes('0591 234 567'));
     }
 
+    // special numbers: 7 same digits wait for staff, repeating pairs stay hidden until the owner checks
+    await admin.post(`/admin/u/${modId}/role`, { role: 'mod' });
+    const rare = await newClient(base);
+    await register(rare, 'Rare', '0566999001');
+    check('ad page shows the legal responsibility warning', (await rare.get('/post')).text.includes('legal responsibility'));
+    let rp = await rare.post('/post', { ...AD, number: '0555555593', price: '9000' });
+    const rid1 = rp.location.split('/').pop();
+    check('7 same digits wait for approval', rp.status === 303 && (await anon.get('/n/' + rid1)).status === 404 && (await rare.get('/n/' + rid1)).status === 200);
+    check('a moderator can approve it', (await mod.post(`/admin/l/${rid1}/approve`, { tab: 'pending' })).status === 303 && (await anon.get('/n/' + rid1)).status === 200);
+    rp = await rare.post('/post', { ...AD, number: '0585858587', price: '9000' });
+    const rid2 = rp.location.split('/').pop();
+    check('a repeating pair number is hidden', rp.status === 303 && (await anon.get('/n/' + rid2)).status === 404);
+    check('held number shows in the review tab for the owner', (await admin.get('/admin?tab=review')).text.includes('0585 858 587'));
+    check('moderators cannot show it, the owner can', (await mod.post(`/admin/l/${rid2}/approve`, { tab: 'pending' })).status === 404 && (await mod.post(`/admin/l/${rid2}/restore`, { tab: 'all' })).status === 404 && (await anon.get('/n/' + rid2)).status === 404 && (await admin.post(`/admin/l/${rid2}/restore`, { tab: 'all' })).status === 303 && (await anon.get('/n/' + rid2)).status === 200);
+    await admin.post(`/admin/u/${modId}/role`, { role: 'user' });
+
     // night mode
     const night = await newClient(base);
     rr = await night.get('/theme/dark?next=/');

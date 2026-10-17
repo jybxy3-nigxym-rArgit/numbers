@@ -203,7 +203,7 @@ async function buildContext(request, url, ip, store, waitUntil) {
   });
   if (user && util.rankOf(user) >= 1) {
     const a = await store.adminAlerts();
-    ctx.alerts = util.rankOf(user) >= 2 ? a.pending + a.review + a.reports : a.reports;
+    ctx.alerts = util.rankOf(user) >= 2 ? a.pending + a.review + a.reports : a.pending + a.reports;
   }
 
   // The flash message is shown once, then removed from the session.
@@ -520,6 +520,15 @@ route('GET', '/post', (ctx) => {
   html(ctx, 200, views.postPage(ctx));
 });
 
+// Where a new ad starts: normal numbers go live; special-looking ones wait for staff (members only; staff are trusted).
+function statusForNew(user, number) {
+  if (util.rankOf(user) >= 1) return 'active';
+  const risk = util.numberRisk(number);
+  if (risk === 'hold') return 'hidden';
+  if (risk === 'review' || config.requireApproval) return 'pending';
+  return 'active';
+}
+
 route('POST', '/post', async (ctx) => {
   if (!requireLogin(ctx)) return;
   if (!(await ctx.store.allow(`post:${ctx.ip}`, config.postPerHour, 3600 * 1000))) return tooMany(ctx);
@@ -555,7 +564,7 @@ route('POST', '/post', async (ctx) => {
 
   if (Object.keys(errors).length) return html(ctx, 400, views.postPage(ctx, v, errors));
 
-  const status = config.requireApproval && !ctx.user.is_admin ? 'pending' : 'active';
+  const status = statusForNew(ctx.user, util.toLocal(nat));
   const id = await ctx.store.insertListing({
     userId: ctx.user.id,
     number: util.toLocal(nat),
@@ -569,9 +578,9 @@ route('POST', '/post', async (ctx) => {
     status,
   });
   if (!ctx.user.is_admin) {
-    notify(ctx, ar('wa_alert_ad', { number: util.toLocal(nat), name: ctx.user.name, state: status === 'pending' ? ar('wa_pending') : '', url: `${ctx.base}/n/${id}` }));
+    notify(ctx, ar('wa_alert_ad', { number: util.toLocal(nat), name: ctx.user.name, state: status === 'pending' ? ar('wa_pending') : status === 'hidden' ? ar('wa_held') : '', url: `${ctx.base}/n/${id}` }));
   }
-  flash(ctx, 'ok', status === 'pending' ? 'pending_notice' : 'published_notice');
+  flash(ctx, 'ok', status === 'pending' ? 'pending_notice' : status === 'hidden' ? 'held_notice' : 'published_notice');
   redirect(ctx, `/n/${id}`);
 });
 
@@ -828,7 +837,7 @@ route('POST', '/my/bulk', async (ctx) => {
     flash(ctx, 'error', room ? 'import_none' : 'err_limit_bulk', { n: config.maxActiveAdsPerUser });
     return redirect(ctx, '/my/bulk');
   }
-  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true, auto: !!ctx.user.verified });
+  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true, auto: !!ctx.user.verified, statusOf: (n) => statusForNew(ctx.user, n) });
   const extra = parsed.items.length - r.added;
   flash(ctx, 'ok', 'bulk_done', { added: r.added, skipped: Math.max(0, extra) });
   redirect(ctx, '/my');
@@ -837,7 +846,7 @@ route('POST', '/my/bulk', async (ctx) => {
 // ---- Admin ----
 
 const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users', 'blocked', 'log'];
-const TABS_MOD = ['reported', 'all', 'users'];
+const TABS_MOD = ['pending', 'reported', 'all', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
 const ADMIN_PAGE = 30; // rows per admin screen (keeps the page quick on the free plan)
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
@@ -879,7 +888,7 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   if (!l) return notFound(ctx);
   const rank = util.rankOf(ctx.user);
   // Moderators may only hide an ad (and take back their own hiding). Nobody touches the ads of someone above them.
-  const modOk = action === 'hide';
+  const modOk = action === 'hide' || action === 'approve';
   if (rank < 2 && !modOk) return notFound(ctx);
   // A hidden ad stays hidden: only the owner can bring it back (not even a general moderator), and approve is for pending ads only.
   if (action === 'restore' && rank < 3) return notFound(ctx);

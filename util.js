@@ -143,7 +143,25 @@ const rankOf = (u) => (!u ? 0 : u.is_admin ? 3 : u.role === 'super' ? 2 : u.role
 // A staff member can act on himself or on someone of a lower level, never on his equals or above.
 const canActOn = (actor, target) => !!actor && !!target && (actor.id === target.id || rankOf(actor) > rankOf(target));
 
+// Numbers that need a staff look before they go live.
+// 'review' = one digit fills 7 or more of the 9 digits after the leading 0 (like 0555555593): waits for any staff member.
+// 'hold'   = a two-digit pair repeats 7+ times in a row (like 0585858587): hidden until the owner checks it.
+function numberRisk(number) {
+  const d = String(number || '');
+  if (!/^05\d{8}$/.test(d)) return '';
+  const counts = {};
+  for (const ch of d.slice(1)) counts[ch] = (counts[ch] || 0) + 1;
+  if (Math.max(...Object.values(counts)) >= 7) return 'review';
+  let run = 2;
+  for (let i = 2; i < d.length; i++) {
+    run = d[i] === d[i - 2] && d[i] !== d[i - 1] ? run + 1 : 2;
+    if (run >= 7) return 'hold';
+  }
+  return '';
+}
+
 module.exports = {
+  numberRisk,
   hasOutsideContact,
   rankOf,
   canActOn,

@@ -339,9 +339,9 @@ function createStore(d) {
 
   async function insertListing(l) {
     const r = await d.run(
-      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, price_type, auto_until)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${l.auto ? `datetime('now','+${config.autoMonthDays} days')` : "''"})`,
-      [l.userId, l.number, l.network, l.city, l.price ?? null, l.contact, l.description, l.status, patternTags(l.number), l.priceType || '']
+      `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, price_type, hidden_by, auto_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${l.auto ? `datetime('now','+${config.autoMonthDays} days')` : "''"})`,
+      [l.userId, l.number, l.network, l.city, l.price ?? null, l.contact, l.description, l.status, patternTags(l.number), l.priceType || '', l.status === 'hidden' ? -2 : 0]
     );
     dropCounts();
     return r.lastId;
@@ -549,7 +549,7 @@ function createStore(d) {
     const params = [];
     if (tab === 'pending') where.push("l.status = 'pending'");
     else if (tab === 'reported') where.push(`((l.status = 'hidden' AND l.hidden_by >= 0) OR ${REPORT_COUNT_SQL} > 0)`);
-    else if (tab === 'review') where.push("(l.status = 'hidden' AND l.hidden_by > 0)");
+    else if (tab === 'review') where.push("(l.status = 'hidden' AND (l.hidden_by > 0 OR l.hidden_by = -2))");
     const digits = String(q).replace(/\D/g, '');
     if (digits.length >= 2 && digits.length === String(q).trim().replace(/[\s-]/g, '').length) {
       where.push('(l.number LIKE ? OR u.phone LIKE ?)');
@@ -641,7 +641,7 @@ function createStore(d) {
   async function adminAlerts() {
     const r = await d.first(`SELECT
       (SELECT COUNT(*) FROM listings WHERE status = 'pending') AS pending,
-      (SELECT COUNT(*) FROM listings WHERE status = 'hidden' AND hidden_by > 0) AS review,
+      (SELECT COUNT(*) FROM listings WHERE status = 'hidden' AND (hidden_by > 0 OR hidden_by = -2)) AS review,
       (SELECT COUNT(*) FROM users WHERE suspended > 0 AND banned = 0) AS suspended,
       (SELECT COUNT(*) FROM reports r JOIN listings l ON l.id = r.listing_id WHERE l.status IN ('active','pending')) AS reports`);
     return r;
@@ -731,7 +731,7 @@ function createStore(d) {
     );
 
   // Bulk add for the admin: skips numbers that are already live. Returns { added, skipped }.
-  async function importListings(userId, contact, items, { penalty = false, auto = false, skipHidden = false } = {}) {
+  async function importListings(userId, contact, items, { penalty = false, auto = false, skipHidden = false, statusOf = null } = {}) {
     dropCounts();
     const uniq = [];
     const seen = new Set();
@@ -767,9 +767,9 @@ function createStore(d) {
     for (let i = 0; i < fresh.length; i += 50) {
       await d.batch(
         fresh.slice(i, i + 50).map((x) => ({
-          sql: `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, auto_until)
-                VALUES (?, ?, ?, ?, ?, ?, '', 'active', ?, ${auto ? `datetime('now','+${config.autoMonthDays} days')` : "''"})`,
-          params: [userId, x.number, x.network, x.city, x.price ?? null, contact, patternTags(x.number)],
+          sql: `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats, hidden_by, auto_until)
+                VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, ${auto ? `datetime('now','+${config.autoMonthDays} days')` : "''"})`,
+          params: [userId, x.number, x.network, x.city, x.price ?? null, contact, (statusOf && statusOf(x.number)) || 'active', patternTags(x.number), statusOf && statusOf(x.number) === 'hidden' ? -2 : 0],
         }))
       );
     }
