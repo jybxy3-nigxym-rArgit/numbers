@@ -5,7 +5,7 @@
 
 const config = require('./config');
 const views = require('./views');
-const { t } = require('./i18n');
+const { t, dict } = require('./i18n');
 const util = require('./util');
 const wc = require('./webcrypto');
 const notifier = require('./notify');
@@ -896,6 +896,18 @@ const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'ratings',
 const TABS_MOD = ['pending', 'reported', 'all', 'ratings', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
 const ADMIN_PAGE = 30; // rows per admin screen (keeps the page quick on the free plan)
+const ADMIN_PAGE_LOG = 50;
+// Filters of the log table, read from the address bar. Searching also matches the action names as the reader sees them.
+const logFilters = (ctx) => {
+  const q = str(ctx.query.q, 60).trim();
+  const date = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '');
+  const sort = ['when', 'by', 'action', 'target', 'detail'].includes(ctx.query.sort) ? ctx.query.sort : 'when';
+  const needle = q.toLowerCase();
+  const actionKeys = q
+    ? Object.keys(dict[ctx.lang] || {}).filter((k) => k.startsWith('log_') && String(dict[ctx.lang][k]).toLowerCase().includes(needle)).map((k) => k.slice(4))
+    : [];
+  return { q, actionKeys, actor: str(ctx.query.actor, 80), action: str(ctx.query.action, 40), from: date(ctx.query.from), to: date(ctx.query.to), sort, dir: ctx.query.dir === 'asc' ? 'asc' : 'desc' };
+};
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
 
 route('GET', '/admin', async (ctx) => {
@@ -914,14 +926,22 @@ route('GET', '/admin', async (ctx) => {
     data.total = r.total;
   } else if (tab === 'ratings') data.ratings = await ctx.store.adminRatings();
   else if (tab === 'blocked') data.blocked = await ctx.store.blockedPhones();
-  else if (tab === 'log') data.log = await ctx.store.auditLog();
+  else if (tab === 'log') {
+    const f = logFilters(ctx);
+    const r = await ctx.store.auditSearch({ ...f, limit: ADMIN_PAGE_LOG, offset: (page - 1) * ADMIN_PAGE_LOG });
+    data.log = r.rows;
+    data.total = r.total;
+    data.f = f;
+    data.facets = await ctx.store.auditFacets();
+    data.pageSize = ADMIN_PAGE_LOG;
+  }
   else {
     const r = await ctx.store.adminListings(tab, opts);
     data.listings = r.rows;
     data.total = r.total;
     if (tab === 'review') data.suspended = await ctx.store.suspendedUsers();
   }
-  data.pages = Math.max(1, Math.ceil((data.total || 0) / ADMIN_PAGE));
+  data.pages = Math.max(1, Math.ceil((data.total || 0) / (data.pageSize || ADMIN_PAGE)));
   html(ctx, 200, views.adminPage(ctx, tab, data));
 });
 
@@ -1169,6 +1189,10 @@ route('GET', '/admin/export/:what', async (ctx) => {
   } else if (ctx.params.what === 'numbers.csv') {
     const rows = (await ctx.store.exportListings()).map((l) => ({ ...l, seller_phone: '0' + l.seller_phone }));
     body = toCsv(['id', 'number', 'network', 'city', 'price', 'price_type', 'status', 'views', 'pinned', 'featured', 'seller', 'seller_phone', 'created_at'], rows);
+  } else if (ctx.params.what === 'log.csv') {
+    if (!requireStaff(ctx, 3)) return;
+    const r = await ctx.store.auditSearch({ ...logFilters(ctx), all: true });
+    body = toCsv(['when', 'by', 'action', 'target', 'detail'], r.rows.map((x) => ({ when: x.created_at, by: x.actor_name, action: ctx.t('log_' + x.action), target: x.target, detail: /^why_/.test(x.detail) ? ctx.t(x.detail) : x.detail })));
   } else return notFound(ctx);
   await audit(ctx, 'export', ctx.params.what);
   send(ctx, 200, 'text/csv; charset=utf-8', body, {

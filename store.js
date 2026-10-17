@@ -782,6 +782,36 @@ function createStore(d) {
       String(detail).slice(0, 300),
     ]);
   const auditLog = () => d.all('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200');
+  // The log as a sortable, filterable table. Sort columns are a fixed whitelist (never raw input).
+  const LOG_SORT = { when: 'id', by: 'actor_name', action: 'action', target: 'target', detail: 'detail' };
+  const auditSearch = async ({ q = '', actionKeys = [], actor = '', action = '', from = '', to = '', sort = 'when', dir = 'desc', limit = 50, offset = 0, all = false } = {}) => {
+    const where = [];
+    const args = [];
+    if (q) {
+      const like = '%' + q.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
+      const parts = ["actor_name LIKE ? ESCAPE '\\'", "target LIKE ? ESCAPE '\\'", "detail LIKE ? ESCAPE '\\'", "action LIKE ? ESCAPE '\\'"];
+      args.push(like, like, like, like);
+      if (actionKeys.length) {
+        parts.push(`action IN (${actionKeys.map(() => '?').join(',')})`);
+        args.push(...actionKeys);
+      }
+      where.push('(' + parts.join(' OR ') + ')');
+    }
+    if (actor) { where.push('actor_name = ?'); args.push(actor); }
+    if (action) { where.push('action = ?'); args.push(action); }
+    if (from) { where.push('date(created_at) >= ?'); args.push(from); }
+    if (to) { where.push('date(created_at) <= ?'); args.push(to); }
+    const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const col = LOG_SORT[sort] || 'id';
+    const order = `ORDER BY ${col} ${dir === 'asc' ? 'ASC' : 'DESC'}, id DESC`;
+    const total = (await d.first(`SELECT COUNT(*) AS c FROM audit_log ${w}`, args)).c;
+    const rows = await d.all(`SELECT * FROM audit_log ${w} ${order}${all ? ' LIMIT 5000' : ' LIMIT ? OFFSET ?'}`, all ? args : [...args, limit, offset]);
+    return { rows, total };
+  };
+  const auditFacets = async () => ({
+    actors: (await d.all('SELECT DISTINCT actor_name AS v FROM audit_log ORDER BY actor_name')).map((r) => r.v),
+    actions: (await d.all('SELECT DISTINCT action AS v FROM audit_log ORDER BY action')).map((r) => r.v),
+  });
 
   const isPhoneBlocked = async (nat) => !!(await d.first('SELECT 1 AS x FROM blocked_phones WHERE phone = ?', [nat]));
   const blockPhone = (nat, by) => d.run('INSERT OR IGNORE INTO blocked_phones (phone, by_id) VALUES (?, ?)', [nat, by]);
@@ -916,6 +946,8 @@ function createStore(d) {
     likedAmong,
     logAction,
     auditLog,
+    auditSearch,
+    auditFacets,
     isPhoneBlocked,
     blockPhone,
     unblockPhone,

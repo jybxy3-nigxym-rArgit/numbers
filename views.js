@@ -1331,13 +1331,35 @@ function adminPage(ctx, tab, data) {
           : `<p>${esc(t('a_nothing'))}</p>`
       }`;
   } else if (tab === 'log') {
-    content = data.log.length
-      ? `<div class="table-wrap"><table><thead><tr><th>${esc(t('a_col_when'))}</th><th>${esc(t('a_col_by'))}</th><th>${esc(t('a_col_action'))}</th><th>${esc(t('a_col_target'))}</th></tr></thead><tbody>${data.log
-          .map(
-            (r) => `<tr><td dir="ltr">${esc(String(r.created_at).slice(0, 16))}</td><td>${esc(r.actor_name)}</td><td>${esc(t('log_' + r.action))}</td><td>${esc(r.target)}${r.detail ? `<br><small>${esc(/^why_/.test(r.detail) ? t(r.detail) : r.detail)}</small>` : ''}</td></tr>`
-          )
-          .join('')}</tbody></table></div>`
-      : `<p>${esc(t('a_nothing'))}</p>`;
+    const f = data.f;
+    const base = { tab: 'log', q: f.q, actor: f.actor, action: f.action, from: f.from, to: f.to };
+    const th = (key, label) => {
+      const on = f.sort === key;
+      const nextDir = on && f.dir === 'asc' ? 'desc' : 'asc';
+      return `<th aria-sort="${on ? (f.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><a class="sort-link${on ? ' on' : ''}" href="${esc('/admin' + qs({ ...base, sort: key, dir: nextDir }))}">${esc(label)}<span class="sort-arrow" aria-hidden="true">${on ? (f.dir === 'asc' ? '▲' : '▼') : '⇅'}</span></a></th>`;
+    };
+    const opts = (list, cur, label) => list.map((x) => `<option value="${esc(x)}"${x === cur ? ' selected' : ''}>${esc(label(x))}</option>`).join('');
+    const filtered = f.q || f.actor || f.action || f.from || f.to;
+    content = `<form method="get" action="/admin" class="log-filters" role="search">
+        <input type="hidden" name="tab" value="log"><input type="hidden" name="sort" value="${esc(f.sort)}"><input type="hidden" name="dir" value="${esc(f.dir)}">
+        <input name="q" type="search" value="${esc(f.q)}" maxlength="60" dir="auto" placeholder="${esc(t('a_search_log'))}" aria-label="${esc(t('a_search'))}">
+        <select name="actor" aria-label="${esc(t('a_col_by'))}"><option value="">${esc(t('log_all_by'))}</option>${opts(data.facets.actors, f.actor, (x) => x)}</select>
+        <select name="action" aria-label="${esc(t('a_col_action'))}"><option value="">${esc(t('log_all_actions'))}</option>${opts(data.facets.actions, f.action, (x) => t('log_' + x))}</select>
+        <label>${esc(t('log_from'))}<input type="date" name="from" value="${esc(f.from)}" dir="ltr"></label>
+        <label>${esc(t('log_to'))}<input type="date" name="to" value="${esc(f.to)}" dir="ltr"></label>
+        <button class="btn btn-small" type="submit">${esc(t('search'))}</button>
+        ${filtered ? `<a class="btn btn-ghost btn-small" href="/admin?tab=log">${esc(t('clear'))}</a>` : ''}
+      </form>
+      <p class="hint-line">${esc(t('a_found', { n: formatPrice(data.total || 0) }))}${util.rankOf(ctx.user) >= 3 ? ` · <a href="${esc('/admin/export/log.csv' + qs({ q: f.q, actor: f.actor, action: f.action, from: f.from, to: f.to, sort: f.sort, dir: f.dir }))}">${esc(t('log_export'))}</a>` : ''}</p>
+      ${
+        data.log.length
+          ? `<div class="table-wrap"><table class="log-table"><thead><tr>${th('when', t('a_col_when'))}${th('by', t('a_col_by'))}${th('action', t('a_col_action'))}${th('target', t('a_col_target'))}${th('detail', t('a_col_detail'))}</tr></thead><tbody>${data.log
+              .map(
+                (r) => `<tr><td dir="ltr">${esc(String(r.created_at).slice(0, 16))}</td><td>${esc(r.actor_name)}</td><td>${esc(t('log_' + r.action))}</td><td>${esc(r.target)}</td><td>${esc(/^why_/.test(r.detail) ? t(r.detail) : r.detail)}</td></tr>`
+              )
+              .join('')}</tbody></table></div>`
+          : `<p>${esc(t('a_nothing'))}</p>`
+      }`;
   } else if (tab === 'review') {
     content = `<p class="lede">${esc(t('a_review_intro'))}</p>
       <h2>${esc(t('a_review_ads'))}</h2>${listingsTable(data.listings)}
@@ -1359,9 +1381,10 @@ function adminPage(ctx, tab, data) {
       <p class="hint-line">${esc(t('a_found', { n: formatPrice(data.total || 0) }))}</p>`
     : '';
   const pg = data.page || 1;
-  const pageHref = (p2) => `/admin${qs({ tab, q, page: p2 > 1 ? p2 : '' })}`;
+  const lf = tab === 'log' && data.f ? { q: data.f.q, actor: data.f.actor, action: data.f.action, from: data.f.from, to: data.f.to, sort: data.f.sort === 'when' ? '' : data.f.sort, dir: data.f.dir === 'desc' ? '' : data.f.dir } : { q };
+  const pageHref = (p2) => `/admin${qs({ tab, ...lf, page: p2 > 1 ? p2 : '' })}`;
   const pager =
-    searchable && data.pages > 1
+    (searchable || tab === 'log') && data.pages > 1
       ? `<nav class="pager" aria-label="Pages">
           ${pg > 1 ? `<a class="btn btn-ghost" href="${esc(pageHref(pg - 1))}">${esc(t('page_prev'))}</a>` : '<span></span>'}
           <span>${esc(t('page_of', { p: pg, n: data.pages }))}</span>

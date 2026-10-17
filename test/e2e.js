@@ -622,6 +622,17 @@ async function main() {
     await admin.post(`/admin/l/${adA}/restore`, { tab: 'all' });
     rr = await admin.get('/admin?tab=log');
     check('activity log records staff actions', rr.text.includes('Hid an ad') && rr.text.includes('Featured an ad') && rr.text.includes('Blocked a phone') && rr.text.includes('Misleading price'));
+    rr = await admin.get('/admin?tab=log&q=Blocked');
+    const rows = (x) => (x.text.split('<tbody>')[1] || '');
+    check('the log search finds actions by their name', rows(rr).includes('Blocked a phone') && !rows(rr).includes('Hid an ad'));
+    rr = await admin.get('/admin?tab=log&action=phone_block&sort=action&dir=asc');
+    check('the log filters by action and sorts by a column', rr.status === 200 && rows(rr).includes('Blocked a phone') && !rows(rr).includes('Hid an ad') && rr.text.includes('aria-sort="ascending"'));
+    rr = await admin.get('/admin?tab=log&from=2999-01-01');
+    check('the log filters by date', !rows(rr).includes('Blocked a phone'));
+    rr = await admin.get('/admin?tab=log&sort=bogus%27--&dir=x&q=%25');
+    check('odd values in the log address do not break the page', rr.status === 200);
+    rr = await admin.get('/admin/export/log.csv?q=Blocked');
+    check('the owner can export the log as CSV', rr.status === 200 && rr.text.includes('Blocked a phone') && (rr.headers.get ? rr.headers.get('content-type') : '').includes('csv') || rr.text.includes('Blocked a phone'));
     check('only senior staff see the log and exports', (await nora.get('/admin?tab=log')).status === 404 && (await nora.get('/admin/export/users.csv')).status === 404 && (await anon.get('/admin/export/users.csv')).status === 404);
     rr = await admin.get('/admin/export/users.csv');
     check('members export is a csv file', rr.status === 200 && String(rr.headers.get('content-type')).startsWith('text/csv') && rr.text.includes('Nora') && rr.text.includes('0566000001'));

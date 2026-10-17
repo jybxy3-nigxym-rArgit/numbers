@@ -2442,3 +2442,16 @@ a.adv:focus-visible {
 .user-row .ur-phone { color: var(--muted, #666); font-size: 0.9rem; text-align: start; }
 .user-row .ur-ads { justify-self: end; color: var(--muted, #666); font-size: 0.9rem; white-space: nowrap; }
 .user-row .ur-flags { grid-column: 1 / -1; font-size: 0.85rem; }
+
+/* ---- Admin log as a sortable table ---- */
+.log-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin: 0.8rem 0; }
+.log-filters input[type="search"] { flex: 1 1 14rem; min-width: 0; }
+.log-filters label { display: grid; gap: 0.15rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.log-filters select, .log-filters input { max-width: 100%; }
+.log-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.log-table th, .log-table td { padding: 0.5rem 0.7rem; border: 1px solid var(--line); text-align: start; vertical-align: top; }
+.log-table thead th { position: sticky; top: 0; background: var(--card); white-space: nowrap; }
+.log-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--line) 25%, transparent); }
+.sort-link { display: inline-flex; gap: 0.35rem; align-items: center; color: var(--ink); text-decoration: none; font-weight: 800; }
+.sort-link .sort-arrow { font-size: 0.7rem; opacity: 0.45; }
+.sort-link.on .sort-arrow { opacity: 1; color: var(--gold); }
