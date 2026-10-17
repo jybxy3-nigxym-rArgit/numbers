@@ -1186,16 +1186,16 @@ function adminPage(ctx, tab, data) {
   if (tab === 'stats') {
     const s = data.stats;
     const tile = (n, label) => `<div><strong>${esc(formatPrice(n))}</strong><span>${esc(label)}</span></div>`;
-    const lines = (rows, f) => (rows.length ? `<ol class="top-list">${rows.map(f).join('')}</ol>` : `<p>${esc(t('a_nothing'))}</p>`);
+    const lines = (rows, f) => (rows.length ? `<ol class="top-list">${rows.slice(0, 4).map(f).join('')}</ol>` : `<p>${esc(t('a_nothing'))}</p>`);
     const sg = (title, tiles) => `<section class="stat-group"><h2>${esc(title)}</h2><div class="stats" style="--n:${tiles.length}">${tiles.join('')}</div></section>`;
     content = `${sg(t('a_grp_ads'), [tile(s.active, t('a_total_ads')), tile(s.pending, t('a_pending')), tile(s.reports, t('a_total_reports')), tile(s.sold, t('a_sold'))])}
     ${sg(t('a_grp_members'), [tile(s.users, t('a_total_users')), tile(s.users1, t('a_users_1')), tile(s.users7, t('a_users_7'))])}
     ${sg(t('a_grp_visits'), [tile(s.viewsToday, t('a_views_today')), tile(s.views7, t('a_views_7')), tile(s.viewsAll, t('a_views_all'))])}
     ${sg(t('a_grp_new'), [tile(s.ads1, t('a_ads_1')), tile(s.ads7, t('a_ads_7'))])}
     <div class="stats-cols">
-      <section><h2>${esc(t('a_top_viewed'))}</h2>${lines(s.top, (r) => `<li><a href="/n/${r.id}" dir="ltr">${esc(formatNumberPlain(r.number))}</a> <small>${ICON.eye} ${esc(r.views)}</small></li>`)}</section>
-      <section><h2>${esc(t('a_top_cities'))}</h2>${lines(s.cities, (r) => `<li>${esc(cityName(ctx, r.k))} <small>${esc(r.c)}</small></li>`)}</section>
-      <section><h2>${esc(t('a_by_network'))}</h2>${lines(s.networks, (r) => `<li>${esc(netName(ctx, r.k))} <small>${esc(r.c)}</small></li>`)}</section>
+      <section class="rank-card"><h2>${esc(t('a_top_viewed'))}</h2>${lines(s.top, (r) => `<li><a href="/n/${r.id}" dir="ltr">${esc(formatNumberPlain(r.number))}</a> <small>${ICON.eye} ${esc(r.views)}</small></li>`)}</section>
+      <section class="rank-card"><h2>${esc(t('a_top_cities'))}</h2>${lines(s.cities, (r) => `<li>${esc(cityName(ctx, r.k))} <small>${esc(r.c)}</small></li>`)}</section>
+      <section class="rank-card"><h2>${esc(t('a_by_network'))}</h2>${lines(s.networks, (r) => `<li>${esc(netName(ctx, r.k))} <small>${esc(r.c)}</small></li>`)}</section>
     </div>
     <p class="hint-line">${esc(t('a_visitors_note'))}</p>`;
   } else if (tab === 'users') {
