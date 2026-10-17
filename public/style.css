@@ -2355,3 +2355,7 @@ a.adv:focus-visible {
 .rank-card .top-list .ico { width: 1rem; height: 1rem; }
 
 [data-theme="dark"] .notice.warn { background: #3a2f10; color: #f1d98a; }
+
+/* ---- Post page: centered wording ---- */
+.post-center h1, .post-center .lede, .post-center .notice, .post-center .field > label, .post-center .hint, .post-center .error-text, .post-center .check, .post-center .field p { text-align: center; }
+.post-center .field > label { display: block; }

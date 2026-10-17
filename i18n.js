@@ -96,7 +96,8 @@ const dict = {
 
     // post form
     post_title: 'Post an ad',
-    post_intro: 'Free. Your ad stays up until you mark it sold or delete it.',
+    post_intro: 'Post with us for free',
+    post_number_label: 'Enter the number you want to sell',
     f_number: 'Number you are selling',
     f_number_hint: 'Saudi mobile, like 0555123456',
     f_network: 'Network',
@@ -574,7 +575,8 @@ const dict = {
     report_reason: 'السبب',
 
     post_title: 'أضف إعلان',
-    post_intro: 'مجاني. يبقى إعلانك لين تحدده مباع أو تحذفه.',
+    post_intro: 'أعلن معنا مجانًا',
+    post_number_label: 'سجّل الرقم اللي تبي تبيعه',
     f_number: 'الرقم اللي تبيعه',
     f_number_hint: 'جوال سعودي، مثل 0555123456',
     f_network: 'الشبكة',

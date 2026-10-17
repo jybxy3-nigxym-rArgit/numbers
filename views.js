@@ -686,14 +686,14 @@ function postPage(ctx, v = {}, errors = {}) {
   const { t } = ctx;
   const hasErrors = Object.keys(errors).length > 0;
   const body = `
-  <section class="narrow">
+  <section class="narrow post-center">
     <h1>${esc(t('post_title'))}</h1>
     <div class="notice warn" role="note">${esc(t('post_legal'))}</div>
     <p class="lede">${esc(t('post_intro'))}</p>
     ${hasErrors ? `<div class="notice error" role="alert">${esc(t('err_fix'))}</div>` : ''}
     <form method="post" action="/post" class="form" novalidate>
       ${csrfInput(ctx)}
-      ${field(ctx, { id: 'number', name: 'number', label: t('f_number'), hint: t('f_number_hint'), value: v.number, error: errors.number, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx" required' })}
+      ${field(ctx, { id: 'number', name: 'number', label: t('post_number_label'), value: v.number, error: errors.number, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx" required' })}
       ${selectField(ctx, { id: 'network', name: 'network', label: t('f_network'), options: networkOptions(ctx), value: v.network, error: errors.network, placeholder: t('f_choose') })}
       ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose') })}
       ${field(ctx, { id: 'price', name: 'price', label: t('f_price'), hint: t('f_price_hint'), value: v.price, error: errors.price, attrs: 'inputmode="numeric" autocomplete="off"' })}
