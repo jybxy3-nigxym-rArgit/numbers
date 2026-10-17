@@ -142,6 +142,7 @@ function createStore(d) {
     if (!ucols.includes('role')) await addCol('users', 'role', "TEXT NOT NULL DEFAULT 'user'");
     if (!ucols.includes('suspended')) await addCol('users', 'suspended', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('verified')) await addCol('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+    if (!ucols.includes('ad_limit')) await addCol('users', 'ad_limit', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('hidden_by')) await addCol('listings', 'hidden_by', 'INTEGER NOT NULL DEFAULT 0');
     if (!cols.includes('renewed_at')) await addCol('listings', 'renewed_at', "TEXT NOT NULL DEFAULT ''");
@@ -238,6 +239,7 @@ function createStore(d) {
         ? [{ sql: `UPDATE listings SET auto_until = datetime('now','+${config.autoMonthDays} days') WHERE user_id = ? AND status = 'active'`, params: [id] }]
         : []),
     ]);
+  const setAdLimit = (id, n) => d.run('UPDATE users SET ad_limit = ? WHERE id = ?', [n, id]);
   const setUserNote = (id, note) => d.run('UPDATE users SET note = ? WHERE id = ?', [note, id]);
   const suspendedUsers = () =>
     d.all(
@@ -931,6 +933,7 @@ function createStore(d) {
     setFeatured,
     setVerified,
     setUserNote,
+    setAdLimit,
     penaltyDaysLeft,
     renewListing,
     adminAlerts,

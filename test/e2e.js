@@ -612,6 +612,13 @@ async function main() {
     rr = await anon.get('/');
     check('featured ad gets the gold frame and badge', rr.text.includes('is-featured') && rr.text.includes('feat-badge'));
     await admin.post(`/admin/l/${adA}/unfeature`, { next: '/' });
+    check('a moderator cannot set an ad limit', (await nora.post(`/admin/u/${omarId}/limit`, { limit: '5' })).status === 404);
+    check('the owner sets a personal ad limit', (await admin.post(`/admin/u/${omarId}/limit`, { limit: '1' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('value="1"'));
+    await omar.post('/post', { ...AD, number: '0566111778', price: '5000' });
+    rr = await omar.post('/post', { ...AD, number: '0566111779', price: '5000' });
+    check('the personal ad limit is applied', rr.status === 400 && rr.text.includes('up to 1 active'), rr.status);
+    check('a bad limit is refused', (await admin.post(`/admin/u/${omarId}/limit`, { limit: 'abc' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('value="1"'));
+    await admin.post(`/admin/u/${omarId}/limit`, { limit: '' });
     check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));

@@ -910,10 +910,12 @@ const logFilters = (ctx) => {
 };
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
 
-// Active-ad ceiling per account: owner unlimited, general moderator 150, moderator 80, verified member 80, plain member 20.
+// Active-ad ceiling per account: owner unlimited; otherwise a hand-set limit, else general moderator 150, moderator 80, verified member 80, plain member 20.
 const adLimit = (user) => {
   const r = util.rankOf(user);
-  return r >= 3 ? Infinity : r === 2 ? 150 : r === 1 || user.verified ? 80 : 20;
+  if (r >= 3) return Infinity;
+  if (user.ad_limit > 0) return user.ad_limit; // set by hand by the owner or a general moderator
+  return r === 2 ? 150 : r === 1 || user.verified ? 80 : 20;
 };
 
 route('GET', '/admin', async (ctx) => {
@@ -1094,6 +1096,23 @@ route('POST', '/admin/u/:id/role', async (ctx) => {
 });
 
 // Internal note about a member: only staff see it.
+// The owner and general moderators can give one account its own ad limit (empty = back to the automatic one).
+route('POST', '/admin/u/:id/limit', async (ctx) => {
+  if (!requireStaff(ctx, 2)) return;
+  const user = await ctx.store.getUser(Number(ctx.params.id));
+  if (!user || user.is_admin || !util.canActOn(ctx.user, user) || user.id === ctx.user.id) return notFound(ctx);
+  const raw = str(ctx.body.limit, 6).trim();
+  const n = raw === '' ? 0 : parseInt(raw, 10);
+  if (!Number.isInteger(n) || n < 0 || n > 5000) {
+    flash(ctx, 'error', 'err_limit_value');
+    return redirect(ctx, `/admin/u/${user.id}`);
+  }
+  await ctx.store.setAdLimit(user.id, n);
+  await audit(ctx, 'user_limit', `${user.name} (#${user.id})`, n ? String(n) : 'auto');
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, `/admin/u/${user.id}`);
+});
+
 route('POST', '/admin/u/:id/note', async (ctx) => {
   if (!requireStaff(ctx, 1)) return;
   const user = await ctx.store.getUser(Number(ctx.params.id));
