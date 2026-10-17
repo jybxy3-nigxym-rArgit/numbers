@@ -682,6 +682,8 @@ async function main() {
     check('moderators cannot show it, the owner can', (await mod.post(`/admin/l/${rid2}/approve`, { tab: 'pending' })).status === 404 && (await mod.post(`/admin/l/${rid2}/restore`, { tab: 'all' })).status === 404 && (await anon.get('/n/' + rid2)).status === 404 && (await admin.post(`/admin/l/${rid2}/restore`, { tab: 'all' })).status === 303 && (await anon.get('/n/' + rid2)).status === 200);
     await admin.post(`/admin/u/${modId}/role`, { role: 'user' });
 
+    check('signed-in name shows in the header, not for visitors', (await rare.get('/faq')).text.includes('class="who"') && (await rare.get('/faq')).text.includes('Rare') && !(await anon.get('/faq')).text.includes('class="who"'));
+
     // night mode
     const night = await newClient(base);
     rr = await night.get('/theme/dark?next=/');

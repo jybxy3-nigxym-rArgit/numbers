@@ -182,6 +182,7 @@ ${gtm ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${es
       ${themeLink}
       <a class="nav-add" href="/post">${esc(t('post_ad'))}</a>
     </nav>
+    ${user ? `<a class="who" href="/profile" title="${esc(t('profile_title'))}">${ICON.user}<span>${esc(t('logged_as', { name: user.name }))}</span></a>` : ''}
   </div>
 </header>
 ${hero}
