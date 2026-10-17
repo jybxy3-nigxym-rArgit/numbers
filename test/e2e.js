@@ -684,6 +684,11 @@ async function main() {
 
     check('signed-in name shows in the header, not for visitors', (await rare.get('/faq')).text.includes('class="who"') && (await rare.get('/faq')).text.includes('Rare') && !(await anon.get('/faq')).text.includes('class="who"'));
 
+    {
+      const ldPage = (await anon.get('/n/' + rid1)).text;
+      check('product data has image, shipping details and return policy', ldPage.includes('"image"') && ldPage.includes('OfferShippingDetails') && ldPage.includes('MerchantReturnPolicy'));
+    }
+
     // night mode
     const night = await newClient(base);
     rr = await night.get('/theme/dark?next=/');

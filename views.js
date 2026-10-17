@@ -598,6 +598,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
       </dl>
       ${l.description ? `<div class="desc"><h2>${esc(t('details'))}</h2><p>${esc(l.description).replace(/\n/g, '<br>')}</p></div>` : ''}
+      ${isLive ? `<ul class="policy-note"><li>${esc(t('policy_1'))}</li><li>${esc(t('policy_2'))}</li><li>${esc(t('policy_3'))}</li></ul>` : ''}
     </div>
 
 
@@ -634,6 +635,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
       name: `${plain} - ${netName(ctx, l.network)}`,
       description: desc,
       category: 'Phone number',
+      image: [`${ctx.base}/og.png`],
       brand: { '@type': 'Brand', name: netName(ctx, l.network) },
       url,
       offers: {
@@ -643,6 +645,22 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         ...(l.price != null ? { price: String(l.price) } : {}),
         availability: isLive ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
         seller: { '@type': 'Person', name: l.seller },
+        // A phone number is handed over by the seller, not shipped: free, no delivery time, no returns.
+        shippingDetails: {
+          '@type': 'OfferShippingDetails',
+          shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'SAR' },
+          shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'SA' },
+          deliveryTime: {
+            '@type': 'ShippingDeliveryTime',
+            handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
+            transitTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
+          },
+        },
+        hasMerchantReturnPolicy: {
+          '@type': 'MerchantReturnPolicy',
+          applicableCountry: 'SA',
+          returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
+        },
       },
     },
     {

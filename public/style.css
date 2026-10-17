@@ -2372,3 +2372,7 @@ a.adv:focus-visible {
 .acc-row:first-child { border-top: 0; }
 .acc-row dt { color: var(--muted); }
 .acc-row dd { margin: 0; font-weight: 700; text-align: end; }
+
+/* ---- Listing: delivery and return notes ---- */
+.policy-note { list-style: none; margin: 1rem 0 0; padding: 0.7rem 1rem; background: var(--card); border: 1.5px dashed var(--line); border-radius: var(--radius); color: var(--muted); font-size: 0.92rem; text-align: start; }
+.policy-note li { padding: 0.15rem 0; }
