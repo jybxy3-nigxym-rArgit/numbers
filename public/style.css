@@ -2299,3 +2299,40 @@ a.adv:focus-visible {
 .user-detail .ud-meta { color: var(--muted, #666); }
 .user-detail .name-edit { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .user-detail .name-edit input { flex: 1; min-width: 12rem; }
+
+/* ---- Admin: tidy navigation, ad cards, grouped stats ---- */
+.adm-nav { display: grid; gap: 0.6rem; margin: 0.8rem 0 1.2rem; padding: 0.8rem 1rem; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); }
+.adm-group { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.6rem; align-items: start; }
+.adm-group + .adm-group { padding-top: 0.6rem; border-top: 1px dashed var(--line); }
+.adm-label { padding-top: 0.35rem; font-size: 0.85rem; font-weight: 800; color: var(--muted); }
+.adm-links { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.adm-links a { padding: 0.35rem 0.85rem; border: 1.5px solid var(--line); border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 0.92rem; font-weight: 600; white-space: nowrap; }
+.adm-links a:hover { border-color: var(--gold); }
+.adm-links a[aria-current="page"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.adm-nav, .adm-ads, .stat-group { text-align: start; }
+.adm-label, .adm-meta { text-align: start; }
+@media (max-width: 640px) {
+  .adm-nav { padding: 0.7rem; }
+  .adm-group { grid-template-columns: 1fr; gap: 0.3rem; }
+  .adm-label { padding-top: 0; font-size: 0.8rem; }
+}
+.adm-ads { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: 0.7rem; }
+.adm-ad { padding: 0.9rem 1rem; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); }
+.adm-ad-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.adm-num { font-size: 1.25rem; font-weight: 800; color: var(--ink); text-decoration: none; letter-spacing: 0.02em; }
+.adm-badges { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.adm-meta { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.92rem; }
+.adm-acts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px solid var(--line); }
+.stat-group { margin-block: 1.2rem; }
+.stat-group h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--muted); }
+.stat-group .stats { grid-template-columns: repeat(var(--n, 3), 1fr); gap: 0.6rem; }
+.stat-group .stats div { padding: 0.7rem 0.9rem; }
+.stat-group .stats strong { font-size: 1.6rem; }
+.stat-group .stats span { font-size: 0.88rem; }
+@media (max-width: 640px) {
+  .stat-group .stats { gap: 0.4rem; }
+  .stat-group .stats[style*="--n:4"] { grid-template-columns: repeat(2, 1fr); }
+  .stat-group .stats div { padding: 0.6rem 0.4rem; text-align: center; }
+  .stat-group .stats strong { font-size: 1.4rem; }
+  .stat-group .stats span { font-size: 0.78rem; line-height: 1.3; }
+}

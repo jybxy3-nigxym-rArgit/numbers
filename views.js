@@ -1109,10 +1109,18 @@ function adminPage(ctx, tab, data) {
     ['blocked', t('a_blocked')],
     ['log', t('a_log')],
   ];
-  const tabs = senior ? allTabs : allTabs.filter(([k]) => ['reported', 'all', 'users'].includes(k));
-  const tabNav = `<nav class="tabs" aria-label="Admin">${tabs
-    .map(([k, label]) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(label)}</a>`)
-    .join('')}${senior ? `<a href="/admin/import">${esc(t('a_import'))}</a><a href="/admin/sync">${esc(t('a_sync'))}</a><a href="/admin/design">${esc(t('a_design'))}</a><a href="/admin/export/numbers.csv">${esc(t('a_export_numbers'))}</a><a href="/admin/export/users.csv">${esc(t('a_export_users'))}</a>` : ''}</nav>`;
+  const lbl = Object.fromEntries(allTabs);
+  const tl = (k) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(lbl[k])}</a>`;
+  const pl = (href, label) => `<a href="${href}">${esc(label)}</a>`;
+  const grp = (title, links) => `<div class="adm-group"><span class="adm-label">${esc(title)}</span><div class="adm-links">${links.join('')}</div></div>`;
+  const tabNav = `<nav class="adm-nav" aria-label="Admin">${
+    senior
+      ? grp(t('a_grp_general'), [tl('stats'), tl('log')]) +
+        grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all')]) +
+        grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
+        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users'))])
+      : grp(t('admin'), [tl('reported'), tl('all'), tl('users')])
+  }</nav>`;
 
   const roleBadge = (u) =>
     u.is_admin
@@ -1144,9 +1152,7 @@ function adminPage(ctx, tab, data) {
     const act = (l, action, label, cls = 'btn-ghost') =>
       `<button class="btn ${cls} btn-small" type="submit" formaction="/admin/l/${l.id}/${action}">${esc(label)}</button>`;
     return listings.length
-      ? `<div class="table-wrap"><table>
-        <thead><tr><th>${esc(t('a_col_number'))}</th><th>${esc(t('a_col_seller'))}</th><th>${esc(t('a_col_status'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
-        <tbody>${listings
+      ? `<ul class="adm-ads">${listings
           .map((l) => {
             const seller = { id: l.user_id, is_admin: l.seller_is_admin, role: l.seller_role };
             const mayAct = util.canActOn(me, seller);
@@ -1164,13 +1170,15 @@ function adminPage(ctx, tab, data) {
                 if (l.status === 'hidden' && l.hidden_by === me.id) acts.push(act(l, 'restore', t('restore'), 'btn'));
               }
             }
-            return `<tr>
-          <td><a href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><br><small>${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}</small></td>
-          <td>${esc(l.seller)}<br><small dir="ltr">0${esc(l.seller_phone)}</small>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</td>
-          <td>${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.featured ? ` <span class="badge badge-pin">${esc(t('featured_badge'))}</span>` : ''}${l.price != null && (l.price < 100 || l.price > 3000000) ? ` <span class="badge badge-pending">${esc(t('odd_price'))}</span>` : ''}${l.hidden_by ? `<br><small>${esc(t('hidden_by_mod'))}</small>` : ''}${l.report_count ? `<br><small>${esc(t('reports_n', { n: l.report_count }))}</small>` : ''}</td>
-          <td class="actions">${acts.length ? `<form method="post" action="/admin/l/${l.id}/hide" class="row-actions">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}">${acts.join('')}</form>` : ''}</td></tr>`;
+            const badges = `${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.featured ? ` <span class="badge badge-pin">${esc(t('featured_badge'))}</span>` : ''}${l.price != null && (l.price < 100 || l.price > 3000000) ? ` <span class="badge badge-pending">${esc(t('odd_price'))}</span>` : ''}${l.report_count ? ` <span class="badge badge-pending">${esc(t('reports_n', { n: l.report_count }))}</span>` : ''}`;
+            return `<li class="adm-ad">
+          <div class="adm-ad-top"><a class="adm-num" href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><span class="adm-badges">${badges}</span></div>
+          <p class="adm-meta">${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}${l.hidden_by ? ` · ${esc(t('hidden_by_mod'))}` : ''}</p>
+          <p class="adm-meta adm-seller">${esc(l.seller)} · <bdi dir="ltr">0${esc(l.seller_phone)}</bdi>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</p>
+          ${acts.length ? `<form method="post" action="/admin/l/${l.id}/hide" class="adm-acts">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}">${acts.join('')}</form>` : ''}
+        </li>`;
           })
-          .join('')}</tbody></table></div>`
+          .join('')}</ul>`
       : `<p>${esc(t('a_nothing'))}</p>`;
   };
 
@@ -1179,20 +1187,11 @@ function adminPage(ctx, tab, data) {
     const s = data.stats;
     const tile = (n, label) => `<div><strong>${esc(formatPrice(n))}</strong><span>${esc(label)}</span></div>`;
     const lines = (rows, f) => (rows.length ? `<ol class="top-list">${rows.map(f).join('')}</ol>` : `<p>${esc(t('a_nothing'))}</p>`);
-    content = `<div class="stats">
-      ${tile(s.active, t('a_total_ads'))}
-      ${tile(s.pending, t('a_pending'))}
-      ${tile(s.reports, t('a_total_reports'))}
-      ${tile(s.users, t('a_total_users'))}
-      ${tile(s.sold, t('a_sold'))}
-      ${tile(s.viewsToday, t('a_views_today'))}
-      ${tile(s.views7, t('a_views_7'))}
-      ${tile(s.viewsAll, t('a_views_all'))}
-      ${tile(s.users1, t('a_users_1'))}
-      ${tile(s.users7, t('a_users_7'))}
-      ${tile(s.ads1, t('a_ads_1'))}
-      ${tile(s.ads7, t('a_ads_7'))}
-    </div>
+    const sg = (title, tiles) => `<section class="stat-group"><h2>${esc(title)}</h2><div class="stats" style="--n:${tiles.length}">${tiles.join('')}</div></section>`;
+    content = `${sg(t('a_grp_ads'), [tile(s.active, t('a_total_ads')), tile(s.pending, t('a_pending')), tile(s.reports, t('a_total_reports')), tile(s.sold, t('a_sold'))])}
+    ${sg(t('a_grp_members'), [tile(s.users, t('a_total_users')), tile(s.users1, t('a_users_1')), tile(s.users7, t('a_users_7'))])}
+    ${sg(t('a_grp_visits'), [tile(s.viewsToday, t('a_views_today')), tile(s.views7, t('a_views_7')), tile(s.viewsAll, t('a_views_all'))])}
+    ${sg(t('a_grp_new'), [tile(s.ads1, t('a_ads_1')), tile(s.ads7, t('a_ads_7'))])}
     <div class="stats-cols">
       <section><h2>${esc(t('a_top_viewed'))}</h2>${lines(s.top, (r) => `<li><a href="/n/${r.id}" dir="ltr">${esc(formatNumberPlain(r.number))}</a> <small>${ICON.eye} ${esc(r.views)}</small></li>`)}</section>
       <section><h2>${esc(t('a_top_cities'))}</h2>${lines(s.cities, (r) => `<li>${esc(cityName(ctx, r.k))} <small>${esc(r.c)}</small></li>`)}</section>
