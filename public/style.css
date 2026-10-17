@@ -2386,7 +2386,8 @@ a.adv:focus-visible {
 .adv-row .adv-rate { position: absolute; inset-inline-start: 14px; top: -2px; height: 30px; padding: 0 0.55rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--gold); }
 .mini-acts, .like-form { display: contents; }
 .like-mini { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; color: var(--plate); cursor: pointer; text-decoration: none; font: inherit; font-size: 0.85rem; font-weight: 800; background: none; border: 0; padding: 0; }
-.adv-row .like-mini { position: absolute; inset-inline-end: 54px; top: -4px; min-width: 34px; height: 34px; padding: 0 0.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--plate); }
+.adv-row .like-mini { position: absolute; inset-inline-start: 14px; top: -4px; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: #fff; border: 1.5px solid var(--plate); }
+.adv-row .like-mini .like-n { position: absolute; top: -7px; inset-inline-end: -5px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #d6336c; color: #fff; font-size: 0.65rem; line-height: 16px; text-align: center; }
 .like-mini .ico { width: 17px; height: 17px; }
 .like-mini:hover, .like-mini:focus-visible { background: var(--plate); color: #fff; }
 .like-mini.on { color: #d6336c; border-color: #d6336c; }
