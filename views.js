@@ -1162,14 +1162,13 @@ function adminPage(ctx, tab, data) {
             if (mayAct) {
               if (senior) {
                 if (l.status === 'pending') acts.push(act(l, 'approve', t('approve'), 'btn'));
-                if (l.status === 'hidden') acts.push(act(l, 'restore', t('restore'), 'btn'));
+                if (l.status === 'hidden' && rank >= 3) acts.push(act(l, 'restore', t('restore'), 'btn'));
                 if (l.status === 'active') acts.push(act(l, l.pinned ? 'unpin' : 'pin', t(l.pinned ? 'unpin' : 'pin'), 'btn-gold'));
                 if (l.status === 'active') acts.push(act(l, l.featured ? 'unfeature' : 'feature', t(l.featured ? 'unfeature' : 'feature'), 'btn-gold'));
                 if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
                 acts.push(act(l, 'delete', t('delete'), 'btn-danger'));
               } else {
                 if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
-                if (l.status === 'hidden' && l.hidden_by === me.id) acts.push(act(l, 'restore', t('restore'), 'btn'));
               }
             }
             const badges = `${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.featured ? ` <span class="badge badge-pin">${esc(t('featured_badge'))}</span>` : ''}${l.price != null && (l.price < 100 || l.price > 3000000) ? ` <span class="badge badge-pending">${esc(t('odd_price'))}</span>` : ''}${l.report_count ? ` <span class="badge badge-pending">${esc(t('reports_n', { n: l.report_count }))}</span>` : ''}`;

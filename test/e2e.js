@@ -474,7 +474,8 @@ async function main() {
     check('moderator hides an ad', r.status === 303 && (await pub(vicAd)) === 404);
     check('moderator cannot delete', (await mod.post(`/admin/l/${vicAd}/delete`)).status === 404 && (await admin.get(`/n/${vicAd}`)).status === 200);
     check('moderator cannot pin or approve', (await mod.post(`/admin/l/${vicAd}/pin`)).status === 404 && (await mod.post(`/admin/l/${vicAd}/approve`)).status === 404);
-    check('moderator takes back his own hiding', (await mod.post(`/admin/l/${vicAd}/restore`, { tab: 'all' })).status === 303 && (await pub(vicAd)) === 200);
+    check('a moderator cannot bring a hidden ad back', (await mod.post(`/admin/l/${vicAd}/restore`, { tab: 'all' })).status === 404 && (await pub(vicAd)) === 404);
+    await admin.post(`/admin/l/${vicAd}/restore`, { tab: 'all' });
     check('moderator cannot touch the owner or a general moderator ads',
       (await mod.post(`/admin/l/${ownerAd}/hide`)).status === 404 && (await mod.post(`/admin/l/${supAd}/hide`)).status === 404 && (await pub(ownerAd)) === 200);
 
@@ -494,7 +495,7 @@ async function main() {
     check('review tab lists hidden ads and suspended members', r.text.includes('0577 111 222') && r.text.includes('Vic') && r.text.includes('Suspended by Mod'));
     check('general moderator lifts the suspension', (await sup.post(`/admin/u/${vicId}/unsuspend`, { tab: 'review' })).status === 303);
     check('member can sign in again', (await (await newClient(base)).post('/login', { phone: '0577000003', password: 'secret-pass-1' })).status === 303);
-    check('general moderator restores the ad', (await sup.post(`/admin/l/${vicAd}/restore`)).status === 303 && (await pub(vicAd)) === 200);
+    check('a general moderator cannot restore a hidden ad, only the owner can', (await sup.post(`/admin/l/${vicAd}/restore`)).status === 404 && (await pub(vicAd)) === 404 && (await admin.post(`/admin/l/${vicAd}/restore`)).status === 303 && (await pub(vicAd)) === 200);
     check('general moderator pins an ad', (await sup.post(`/admin/l/${vicAd}/pin`, { next: '/' })).status === 303);
     check('general moderator bans and unbans a member',
       (await sup.post(`/admin/u/${vicId}/ban`)).status === 303 && (await sup.post(`/admin/u/${vicId}/unban`)).status === 303);

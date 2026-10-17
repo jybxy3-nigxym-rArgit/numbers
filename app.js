@@ -879,8 +879,11 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   if (!l) return notFound(ctx);
   const rank = util.rankOf(ctx.user);
   // Moderators may only hide an ad (and take back their own hiding). Nobody touches the ads of someone above them.
-  const modOk = action === 'hide' || (action === 'restore' && l.hidden_by === ctx.user.id);
+  const modOk = action === 'hide';
   if (rank < 2 && !modOk) return notFound(ctx);
+  // A hidden ad stays hidden: only the owner can bring it back (not even a general moderator), and approve is for pending ads only.
+  if (action === 'restore' && rank < 3) return notFound(ctx);
+  if (action === 'approve' && l.status !== 'pending') return notFound(ctx);
   if (!util.canActOn(ctx.user, sellerOf(l))) return notFound(ctx);
 
   if ((action === 'pin' || action === 'feature') && l.status !== 'active') {
