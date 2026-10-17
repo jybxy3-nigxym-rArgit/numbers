@@ -1007,7 +1007,7 @@ function importPage(ctx, v = {}) {
   return layout(ctx, { title: t('import_title'), body, noindex: true });
 }
 
-function syncPage(ctx) {
+function syncPage(ctx, v = {}) {
   const { t } = ctx;
   const body = `
   <section class="narrow">
@@ -1015,9 +1015,11 @@ function syncPage(ctx) {
     <p class="lede">${esc(t('sync_intro'))}</p>
     <form method="post" action="/admin/sync" class="form" novalidate>
       ${csrfInput(ctx)}
+      ${selectField(ctx, { id: 'network', name: 'network', label: t('import_net'), options: networkOptions(ctx), value: v.network || 'stc' })}
+      ${selectField(ctx, { id: 'city', name: 'city', label: t('import_city'), options: cityOptions(ctx), value: v.city || 'riyadh' })}
       <div class="field">
-        <label for="lines">${esc(t('import_lines'))}</label>
-        <textarea id="lines" name="lines" rows="14" dir="ltr" placeholder="0555123456 5000 stc riyadh"></textarea>
+        <label for="lines">${esc(t('sync_lines'))}</label>
+        <textarea id="lines" name="lines" rows="14" dir="ltr" placeholder="0555123456 : 5000&#10;0500111222 : 12000&#10;0590000555 : 3000"></textarea>
       </div>
       <div class="form-actions">
         <button class="btn" type="submit">${esc(t('sync_submit'))}</button>

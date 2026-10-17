@@ -1187,7 +1187,9 @@ route('GET', '/admin/sync', (ctx) => {
 
 route('POST', '/admin/sync', async (ctx) => {
   if (!requireAdmin(ctx)) return;
-  const { items } = parseImport(str(ctx.body.lines, 19000), 'stc', 'other');
+  const network = NETWORK_BY_KEY[ctx.body.network] ? ctx.body.network : 'stc';
+  const city = CITY_BY_KEY[ctx.body.city] ? ctx.body.city : 'riyadh';
+  const { items } = parseImport(str(ctx.body.lines, 19000), network, city);
   if (!items.length) {
     flash(ctx, 'error', 'import_none');
     return redirect(ctx, '/admin/sync');

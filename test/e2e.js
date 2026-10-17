@@ -653,6 +653,12 @@ async function main() {
 
     check('mobile bottom bar has a logout button for signed-in users only', (await nora.get('/faq')).text.includes('class="tab-out"') && !(await anon.get('/faq')).text.includes('class="tab-out"'));
 
+    r = await admin.get('/admin/sync');
+    check('batch page has network and city dropdowns', r.status === 200 && r.text.includes('name="network"') && r.text.includes('name="city"'));
+    r = await admin.post('/admin/sync', { network: 'zain', city: 'jeddah', lines: '0591234567 : 4000' });
+    r = await anon.get('/network/zain/jeddah');
+    check('batch page uses the chosen network and city', r.text.includes('0591 234 567'));
+
     // night mode
     const night = await newClient(base);
     rr = await night.get('/theme/dark?next=/');
