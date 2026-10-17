@@ -588,8 +588,8 @@ route('POST', '/post', async (ctx) => {
 
   if (nat && !errors.number) {
     const number = util.toLocal(nat);
-    if ((await ctx.store.countActiveByUser(ctx.user.id)) >= config.maxActiveAdsPerUser) {
-      errors.number = { key: 'err_limit', vars: { n: config.maxActiveAdsPerUser } };
+    if ((await ctx.store.countActiveByUser(ctx.user.id)) >= adLimit(ctx.user)) {
+      errors.number = { key: 'err_limit', vars: { n: adLimit(ctx.user) } };
     } else if (await ctx.store.numberIsListed(number)) {
       errors.number = 'err_dup';
     } else if (util.rankOf(ctx.user) < 1 && (await ctx.store.numberIsHeld(number))) {
@@ -872,7 +872,7 @@ route('POST', '/my/bulk', async (ctx) => {
   const network = NETWORK_BY_KEY[ctx.body.network] ? ctx.body.network : 'stc';
   const city = CITY_BY_KEY[ctx.body.city] ? ctx.body.city : 'riyadh';
   const parsed = parseImport(str(ctx.body.lines, 2000), network, city);
-  const room = Math.max(0, config.maxActiveAdsPerUser - (await ctx.store.countActiveByUser(ctx.user.id)));
+  const room = Math.max(0, adLimit(ctx.user) - (await ctx.store.countActiveByUser(ctx.user.id)));
   const items = [];
   for (const it of parsed.items) {
     if (items.some((x) => x.number === it.number)) continue;
@@ -881,7 +881,7 @@ route('POST', '/my/bulk', async (ctx) => {
   }
   const take = items.slice(0, Math.min(BULK_MAX, room));
   if (!take.length) {
-    flash(ctx, 'error', room ? 'import_none' : 'err_limit_bulk', { n: config.maxActiveAdsPerUser });
+    flash(ctx, 'error', room ? 'import_none' : 'err_limit_bulk', { n: adLimit(ctx.user) });
     return redirect(ctx, '/my/bulk');
   }
   const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true, auto: !!ctx.user.verified, statusOf: (n) => statusForNew(ctx.user, n) });
@@ -909,6 +909,9 @@ const logFilters = (ctx) => {
   return { q, actionKeys, actor: str(ctx.query.actor, 80), action: str(ctx.query.action, 40), from: date(ctx.query.from), to: date(ctx.query.to), sort, dir: ctx.query.dir === 'asc' ? 'asc' : 'desc' };
 };
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
+
+// Active-ad ceiling per account: owner unlimited, general moderator 150, everyone else (moderator, member) 80.
+const adLimit = (user) => (util.rankOf(user) >= 3 ? Infinity : util.rankOf(user) === 2 ? 150 : 80);
 
 route('GET', '/admin', async (ctx) => {
   if (!requireStaff(ctx, 1)) return;
