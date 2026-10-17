@@ -37,6 +37,7 @@ const SAR_SIGN = (ctx) =>
   `<svg class="sar" viewBox="0 0 24 24" role="img" aria-label="${esc(ctx.t('sar'))}" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m20 19.5-5.5 1.2"/><path d="M14.5 4v11.22a1 1 0 0 0 1.242.97L20 15.2"/><path d="m2.978 19.351 5.549-1.363A2 2 0 0 0 10 16V2"/><path d="M20 10 4 13.5"/></svg>`;
 
 const ICON = {
+  heart: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.8 6.3 4.8c2 0 3.5 1.1 4.2 2.4h3c.7-1.3 2.2-2.4 4.2-2.4 3.6 0 5.4 3.6 3.9 7C19.5 16.4 12 21 12 21z" transform="translate(0 0)"/></svg>',
   logout: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   eye: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   home: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
@@ -311,15 +312,34 @@ function shareHref(ctx, l) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
+// Stars as text (no inline styles: the page security rules forbid them).
+const starsHtml = (avg) => {
+  const full = Math.max(0, Math.min(5, Math.round(Number(avg) || 0)));
+  return `<span class="stars" aria-hidden="true"><span class="on">${'★'.repeat(full)}</span><span class="off">${'★'.repeat(5 - full)}</span></span>`;
+};
+
+// The heart: members like an ad with one tap; a visitor is sent to sign in.
+function likeButton(ctx, l, { big = false } = {}) {
+  const { t } = ctx;
+  const liked = !!(ctx.liked && ctx.liked.has(l.id));
+  const n = Number(l.likes) || 0;
+  const label = ctx.user ? t(liked ? 'like_remove' : 'like_add') : t('like_login');
+  const inner = `${ICON.heart}${big ? `<span>${esc(t(liked ? 'like_remove' : 'like_add'))}</span>` : ''}${n ? `<bdi class="like-n">${esc(n)}</bdi>` : ''}`;
+  const cls = `${big ? 'btn btn-ghost like-big' : 'like-mini'}${liked ? ' on' : ''}`;
+  if (!ctx.user) return `<a class="${cls}" href="/login" rel="nofollow" title="${esc(label)}" aria-label="${esc(label)}">${inner}</a>`;
+  const next = ctx.url ? ctx.url.pathname + ctx.url.search : `/n/${l.id}`;
+  return `<form method="post" action="/n/${esc(l.id)}/like" class="like-form">${csrfInput(ctx)}<input type="hidden" name="next" value="${esc(next)}"><button class="${cls}" type="submit" title="${esc(label)}" aria-label="${esc(label)}" aria-pressed="${liked}">${inner}</button></form>`;
+}
+
 function plate(ctx, l) {
   const { t } = ctx;
   return `
   <div class="${cardClass(l)}">
     ${plateBadges(ctx, l)}
     <div class="plate">${plateFace(ctx, l, 'span', { links: true, numHref: `/n/${l.id}` })}</div>
-    <div class="adv-row">${advTab(ctx, l)}${
+    <div class="adv-row">${advTab(ctx, l)}${l.seller_rating_n ? `<a class="adv-rate" href="/u/${esc(l.user_id)}" title="${esc(t('ratings_count', { n: l.seller_rating_n }))}"><span class="star-one">★</span><bdi>${esc(l.seller_rating)}</bdi></a>` : ''}${
       l.status === 'active'
-        ? `<a class="share-mini" href="${esc(shareHref(ctx, l))}" target="_blank" rel="noopener nofollow" title="${esc(t('share_wa'))}" aria-label="${esc(t('share_wa'))}">${ICON.share2}</a>`
+        ? `<span class="mini-acts">${likeButton(ctx, l)}<a class="share-mini" href="${esc(shareHref(ctx, l))}" target="_blank" rel="noopener nofollow" title="${esc(t('share_wa'))}" aria-label="${esc(t('share_wa'))}">${ICON.share2}</a></span>`
         : ''
     }</div>
     ${cardActions(ctx, l)}
@@ -473,7 +493,9 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
     </section>
   </div>`;
 
+  const sellerBlock = landing && landing.type === 'seller' && landing.rating ? sellerRatings(ctx, landing) : '';
   const body = `
+  ${sellerBlock}
   <section class="results" aria-live="polite">
     <div class="results-head">
       <h2>${esc(total === 1 ? t('count_one') : t('count', { n: formatPrice(total) }))}</h2>
@@ -552,6 +574,38 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
   });
 }
 
+// Ratings of one seller: the average, the accepted comments, and the form for members.
+function sellerRatings(ctx, landing) {
+  const { t } = ctx;
+  const r = landing.rating;
+  const id = landing.key;
+  const mine = r.mine;
+  const stars = [5, 4, 3, 2, 1]
+    .map((n) => `<input type="radio" id="st${n}" name="stars" value="${n}"${mine && mine.stars === n ? ' checked' : ''}><label for="st${n}" title="${n}">★</label>`)
+    .join('');
+  const mineNote = mine ? `<p class="rate-note rate-${esc(mine.status)}">${esc(t('rate_mine_' + mine.status))}</p>` : '';
+  const form = !ctx.user
+    ? `<p class="rate-login"><a class="btn btn-ghost" href="/login">${esc(t('rate_login'))}</a></p>`
+    : r.canRate
+      ? `${mineNote}<form method="post" action="/u/${esc(id)}/rate" class="rate-form">${csrfInput(ctx)}
+          <div class="star-pick" role="radiogroup" aria-label="${esc(t('rate_stars'))}">${stars}</div>
+          <label class="rate-label" for="rate-comment">${esc(t('rate_comment'))}</label>
+          <textarea id="rate-comment" name="comment" rows="2" maxlength="200" dir="auto">${esc(mine ? mine.comment : '')}</textarea>
+          <button class="btn" type="submit">${esc(t(mine ? 'rate_update' : 'rate_send'))}</button>
+        </form>`
+      : '';
+  const list = r.list.length
+    ? `<ul class="rate-list">${r.list
+        .map((x) => `<li><div class="rate-top">${starsHtml(x.stars)}<b>${esc(x.rater)}</b><small>${esc(ageText(ctx, x.created_at))}</small></div>${x.comment ? `<p>${esc(x.comment)}</p>` : ''}</li>`)
+        .join('')}</ul>`
+    : `<p class="rate-none">${esc(t('ratings_none'))}</p>`;
+  return `<section class="rate-box" id="ratings">
+    <div class="rate-head"><h2>${esc(t('ratings_title'))}</h2>${r.n ? `<div class="rate-sum">${starsHtml(r.avg)}<b>${esc(r.avg)}</b><small>${esc(t('ratings_count', { n: r.n }))}</small></div>` : ''}</div>
+    ${form}
+    ${list}
+  </section>`;
+}
+
 // ---- Listing page ----------------------------------------------------------
 
 function listingPage(ctx, l, { canManage, similar = [] }) {
@@ -583,7 +637,8 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
       ${
         isLive
           ? `<a class="btn btn-wa" href="${esc(wa)}" target="_blank" rel="noopener nofollow">${esc(t('whatsapp'))}</a>
-             <a class="btn btn-ghost btn-share" href="${esc(shareUrl)}" target="_blank" rel="noopener nofollow">${ICON.share} ${esc(t('share_wa'))}</a>`
+             <a class="btn btn-ghost btn-share" href="${esc(shareUrl)}" target="_blank" rel="noopener nofollow">${ICON.share} ${esc(t('share_wa'))}</a>
+             ${likeButton(ctx, l, { big: true })}`
           : ''
       }
       <p class="copy-hint">${esc(t('copy_hint'))}</p>
@@ -592,7 +647,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('network'))}</dt><dd><a href="/network/${esc(l.network)}">${esc(netName(ctx, l.network))}</a></dd></div>
         <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
         ${l.price != null && l.price_type ? `<div><dt>${esc(t('price_word'))}</dt><dd>${esc(t('pt_' + l.price_type))}</dd></div>` : ''}
-        <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}</dd></div>
+        <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}${l.seller_rating_n ? ` <a class="adv-rate" href="/u/${esc(l.user_id)}"><span class="star-one">★</span><bdi>${esc(l.seller_rating)}</bdi></a>` : ''}</dd></div>
         <div><dt>${esc(t('ad_ref'))}</dt><dd dir="ltr">#${esc(l.id)}</dd></div>
         <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
@@ -1147,21 +1202,22 @@ function adminPage(ctx, tab, data) {
     ['review', t('a_review')],
     ['reported', t('a_reported')],
     ['all', t('a_all')],
+    ['ratings', t('a_ratings')],
     ['users', t('a_users')],
     ['blocked', t('a_blocked')],
     ['log', t('a_log')],
   ];
   const lbl = Object.fromEntries(allTabs);
-  const tl = (k) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(lbl[k])}</a>`;
+  const tl = (k) => `<a href="/admin?tab=${k}"${tab === k ? ' aria-current="page"' : ''}>${esc(lbl[k])}${k === 'ratings' && ctx.alertsRatings ? ` <span class="alert-dot">${esc(ctx.alertsRatings)}</span>` : ''}</a>`;
   const pl = (href, label) => `<a href="${href}">${esc(label)}</a>`;
   const grp = (title, links) => `<div class="adm-group"><span class="adm-label">${esc(title)}</span><div class="adm-links">${links.join('')}</div></div>`;
   const tabNav = `<nav class="adm-nav" aria-label="Admin">${
     senior
       ? grp(t('a_grp_general'), [tl('stats'), tl('log')]) +
-        grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all')]) +
+        grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all'), tl('ratings')]) +
         grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
         grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users'))])
-      : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('users')])
+      : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('ratings'), tl('users')])
   }</nav>`;
 
   const roleBadge = (u) =>
@@ -1229,7 +1285,7 @@ function adminPage(ctx, tab, data) {
     const s = data.stats;
     const tile = (n, label) => `<div><strong>${esc(formatPrice(n))}</strong><span>${esc(label)}</span></div>`;
     const lines = (rows, f) => (rows.length ? `<ol class="top-list">${rows.slice(0, 4).map(f).join('')}</ol>` : `<p>${esc(t('a_nothing'))}</p>`);
-    const sg = (title, tiles) => `<section class="stat-group"><h2>${esc(title)}</h2><div class="stats" style="--n:${tiles.length}">${tiles.join('')}</div></section>`;
+    const sg = (title, tiles) => `<section class="stat-group"><h2>${esc(title)}</h2><div class="stats n${tiles.length}">${tiles.join('')}</div></section>`;
     content = `${sg(t('a_grp_ads'), [tile(s.active, t('a_total_ads')), tile(s.pending, t('a_pending')), tile(s.reports, t('a_total_reports')), tile(s.sold, t('a_sold'))])}
     ${sg(t('a_grp_members'), [tile(s.users, t('a_total_users')), tile(s.users1, t('a_users_1')), tile(s.users7, t('a_users_7'))])}
     ${sg(t('a_grp_visits'), [tile(s.viewsToday, t('a_views_today')), tile(s.views7, t('a_views_7')), tile(s.viewsAll, t('a_views_all'))])}
@@ -1240,6 +1296,22 @@ function adminPage(ctx, tab, data) {
       <section class="rank-card"><h2>${esc(t('a_by_network'))}</h2>${lines(s.networks, (r) => `<li>${esc(netName(ctx, r.k))} <small>${esc(r.c)}</small></li>`)}</section>
     </div>
     <p class="hint-line">${esc(t('a_visitors_note'))}</p>`;
+  } else if (tab === 'ratings') {
+    const rb = (x, action, label, cls) => `<button class="btn ${cls} btn-small" type="submit" formaction="/admin/rating/${x.id}/${action}">${esc(label)}</button>`;
+    content = `<p class="lede">${esc(t('a_ratings_intro'))}</p>${
+      data.ratings.length
+        ? `<ul class="adm-ads">${data.ratings
+            .map(
+              (x) => `<li class="adm-ad">
+          <div class="adm-ad-top"><span class="adm-stars">${starsHtml(x.stars)}</span><span class="adm-badges"><span class="badge ${x.status === 'pending' ? 'badge-pending' : x.status === 'approved' ? 'badge-pin' : ''}">${esc(t('rate_st_' + x.status))}</span></span></div>
+          <p class="adm-meta">${esc(t('rate_for'))}: <a href="/u/${esc(x.seller_id)}">${esc(x.seller)}</a> · ${esc(t('rate_by'))}: ${esc(x.rater)}</p>
+          ${x.comment ? `<p class="adm-comment">${esc(x.comment)}</p>` : ''}
+          <form method="post" action="/admin/rating/${x.id}/approve" class="adm-acts">${csrfInput(ctx)}${x.status !== 'approved' ? rb(x, 'approve', t('rate_accept'), 'btn') : ''}${x.status !== 'rejected' ? rb(x, 'reject', t('rate_reject'), 'btn-danger') : ''}</form>
+        </li>`
+            )
+            .join('')}</ul>`
+        : `<p>${esc(t('a_nothing'))}</p>`
+    }`;
   } else if (tab === 'users') {
     content = usersTable(data.users);
   } else if (tab === 'blocked') {

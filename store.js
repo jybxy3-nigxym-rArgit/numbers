@@ -82,6 +82,23 @@ const SCHEMA = [
     user_id    INTEGER NOT NULL,
     deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS seller_ratings (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    seller_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rater_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stars      INTEGER NOT NULL,
+    comment    TEXT NOT NULL DEFAULT '',
+    status     TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (seller_id, rater_id)
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_ratings_seller ON seller_ratings(seller_id, status)',
+  `CREATE TABLE IF NOT EXISTS listing_likes (
+    listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (listing_id, user_id)
+  )`,
   'CREATE TABLE IF NOT EXISTS views_daily (day TEXT PRIMARY KEY, views INTEGER NOT NULL DEFAULT 0)',
   'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS rate_events (k TEXT NOT NULL, ts INTEGER NOT NULL)',
@@ -90,7 +107,10 @@ const SCHEMA = [
 
 const LISTING_SELECT = `
   SELECT l.*, u.name AS seller, u.banned AS seller_banned, u.suspended AS seller_suspended,
-         u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified
+         u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified,
+         (SELECT COUNT(*) FROM listing_likes k WHERE k.listing_id = l.id) AS likes,
+         (SELECT ROUND(AVG(r.stars), 1) FROM seller_ratings r WHERE r.seller_id = l.user_id AND r.status = 'approved') AS seller_rating,
+         (SELECT COUNT(*) FROM seller_ratings r WHERE r.seller_id = l.user_id AND r.status = 'approved') AS seller_rating_n
   FROM listings l JOIN users u ON u.id = l.user_id`;
 
 // Ads of banned or suspended members stay out of every public list.
@@ -637,11 +657,65 @@ function createStore(d) {
     };
   }
 
+  // ---- Seller ratings (members only, each one waits for staff approval) and likes ----
+
+  async function ratingSummary(sellerId) {
+    const r = await d.first("SELECT COUNT(*) AS n, ROUND(AVG(stars), 1) AS avg FROM seller_ratings WHERE seller_id = ? AND status = 'approved'", [sellerId]);
+    return { n: r.n, avg: r.avg || 0 };
+  }
+  const approvedRatings = (sellerId, limit = 30) =>
+    d.all(
+      `SELECT r.id, r.stars, r.comment, r.created_at, u.name AS rater
+       FROM seller_ratings r JOIN users u ON u.id = r.rater_id
+       WHERE r.seller_id = ? AND r.status = 'approved' ORDER BY r.id DESC LIMIT ?`,
+      [sellerId, limit]
+    );
+  const myRating = (sellerId, raterId) => d.first('SELECT id, stars, comment, status FROM seller_ratings WHERE seller_id = ? AND rater_id = ?', [sellerId, raterId]);
+  // One rating per member per seller. Writing again replaces it and sends it back to review.
+  async function saveRating(sellerId, raterId, stars, comment) {
+    await d.run(
+      `INSERT INTO seller_ratings (seller_id, rater_id, stars, comment, status) VALUES (?, ?, ?, ?, 'pending')
+       ON CONFLICT (seller_id, rater_id) DO UPDATE SET stars = excluded.stars, comment = excluded.comment, status = 'pending', created_at = datetime('now')`,
+      [sellerId, raterId, stars, comment]
+    );
+  }
+  const adminRatings = (limit = 60) =>
+    d.all(
+      `SELECT r.id, r.stars, r.comment, r.status, r.created_at, r.seller_id, s.name AS seller, u.name AS rater
+       FROM seller_ratings r JOIN users s ON s.id = r.seller_id JOIN users u ON u.id = r.rater_id
+       ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END, r.id DESC LIMIT ?`,
+      [limit]
+    );
+  const getRating = (id) => d.first('SELECT * FROM seller_ratings WHERE id = ?', [id]);
+  const setRatingStatus = (id, status) => d.run('UPDATE seller_ratings SET status = ? WHERE id = ?', [status, id]);
+
+  // Like / unlike: returns true when the ad is now liked.
+  async function toggleLike(listingId, userId) {
+    const has = await d.first('SELECT 1 AS x FROM listing_likes WHERE listing_id = ? AND user_id = ?', [listingId, userId]);
+    if (has) {
+      await d.run('DELETE FROM listing_likes WHERE listing_id = ? AND user_id = ?', [listingId, userId]);
+      return false;
+    }
+    await d.run('INSERT OR IGNORE INTO listing_likes (listing_id, user_id) VALUES (?, ?)', [listingId, userId]);
+    return true;
+  }
+  async function likedAmong(userId, ids) {
+    const out = new Set();
+    const list = [...new Set(ids)].filter(Number.isInteger);
+    for (let i = 0; i < list.length; i += 80) {
+      const chunk = list.slice(i, i + 80);
+      const rows = await d.all(`SELECT listing_id FROM listing_likes WHERE user_id = ? AND listing_id IN (${chunk.map(() => '?').join(',')})`, [userId, ...chunk]);
+      for (const r of rows) out.add(r.listing_id);
+    }
+    return out;
+  }
+
   // Small numbers for the "needs your attention" badge in the header (staff only).
   async function adminAlerts() {
     const r = await d.first(`SELECT
       (SELECT COUNT(*) FROM listings WHERE status = 'pending') AS pending,
       (SELECT COUNT(*) FROM listings WHERE status = 'hidden' AND (hidden_by > 0 OR hidden_by = -2)) AS review,
+      (SELECT COUNT(*) FROM seller_ratings WHERE status = 'pending') AS ratings,
       (SELECT COUNT(*) FROM users WHERE suspended > 0 AND banned = 0) AS suspended,
       (SELECT COUNT(*) FROM reports r JOIN listings l ON l.id = r.listing_id WHERE l.status IN ('active','pending')) AS reports`);
     return r;
@@ -829,6 +903,15 @@ function createStore(d) {
     penaltyDaysLeft,
     renewListing,
     adminAlerts,
+    ratingSummary,
+    approvedRatings,
+    myRating,
+    saveRating,
+    adminRatings,
+    getRating,
+    setRatingStatus,
+    toggleLike,
+    likedAmong,
     logAction,
     auditLog,
     isPhoneBlocked,

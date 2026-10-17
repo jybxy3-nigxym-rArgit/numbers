@@ -689,6 +689,35 @@ async function main() {
       check('product data has image, shipping details and return policy', ldPage.includes('"image"') && ldPage.includes('OfferShippingDetails') && ldPage.includes('MerchantReturnPolicy') && ldPage.includes('NewCondition') && ldPage.includes('priceValidUntil') && ldPage.includes('"sku"'));
     }
 
+    // seller ratings and likes
+    const sellerId = await idOf('0566999001'); // 'Rare' is the seller here
+    const fan = await newClient(base);
+    await register(fan, 'Fan', '0566999002');
+    const fanId = await idOf('0566999002');
+    check('a visitor cannot rate: sent to sign in', (await anon.post(`/u/${sellerId}/rate`, { stars: '5' })).location === '/login');
+    check('a seller cannot rate himself', (await rare.post(`/u/${sellerId}/rate`, { stars: '5' })).status === 404);
+    check('stars must be 1 to 5', (await fan.post(`/u/${sellerId}/rate`, { stars: '9' })).status === 303 && !(await fan.get(`/u/${sellerId}`)).text.includes('rate-note'));
+    check('a phone number in the comment is refused', (await fan.post(`/u/${sellerId}/rate`, { stars: '5', comment: 'call 0555123456' })).status === 303 && !(await fan.get(`/u/${sellerId}`)).text.includes('rate-note'));
+    check('a member rating is saved and waits', (await fan.post(`/u/${sellerId}/rate`, { stars: '5', comment: 'Great seller' })).status === 303 && (await fan.get(`/u/${sellerId}`)).text.includes('rate-pending'));
+    check('a pending rating is hidden from everyone else', !(await anon.get(`/u/${sellerId}`)).text.includes('Great seller'));
+    check('staff see the rating count in the header and the ratings tab', (await admin.get('/admin?tab=ratings')).text.includes('Great seller') && /alert-dot">\s*\d+/.test((await admin.get('/admin?tab=stats')).text));
+    const ratingId = (/\/admin\/rating\/(\d+)\/approve/.exec((await admin.get('/admin?tab=ratings')).text) || [])[1];
+    check('a plain member cannot answer ratings', (await fan.post(`/admin/rating/${ratingId}/approve`)).status === 404);
+    check('staff accept the rating', (await admin.post(`/admin/rating/${ratingId}/approve`)).status === 303 && (await anon.get(`/u/${sellerId}`)).text.includes('Great seller'));
+    check('an accepted rating shows stars on the ads of that seller', (await anon.get(`/u/${sellerId}`)).text.includes('adv-rate'));
+    await fan.post(`/u/${sellerId}/rate`, { stars: '2', comment: 'changed my mind' });
+    check('editing a rating sends it back to review', !(await anon.get(`/u/${sellerId}`)).text.includes('changed my mind') && !(await anon.get(`/u/${sellerId}`)).text.includes('Great seller'));
+    await admin.post(`/admin/rating/${ratingId}/reject`);
+    check('a rejected rating stays hidden', !(await anon.get(`/u/${sellerId}`)).text.includes('changed my mind'));
+    // likes
+    check('a visitor is sent to sign in to like', (await anon.post(`/n/${rid1}/like`)).location === '/login');
+    await fan.post(`/n/${rid1}/like`, { next: '/' });
+    check('like shows with a count and is pressed for the member', (await fan.get('/n/' + rid1)).text.includes('like-n') && (await fan.get('/n/' + rid1)).text.includes('aria-pressed="true"'));
+    await fan.post(`/n/${rid1}/like`, { next: '/' });
+    check('a second tap removes the like', !(await fan.get('/n/' + rid1)).text.includes('like-n'));
+    check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
+    void fanId;
+
     // night mode
     const night = await newClient(base);
     rr = await night.get('/theme/dark?next=/');

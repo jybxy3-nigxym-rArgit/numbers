@@ -203,7 +203,8 @@ async function buildContext(request, url, ip, store, waitUntil) {
   });
   if (user && util.rankOf(user) >= 1) {
     const a = await store.adminAlerts();
-    ctx.alerts = util.rankOf(user) >= 2 ? a.pending + a.review + a.reports : a.pending + a.reports;
+    ctx.alertsRatings = a.ratings;
+    ctx.alerts = (util.rankOf(user) >= 2 ? a.pending + a.review + a.reports : a.pending + a.reports) + a.ratings;
   }
 
   // The flash message is shown once, then removed from the session.
@@ -329,6 +330,7 @@ async function renderHome(ctx, f, landing) {
     page = pages;
     ({ rows } = await ctx.store.searchListings({ ...f, limit: size, offset: (page - 1) * size }));
   }
+  if (ctx.user) ctx.liked = await ctx.store.likedAmong(ctx.user.id, rows.map((r) => r.id));
   const anyFilter = !!(f.q || f.starts || f.ends || f.min != null || f.max != null || f.network || f.city || f.pattern);
   const counts = await ctx.store.landingCounts();
   html(
@@ -377,7 +379,51 @@ route('GET', '/u/:id', async (ctx) => {
   const u = id ? await ctx.store.getUser(id) : null;
   if (!u || u.banned || u.suspended > 0) return notFound(ctx);
   const f = { ...parseFilters(ctx.query), userId: id, network: '', city: '', q: '', qRaw: '', maxRaw: '', max: null };
-  await renderHome(ctx, f, { type: 'seller', key: String(id), name: u.name });
+  const sum = await ctx.store.ratingSummary(id);
+  const rating = {
+    n: sum.n,
+    avg: sum.avg,
+    list: await ctx.store.approvedRatings(id),
+    mine: ctx.user ? await ctx.store.myRating(id, ctx.user.id) : null,
+    canRate: !!ctx.user && ctx.user.id !== id,
+  };
+  await renderHome(ctx, f, { type: 'seller', key: String(id), name: u.name, rating });
+});
+
+// A member rates a seller (1-5 stars and a short comment). It waits for staff approval before anyone sees it.
+route('POST', '/u/:id/rate', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const id = /^\d{1,9}$/.test(ctx.params.id) ? Number(ctx.params.id) : 0;
+  const u = id ? await ctx.store.getUser(id) : null;
+  if (!u || u.banned || u.suspended > 0) return notFound(ctx);
+  const back = `/u/${id}`;
+  if (u.id === ctx.user.id) return notFound(ctx);
+  if (!(await ctx.store.allow(`rate:${ctx.user.id}`, 20, 24 * 3600 * 1000))) return tooMany(ctx);
+  const stars = Number(ctx.body.stars);
+  const comment = str(ctx.body.comment, 200).replace(/\s+/g, ' ').trim();
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
+    flash(ctx, 'error', 'err_stars');
+    return redirect(ctx, back);
+  }
+  if (comment && (util.hasOutsideContact(comment) || /\d(?:[\s.-]?\d){7,}/.test(util.toWestern(comment)))) {
+    flash(ctx, 'error', 'err_rating_contact');
+    return redirect(ctx, back);
+  }
+  await ctx.store.saveRating(id, ctx.user.id, stars, comment);
+  notify(ctx, ar('wa_alert_rating', { seller: u.name, name: ctx.user.name, stars, url: `${ctx.base}/admin?tab=ratings` }));
+  flash(ctx, 'ok', 'rating_pending');
+  redirect(ctx, back);
+});
+
+// Like / unlike an ad (members only).
+route('POST', '/n/:id/like', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const id = Number(ctx.params.id);
+  const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
+  if (!l || l.status !== 'active' || l.seller_banned || l.seller_suspended) return notFound(ctx);
+  if (!(await ctx.store.allow(`like:${ctx.user.id}`, 200, 3600 * 1000))) return tooMany(ctx);
+  await ctx.store.toggleLike(l.id, ctx.user.id);
+  redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : `/n/${l.id}`);
 });
 route('GET', '/price/:key', async (ctx) => {
   const price = /^\d{1,8}$/.test(ctx.params.key) ? Number(ctx.params.key) : null;
@@ -445,6 +491,7 @@ route('GET', '/n/:id', async (ctx) => {
     }
   }
   const similar = publicVisible ? await ctx.store.similarListings(l, 6) : [];
+  if (ctx.user) ctx.liked = await ctx.store.likedAmong(ctx.user.id, [l.id, ...similar.map((x) => x.id)]);
   html(ctx, 200, views.listingPage(ctx, l, { canManage, similar }));
 });
 
@@ -845,8 +892,8 @@ route('POST', '/my/bulk', async (ctx) => {
 
 // ---- Admin ----
 
-const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'users', 'blocked', 'log'];
-const TABS_MOD = ['pending', 'reported', 'all', 'users'];
+const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'ratings', 'users', 'blocked', 'log'];
+const TABS_MOD = ['pending', 'reported', 'all', 'ratings', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
 const ADMIN_PAGE = 30; // rows per admin screen (keeps the page quick on the free plan)
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
@@ -865,7 +912,8 @@ route('GET', '/admin', async (ctx) => {
     const r = await ctx.store.adminUsers(opts);
     data.users = r.rows;
     data.total = r.total;
-  } else if (tab === 'blocked') data.blocked = await ctx.store.blockedPhones();
+  } else if (tab === 'ratings') data.ratings = await ctx.store.adminRatings();
+  else if (tab === 'blocked') data.blocked = await ctx.store.blockedPhones();
   else if (tab === 'log') data.log = await ctx.store.auditLog();
   else {
     const r = await ctx.store.adminListings(tab, opts);
@@ -928,6 +976,19 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
     return redirect(ctx, to);
   }
   redirect(ctx, back);
+});
+
+// Staff accept or reject a rating. Only accepted ratings show on the seller page.
+route('POST', '/admin/rating/:id/:action', async (ctx) => {
+  if (!requireStaff(ctx, 1)) return;
+  const action = ctx.params.action;
+  if (action !== 'approve' && action !== 'reject') return notFound(ctx);
+  const r = Number.isInteger(Number(ctx.params.id)) ? await ctx.store.getRating(Number(ctx.params.id)) : null;
+  if (!r) return notFound(ctx);
+  await ctx.store.setRatingStatus(r.id, action === 'approve' ? 'approved' : 'rejected');
+  await audit(ctx, 'rating_' + action, `#${r.id}`, `${r.stars}`);
+  flash(ctx, 'ok', 'updated');
+  redirect(ctx, '/admin?tab=ratings');
 });
 
 const cleanName = (raw) => str(raw, 80).replace(/\s+/g, ' ').trim();
