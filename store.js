@@ -687,6 +687,7 @@ function createStore(d) {
       [limit]
     );
   const getRating = (id) => d.first('SELECT * FROM seller_ratings WHERE id = ?', [id]);
+  const deleteRating = (id) => d.run('DELETE FROM seller_ratings WHERE id = ?', [id]);
   const setRatingStatus = (id, status) => d.run('UPDATE seller_ratings SET status = ? WHERE id = ?', [status, id]);
 
   // Like / unlike: returns true when the ad is now liked.
@@ -910,6 +911,7 @@ function createStore(d) {
     adminRatings,
     getRating,
     setRatingStatus,
+    deleteRating,
     toggleLike,
     likedAmong,
     logAction,

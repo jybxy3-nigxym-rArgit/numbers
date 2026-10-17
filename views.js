@@ -1312,7 +1312,7 @@ function adminPage(ctx, tab, data) {
           <div class="adm-ad-top"><span class="adm-stars">${starsHtml(x.stars)}</span><span class="adm-badges"><span class="badge ${x.status === 'pending' ? 'badge-pending' : x.status === 'approved' ? 'badge-pin' : ''}">${esc(t('rate_st_' + x.status))}</span></span></div>
           <p class="adm-meta">${esc(t('rate_for'))}: <a href="/u/${esc(x.seller_id)}">${esc(x.seller)}</a> · ${esc(t('rate_by'))}: ${esc(x.rater)}</p>
           ${x.comment ? `<p class="adm-comment">${esc(x.comment)}</p>` : ''}
-          <form method="post" action="/admin/rating/${x.id}/approve" class="adm-acts">${csrfInput(ctx)}${x.status !== 'approved' ? rb(x, 'approve', t('rate_accept'), 'btn') : ''}${x.status !== 'rejected' ? rb(x, 'reject', t('rate_reject'), 'btn-danger') : ''}</form>
+          <form method="post" action="/admin/rating/${x.id}/approve" class="adm-acts">${csrfInput(ctx)}${x.status !== 'approved' ? rb(x, 'approve', t('rate_accept'), 'btn') : ''}${x.status !== 'rejected' ? rb(x, 'reject', t('rate_reject'), 'btn-danger') : ''}${util.rankOf(ctx.user) >= 3 ? rb(x, 'delete', t('rate_delete'), 'btn-danger') : ''}</form>
         </li>`
             )
             .join('')}</ul>`

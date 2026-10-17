@@ -709,6 +709,8 @@ async function main() {
     check('editing a rating sends it back to review', !(await anon.get(`/u/${sellerId}`)).text.includes('changed my mind') && !(await anon.get(`/u/${sellerId}`)).text.includes('Great seller'));
     await admin.post(`/admin/rating/${ratingId}/reject`);
     check('a rejected rating stays hidden', !(await anon.get(`/u/${sellerId}`)).text.includes('changed my mind'));
+    check('the owner sees a delete button on ratings', (await admin.get('/admin?tab=ratings')).text.includes(`/admin/rating/${ratingId}/delete`));
+    check('the owner can delete a rating for good', (await admin.post(`/admin/rating/${ratingId}/delete`)).status === 303 && !(await admin.get('/admin?tab=ratings')).text.includes(`/admin/rating/${ratingId}/delete`));
     // likes
     check('a visitor is sent to sign in to like', (await anon.post(`/n/${rid1}/like`)).location === '/login');
     await fan.post(`/n/${rid1}/like`, { next: '/' });

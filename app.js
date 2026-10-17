@@ -982,9 +982,17 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
 route('POST', '/admin/rating/:id/:action', async (ctx) => {
   if (!requireStaff(ctx, 1)) return;
   const action = ctx.params.action;
-  if (action !== 'approve' && action !== 'reject') return notFound(ctx);
+  if (action !== 'approve' && action !== 'reject' && action !== 'delete') return notFound(ctx);
   const r = Number.isInteger(Number(ctx.params.id)) ? await ctx.store.getRating(Number(ctx.params.id)) : null;
   if (!r) return notFound(ctx);
+  if (action === 'delete') {
+    if (!requireStaff(ctx, 3)) return;
+    if (needConfirm(ctx, 'rating_delete', { back: '/admin?tab=ratings' })) return;
+    await ctx.store.deleteRating(r.id);
+    await audit(ctx, 'rating_delete', `#${r.id}`, `${r.stars}`);
+    flash(ctx, 'ok', 'updated');
+    return redirect(ctx, '/admin?tab=ratings');
+  }
   await ctx.store.setRatingStatus(r.id, action === 'approve' ? 'approved' : 'rejected');
   await audit(ctx, 'rating_' + action, `#${r.id}`, `${r.stars}`);
   flash(ctx, 'ok', 'updated');
