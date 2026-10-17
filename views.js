@@ -942,6 +942,48 @@ function adminResetPage(ctx, user, pass) {
   return layout(ctx, { title: t('reset_title'), body, noindex: true });
 }
 
+// One member: everything the staff can do with him, in one place.
+function adminUserPage(ctx, u, extra = {}) {
+  const { t } = ctx;
+  const me = ctx.user;
+  const rank = util.rankOf(me);
+  const senior = rank >= 2;
+  const mine = u.id === me.id;
+  const mayAct = !mine && util.canActOn(me, u);
+  const btn = (action, label, cls = 'btn-ghost') =>
+    `<button class="btn ${cls} btn-small" type="submit" formaction="/admin/u/${u.id}/${action}">${esc(label)}</button>`;
+  const roleName = u.is_admin ? t('role_owner') : u.role === 'super' ? t('role_super') : u.role === 'mod' ? t('role_mod') : t('role_user');
+  const acts = [];
+  if (mayAct) {
+    if (u.suspended) {
+      if (senior || u.suspended === me.id) acts.push(btn('unsuspend', t('unsuspend')));
+    } else acts.push(btn('suspend', t('suspend')));
+    if (senior) {
+      acts.push(btn(u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban')));
+      if (!u.is_admin) acts.push(btn(u.verified ? 'unverify' : 'verify', t(u.verified ? 'unverify' : 'verify')));
+      acts.push(btn('reset', t('a_reset_pass')));
+    }
+  }
+  const roles = rank >= 3 ? [['user', t('role_user')], ['mod', t('role_mod')], ['super', t('role_super')]] : [['user', t('role_user')], ['mod', t('role_mod')]];
+  const block = (title, inner) => `<div class="ud-block"><h2>${esc(title)}</h2>${inner}</div>`;
+  const body = `
+  <section class="narrow user-detail">
+    <p><a href="/admin?tab=users">&larr; ${esc(t('back_users'))}</a></p>
+    <h1>${esc(u.name)}${u.verified ? ` ${verifiedMark(ctx)}` : ''}</h1>
+    <p class="ud-meta"><bdi dir="ltr">0${esc(u.phone)}</bdi> · ${esc(roleName)} · ${esc(String(u.created_at).slice(0, 10))}
+      ${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</p>
+    <p class="form-actions">
+      <a class="btn btn-ghost btn-small" href="/u/${u.id}">${esc(t('a_view_ads'))}</a>
+      <a class="btn btn-wa btn-small" href="https://wa.me/${esc(util.toIntl(u.phone))}" target="_blank" rel="noopener">${esc(t('a_whatsapp'))}</a>
+    </p>
+    ${senior && (mine || mayAct) ? block(t('f_name'), `<form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`) : ''}
+    ${mayAct ? block(t('note_label'), `<form method="post" action="/admin/u/${u.id}/note" class="name-edit note-edit">${csrfInput(ctx)}<input name="note" value="${esc(u.note || '')}" maxlength="300" placeholder="${esc(t('note_ph'))}" aria-label="${esc(t('note_label'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`) : u.note && !mine ? block(t('note_label'), `<p>${esc(u.note)}</p>`) : ''}
+    ${acts.length ? block(t('a_col_actions'), `<form method="post" action="/admin/u/${u.id}/reset" class="row-actions">${csrfInput(ctx)}<input type="hidden" name="tab" value="users"><div class="actions">${acts.join('')}</div></form>`) : ''}
+    ${senior && !u.is_admin && mayAct ? block(t('a_role'), `<form method="post" action="/admin/u/${u.id}/role" class="name-edit">${csrfInput(ctx)}<select name="role" aria-label="${esc(t('a_role'))}">${roles.map(([k, label]) => `<option value="${k}"${(u.role || 'user') === k ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`) : ''}
+  </section>`;
+  return layout(ctx, { title: u.name, body, noindex: true });
+}
+
 function importPage(ctx, v = {}) {
   const { t } = ctx;
   const body = `
@@ -1085,53 +1127,17 @@ function adminPage(ctx, tab, data) {
   const userForm = (u, action, label, cls = 'btn-ghost') =>
     `<button class="btn ${cls} btn-small" type="submit" formaction="/admin/u/${u.id}/${action}">${esc(label)}</button>`;
 
-  const usersTable = (users, tabName) =>
+  // A clean list: one row per member. Tapping the name opens the member's page with all the options.
+  const usersTable = (users) =>
     users.length
-      ? `<div class="table-wrap"><table>
-        <thead><tr><th>${esc(t('a_col_name'))}</th><th>${esc(t('a_col_phone'))}</th><th>${esc(t('a_col_ads'))}</th><th>${esc(t('a_col_joined'))}</th><th>${esc(t('a_col_actions'))}</th></tr></thead>
-        <tbody>${users
-          .map((u) => {
-            const mine = u.id === me.id;
-            const mayAct = !mine && util.canActOn(me, u);
-            const nameCell =
-              senior && (mine || mayAct)
-                ? `<form method="post" action="/admin/u/${u.id}/name" class="name-edit">${csrfInput(ctx)}<input name="name" value="${esc(u.name)}" maxlength="60" aria-label="${esc(t('f_name'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
-                : esc(u.name);
-            const acts = [];
-            let roleForm = '';
-            if (mayAct) {
-              if (u.suspended) {
-                if (senior || u.suspended === me.id) acts.push(userForm(u, 'unsuspend', t('unsuspend'), 'btn-ghost', tabName));
-              } else acts.push(userForm(u, 'suspend', t('suspend'), 'btn-ghost', tabName));
-              if (senior) {
-                acts.push(userForm(u, u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban'), 'btn-ghost', tabName));
-                acts.push(userForm(u, 'reset', t('a_reset_pass')));
-              }
-            }
-            if (senior && !u.is_admin && mayAct && !mine) {
-              acts.push(userForm(u, u.verified ? 'unverify' : 'verify', t(u.verified ? 'unverify' : 'verify'), 'btn-ghost', tabName));
-            }
-            if (senior && !u.is_admin && mayAct && !mine) {
-              const roles = rank >= 3 ? [['user', t('role_user')], ['mod', t('role_mod')], ['super', t('role_super')]] : [['user', t('role_user')], ['mod', t('role_mod')]];
-              roleForm =
-                `<form method="post" action="/admin/u/${u.id}/role" class="name-edit">${csrfInput(ctx)}<select name="role" aria-label="${esc(t('a_role'))}">
-                  ${roles.map(([k, label]) => `<option value="${k}"${(u.role || 'user') === k ? ' selected' : ''}>${esc(label)}</option>`).join('')}
-                </select><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`;
-            }
-            return `<tr>
-          <td>${nameCell}${u.verified ? ` ${verifiedMark(ctx)}` : ''}${roleBadge(u)}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}${u.suspended_by_name ? `<br><small>${esc(t('suspended_by', { name: u.suspended_by_name }))}</small>` : ''}${
-            mayAct && !mine
-              ? `<form method="post" action="/admin/u/${u.id}/note" class="name-edit note-edit">${csrfInput(ctx)}<input name="note" value="${esc(u.note || '')}" maxlength="300" placeholder="${esc(t('note_ph'))}" aria-label="${esc(t('note_label'))}" dir="auto"><button class="btn btn-ghost btn-small" type="submit">${esc(t('save'))}</button></form>`
-              : u.note && !mine
-                ? `<br><small>${esc(u.note)}</small>`
-                : ''
-          }</td>
-          <td dir="ltr">0${esc(u.phone)}</td>
-          <td>${u.ads ?? ''}</td>
-          <td>${esc(String(u.created_at).slice(0, 10))}</td>
-          <td><div class="actions"><form method="post" action="/admin/u/${u.id}/reset" class="row-actions">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tabName)}">${acts.join('')}</form>${roleForm}</div></td></tr>`;
-          })
-          .join('')}</tbody></table></div>`
+      ? `<ul class="user-list">${users
+          .map(
+            (u) => `<li><a class="user-row" href="/admin/u/${u.id}">
+          <span class="ur-main"><b>${esc(u.name)}</b>${u.verified ? ` ${verifiedMark(ctx)}` : ''}${roleBadge(u)}${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}${u.banned_devices ? ` <small>${esc(t('a_device_banned'))}</small>` : ''}</span>
+          <span class="ur-meta"><bdi dir="ltr">0${esc(u.phone)}</bdi> · ${esc(t('a_col_ads'))}: ${u.ads ?? 0}${u.suspended_by_name ? ` · ${esc(t('suspended_by', { name: u.suspended_by_name }))}` : ''}</span>
+        </a></li>`,
+          )
+          .join('')}</ul>`
       : `<p>${esc(t('a_nothing'))}</p>`;
 
   const listingsTable = (listings) => {
@@ -1194,7 +1200,7 @@ function adminPage(ctx, tab, data) {
     </div>
     <p class="hint-line">${esc(t('a_visitors_note'))}</p>`;
   } else if (tab === 'users') {
-    content = usersTable(data.users, 'users');
+    content = usersTable(data.users);
   } else if (tab === 'blocked') {
     content = `<p class="lede">${esc(t('a_blocked_intro'))}</p>
       <form method="post" action="/admin/block" class="name-edit block-form">${csrfInput(ctx)}<input name="phone" inputmode="numeric" maxlength="10" placeholder="05xxxxxxxx" aria-label="${esc(t('f_phone'))}" dir="ltr" required><button class="btn btn-danger btn-small" type="submit">${esc(t('a_block'))}</button></form>
@@ -1219,7 +1225,7 @@ function adminPage(ctx, tab, data) {
   } else if (tab === 'review') {
     content = `<p class="lede">${esc(t('a_review_intro'))}</p>
       <h2>${esc(t('a_review_ads'))}</h2>${listingsTable(data.listings)}
-      <h2>${esc(t('a_review_users'))}</h2>${usersTable(data.suspended, 'review')}`;
+      <h2>${esc(t('a_review_users'))}</h2>${usersTable(data.suspended)}`;
   } else {
     content = listingsTable(data.listings);
   }
@@ -1430,6 +1436,7 @@ module.exports = {
   postPage,
   editPage,
   adminResetPage,
+  adminUserPage,
   importPage,
   passwordPage,
   profilePage,

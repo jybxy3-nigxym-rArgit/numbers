@@ -934,6 +934,14 @@ route('POST', '/admin/u/:id/name', async (ctx) => {
   redirect(ctx, '/admin?tab=users');
 });
 
+route('GET', '/admin/u/:id', async (ctx) => {
+  if (!requireStaff(ctx, 1)) return;
+  const id = Number(ctx.params.id);
+  const u = Number.isInteger(id) ? await ctx.store.getUser(id) : undefined;
+  if (!u) return notFound(ctx);
+  html(ctx, 200, views.adminUserPage(ctx, u));
+});
+
 // Everyone can change their own name.
 route('GET', '/profile', (ctx) => {
   if (!requireLogin(ctx)) return;
@@ -954,7 +962,7 @@ route('POST', '/admin/u/:id/reset', async (ctx) => {
   if (!(await ctx.store.allow(`reset:${ctx.user.id}`, 30, 3600 * 1000))) return tooMany(ctx);
   const user = await ctx.store.getUser(Number(ctx.params.id));
   if (!user || util.rankOf(ctx.user) <= util.rankOf(user)) return notFound(ctx);
-  if (needConfirm(ctx, 'reset', { back: '/admin?tab=users' })) return;
+  if (needConfirm(ctx, 'reset', { back: `/admin/u/${user.id}` })) return;
   const pass = wc.randomPassword(10);
   await ctx.store.setUserPassword(user.id, await wc.hashPassword(pass, config.pbkdf2Iterations));
   await audit(ctx, 'user_reset', `${user.name} (#${user.id})`);
@@ -973,7 +981,7 @@ route('POST', '/admin/u/:id/role', async (ctx) => {
   await ctx.store.setUserRole(user.id, role);
   await audit(ctx, 'user_role', `${user.name} (#${user.id})`, role);
   flash(ctx, 'ok', 'updated');
-  redirect(ctx, '/admin?tab=users');
+  redirect(ctx, `/admin/u/${user.id}`);
 });
 
 // Internal note about a member: only staff see it.
@@ -985,7 +993,7 @@ route('POST', '/admin/u/:id/note', async (ctx) => {
   await ctx.store.setUserNote(user.id, note);
   await audit(ctx, 'user_note', `${user.name} (#${user.id})`, note);
   flash(ctx, 'ok', 'updated');
-  redirect(ctx, '/admin?tab=users');
+  redirect(ctx, `/admin/u/${user.id}`);
 });
 
 route('POST', '/admin/u/:id/:action', async (ctx) => {
@@ -995,8 +1003,7 @@ route('POST', '/admin/u/:id/:action', async (ctx) => {
   const user = Number.isInteger(id) ? await ctx.store.getUser(id) : undefined;
   if (!user || id === ctx.user.id) return notFound(ctx);
   const rank = util.rankOf(ctx.user);
-  const tab = ctx.body.tab === 'review' ? 'review' : 'users';
-  const back = `/admin?tab=${tab}`;
+  const back = `/admin/u/${user.id}`;
   if (!util.canActOn(ctx.user, user)) return notFound(ctx);
 
   let reason = '';

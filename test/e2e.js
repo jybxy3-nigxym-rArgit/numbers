@@ -400,7 +400,10 @@ async function main() {
 
     r = await admin.post('/admin/u/1/name', { name: 'Ahmed Renamed' });
     r = await admin.get('/admin?tab=users');
-    check('admin renames a user', r.text.includes('value="Ahmed Renamed"'));
+    check('users list shows names as links to the member page', r.text.includes('Ahmed Renamed') && r.text.includes('href="/admin/u/1"'));
+    r = await admin.get('/admin/u/1');
+    check('admin renames a user', r.status === 200 && r.text.includes('value="Ahmed Renamed"') && r.text.includes('/admin/u/1/ban'));
+    check('member page is closed to normal users', (await a3.get('/admin/u/1')).status !== 200);
     r = await admin.post('/admin/u/1/name', { name: 'Ahmed' });
     check('normal user cannot rename others', (await a3.post('/admin/u/1/name', { name: 'x y' })).status === 404);
     r = await a3.post('/profile', { name: 'Ahmed Self' });
@@ -433,7 +436,7 @@ async function main() {
     console.log('\nModerators');
     const idOf = async (phone) => {
       const rr = await admin.get('/admin?tab=users');
-      const m = new RegExp(`action="/admin/u/(\\d+)/name"(?:(?!<tr>)[\\s\\S])*?dir="ltr">${phone}`).exec(rr.text);
+      const m = new RegExp(`href="/admin/u/(\\d+)"(?:(?!</a>)[\\s\\S])*?dir="ltr">${phone}`).exec(rr.text);
       return m && m[1];
     };
     const sup = await newClient(base);
@@ -608,7 +611,7 @@ async function main() {
     rr = await anon.get('/');
     check('featured ad gets the gold frame and badge', rr.text.includes('is-featured') && rr.text.includes('feat-badge'));
     await admin.post(`/admin/l/${adA}/unfeature`, { next: '/' });
-    check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get('/admin?tab=users')).text.includes('calls late at night'));
+    check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));
     rr = await admin.get(rr.location);
@@ -764,7 +767,7 @@ async function main() {
     const idA = (await v.post('/post', { ...AD, number: '0555111001' })).location.split('/').pop();
     check('a member who is not verified has no auto refresh', !(await v.get('/my')).text.includes('Auto refresh'));
     const users = await adm.get('/admin?tab=users');
-    const vid = new RegExp(`action="/admin/u/(\\d+)/name"(?:(?!<tr>)[\\s\\S])*?dir="ltr">0555000111`).exec(users.text)[1];
+    const vid = new RegExp(`href="/admin/u/(\\d+)"(?:(?!</a>)[\\s\\S])*?dir="ltr">0555000111`).exec(users.text)[1];
     await adm.post(`/admin/u/${vid}/verify`, { tab: 'users' });
     check('verifying gives the live ads one month of auto refresh', (await v.get('/my')).text.includes('Auto refresh: 30 day'));
     await new Promise((r) => setTimeout(r, 1100));
