@@ -910,8 +910,11 @@ const logFilters = (ctx) => {
 };
 const WHY = ['rules', 'fake', 'price', 'sold', 'other'];
 
-// Active-ad ceiling per account: owner unlimited, general moderator 150, everyone else (moderator, member) 80.
-const adLimit = (user) => (util.rankOf(user) >= 3 ? Infinity : util.rankOf(user) === 2 ? 150 : 80);
+// Active-ad ceiling per account: owner unlimited, general moderator 150, moderator 80, verified member 80, plain member 20.
+const adLimit = (user) => {
+  const r = util.rankOf(user);
+  return r >= 3 ? Infinity : r === 2 ? 150 : r === 1 || user.verified ? 80 : 20;
+};
 
 route('GET', '/admin', async (ctx) => {
   if (!requireStaff(ctx, 1)) return;
