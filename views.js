@@ -660,7 +660,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
       </dl>
       ${l.description ? `<div class="desc"><h2>${esc(t('details'))}</h2><p>${esc(l.description).replace(/\n/g, '<br>')}</p></div>` : ''}
-      <div class="desc about-num"><h2>${esc(t('about_num_title'))}</h2><p>${esc(t('about_num_1', { n: formatNumberPlain(shownNumber(ctx, l)), net: netName(ctx, l.network), city: cityName(ctx, l.city) }))}</p><p>${esc(t('about_num_2'))}</p></div>
+      <div class="desc about-num"><h2>${esc(t('about_num_title'))}</h2><p>${esc(t('about_num_1', { n: '\u0001', net: netName(ctx, l.network), city: cityName(ctx, l.city) })).replace('\u0001', `<bdi dir="ltr">${esc(String(shownNumber(ctx, l)).replace(/\s/g, ''))}</bdi>`)}</p><p>${esc(t('about_num_2'))}</p></div>
       ${isLive ? `<ul class="policy-note"><li>${esc(t('policy_1'))}</li><li>${esc(t('policy_2'))}</li><li>${esc(t('policy_3'))}</li></ul>` : ''}
     </div>
 
