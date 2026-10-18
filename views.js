@@ -876,7 +876,10 @@ function loginPage(ctx, v = {}, errors = {}) {
     <h1>${esc(t('login_title'))}</h1>
     ${
       remembered && v.phone === remembered
-        ? `<div class="notice">${esc(t('last_phone_note'))} <bdi dir="ltr">${esc(remembered)}</bdi>. ${esc(t('last_phone_change'))}</div>`
+        ? `<div class="login-card last-card">
+        <span class="lc-ico">${ICON.user}</span>
+        <span class="lc-text"><b>${esc(t('last_phone_note'))} <bdi dir="ltr">${esc(remembered)}</bdi></b><small>${esc(t('last_phone_change'))}</small></span>
+      </div>`
         : ''
     }
     ${errors.form ? `<div class="notice error" role="alert">${esc(t(errors.form))}</div>` : ''}
