@@ -113,7 +113,7 @@ function jsonLd(list) {
     .join('\n');
 }
 
-function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', canonical, noindex, robots, ld = [], promo = false }) {
+function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', canonical, noindex, robots, ld = [], promo = false, liveJs = false }) {
   const { t, lang, user } = ctx;
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const siteName = t('site_name');
@@ -214,6 +214,7 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
   ${isStaff ? `<a href="/admin">${ICON.shield}<span>${esc(t('admin'))}${alerts}</span></a>` : `<a href="/faq">${ICON.help}<span>${esc(t('page_faq'))}</span></a>`}
   ${user ? `<form method="post" action="/logout" class="tab-out">${csrfInput(ctx)}<button type="submit">${ICON.logout}<span>${esc(t('logout'))}</span></button></form>` : ''}
 </nav>
+${liveJs ? `<script src="/live.js?v=${esc(ASSET_V)}" defer></script>` : ''}
 </body>
 </html>`;
 }
@@ -578,6 +579,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
     robots: anyFilter || thin || (landing && (landing.type === 'price' || landing.type === 'seller')) ? 'noindex, follow' : '',
     ld,
     promo: true,
+    liveJs: true,
   });
 }
 

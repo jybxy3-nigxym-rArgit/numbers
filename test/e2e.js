@@ -119,11 +119,11 @@ async function main() {
     const anon = new HttpClient(base); // a brand-new visitor: no language chosen yet
     let r = await anon.get('/');
     check('home loads', r.status === 200);
-    check('Tag Manager is off unless GTM_ID is set', !r.text.includes('googletagmanager') && r.headers.get('content-security-policy').includes("script-src 'none'"));
+    check('Tag Manager is off unless GTM_ID is set', !r.text.includes('googletagmanager') && r.headers.get('content-security-policy').includes("script-src 'self'"));
     check('default language is Arabic and RTL', r.text.includes('dir="rtl"') && r.text.includes('بصمة عميل'));
     check('empty site message shown', r.text.includes('ما فيه إعلانات للحين'));
-    check('CSP header set', (r.headers.get('content-security-policy') || '').includes("script-src 'none'"));
-    check('no external scripts in page', !/<script(?![^>]*application\/ld\+json)/i.test(r.text));
+    check('CSP header set', (r.headers.get('content-security-policy') || '').includes("script-src 'self'") && !(r.headers.get('content-security-policy') || '').includes('unsafe-inline'));
+    check('no external or inline scripts in page', !/<script(?![^>]*(application\/ld\+json|src="\/live\.js))/i.test(r.text));
     r = await anon.get('/lang/en?next=/');
     check('language switch redirects', r.status === 302 && r.location === '/');
     r = await anon.get('/');
@@ -621,6 +621,8 @@ async function main() {
     await admin.post(`/admin/u/${omarId}/limit`, { limit: '' });
     rr = await anon.get('/login');
     check('login page has the sign-up card and the forgot-password pop-up', rr.text.includes('login-card') && rr.text.includes('href="/register"') && rr.text.includes('id="forgot"') && rr.text.includes('wa.me/'));
+    rr = await anon.get('/');
+    check('home page loads the live search file and the file is served', rr.text.includes('/live.js') && (await anon.get('/live.js')).status === 200);
     check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));
@@ -807,7 +809,7 @@ async function main() {
     const nonce = /nonce="([^"]+)"/.exec(pubPage.text);
     check('Tag Manager loads on public pages with a nonce', pubPage.text.includes('GTM-TEST123') && nonce && csp.includes(`'nonce-${nonce[1]}'`) && csp.includes('https://www.googletagmanager.com'));
     const loginPage = await (await newClient(srv3.base)).get('/login');
-    check('login page stays script-free', !loginPage.text.includes('GTM-TEST123') && loginPage.headers.get('content-security-policy').includes("script-src 'none'"));
+    check('login page stays script-free', !loginPage.text.includes('GTM-TEST123') && !loginPage.text.includes('<script') && loginPage.headers.get('content-security-policy').includes("script-src 'self'"));
     check('renew moves the ad back to the top', r.status === 303 && (await u.get('/my')).text.includes('back at the top'));
     check('my ads page stays script-free', !(await u.get('/my')).text.includes('googletagmanager'));
 

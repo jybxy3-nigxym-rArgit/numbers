@@ -66,16 +66,16 @@ function safeNext(next) {
   return n;
 }
 
-// Pages are script-free, except public pages that load Google Tag Manager: those allow only
-// Google's host plus this one request's nonce. Login, account and admin pages always stay script-free.
+// Pages carry no inline scripts. Scripts may only come from this site's own files (the home page's live search);
+// public pages with Google Tag Manager also allow Google's host plus this one request's nonce.
 function securityHeaders(secure, gtmNonce) {
   const csp = gtmNonce
-    ? `default-src 'self'; script-src 'nonce-${gtmNonce}' https://www.googletagmanager.com; ` +
+    ? `default-src 'self'; script-src 'self' 'nonce-${gtmNonce}' https://www.googletagmanager.com; ` +
       "style-src 'self'; font-src 'self'; " +
       "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://www.google.com; " +
       "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; " +
       "frame-src https://www.googletagmanager.com; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
-    : "default-src 'self'; script-src 'none'; style-src 'self'; " +
+    : "default-src 'self'; script-src 'self'; style-src 'self'; " +
       "font-src 'self'; img-src 'self' data:; form-action 'self'; " +
       "base-uri 'none'; frame-ancestors 'none'; object-src 'none'";
   const h = {
