@@ -2471,3 +2471,4 @@ a.adv:focus-visible {
 .pop-card { position: relative; width: min(24rem, 100%); display: grid; gap: 0.8rem; padding: 1.4rem 1.2rem; background: var(--card); border: 2px solid var(--gold); border-radius: var(--radius); text-align: center; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4); }
 .pop-card h2 { margin: 0; }
 .pop-card p { margin: 0; color: var(--muted); }
+.login-card.last-card { margin: 0 0 1rem; }

@@ -840,7 +840,10 @@ function registerPage(ctx, v = {}, errors = {}) {
     <p class="lede">${esc(t('reg_intro'))}</p>
     ${
       ctx.lastPhone
-        ? `<div class="notice">${esc(t('last_phone_note'))} <bdi dir="ltr">${esc(util.toLocal(ctx.lastPhone))}</bdi>. <a href="/login">${esc(t('last_phone_login'))}</a></div>`
+        ? `<a class="login-card last-card" href="/login">
+        <span class="lc-ico">${ICON.user}</span>
+        <span class="lc-text"><b>${esc(t('last_phone_note'))} <bdi dir="ltr">${esc(maskPhone(util.toLocal(ctx.lastPhone)))}</bdi></b><small>${esc(t('last_phone_login'))}</small></span>
+      </a>`
         : ''
     }
     ${hasErrors ? `<div class="notice error" role="alert">${esc(t('err_fix'))}</div>` : ''}
@@ -860,6 +863,9 @@ function registerPage(ctx, v = {}, errors = {}) {
   </section>`;
   return layout(ctx, { title: t('register'), body, noindex: true });
 }
+
+// 0599900079 -> 05*****079: enough to recognise, not enough to copy.
+const maskPhone = (p) => (String(p).length >= 6 ? p.slice(0, 2) + '*'.repeat(p.length - 5) + p.slice(-3) : p);
 
 function loginPage(ctx, v = {}, errors = {}) {
   const { t } = ctx;
