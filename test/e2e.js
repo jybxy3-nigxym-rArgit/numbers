@@ -619,6 +619,8 @@ async function main() {
     check('the personal ad limit is applied', rr.status === 400 && rr.text.includes('up to 1 active'), rr.status);
     check('a bad limit is refused', (await admin.post(`/admin/u/${omarId}/limit`, { limit: 'abc' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('value="1"'));
     await admin.post(`/admin/u/${omarId}/limit`, { limit: '' });
+    rr = await anon.get('/login');
+    check('login page has the sign-up card and the forgot-password pop-up', rr.text.includes('login-card') && rr.text.includes('href="/register"') && rr.text.includes('id="forgot"') && rr.text.includes('wa.me/'));
     check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));

@@ -41,6 +41,7 @@ const ICON = {
   logout: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   eye: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   home: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+  key: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg>',
   plus: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   list: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
   user: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.2-6 8-6s7 1.5 8 6"/></svg>',
@@ -874,11 +875,31 @@ function loginPage(ctx, v = {}, errors = {}) {
       ${field(ctx, { id: 'password', name: 'password', label: t('f_pass'), type: 'password', attrs: 'autocomplete="current-password" required' })}
       <button class="btn" type="submit">${esc(t('login'))}</button>
     </form>
-    <p class="alt">${esc(t('no_account'))} <a href="/register">${esc(t('register'))}</a></p>
+    <div class="login-cards">
+      <a class="login-card" href="/register">
+        <span class="lc-ico">${ICON.plus}</span>
+        <span class="lc-text"><b>${esc(t('no_account'))}</b><small>${esc(t('register_free'))}</small></span>
+      </a>
+      ${
+        config.adminLocal
+          ? `<a class="login-card" href="#forgot">
+        <span class="lc-ico">${ICON.key}</span>
+        <span class="lc-text"><b>${esc(t('forgot_title'))}</b><small>${esc(t('forgot_sub'))}</small></span>
+      </a>`
+          : ''
+      }
+    </div>
     ${
       config.adminLocal
-        ? `<p class="forgot">${esc(t('forgot_pass'))} <bdi dir="ltr">${esc(config.adminLocal)}</bdi>
-      <a href="https://wa.me/${esc(util.toIntl(config.adminLocal.slice(1)))}" target="_blank" rel="noopener">${esc(t('forgot_wa'))}</a></p>`
+        ? `<div class="pop" id="forgot" role="dialog" aria-modal="true" aria-labelledby="forgot-h">
+      <a class="pop-bg" href="#" aria-label="${esc(t('close'))}"></a>
+      <div class="pop-card">
+        <h2 id="forgot-h">${esc(t('forgot_title'))}</h2>
+        <p>${esc(t('forgot_text'))}<br><bdi dir="ltr"><b>${esc(config.adminLocal)}</b></bdi></p>
+        <a class="btn btn-wa" href="https://wa.me/${esc(util.toIntl(config.adminLocal.slice(1)))}" target="_blank" rel="noopener">${esc(t('forgot_wa'))}</a>
+        <a class="btn btn-ghost" href="#">${esc(t('close'))}</a>
+      </div>
+    </div>`
         : ''
     }
   </section>`;
