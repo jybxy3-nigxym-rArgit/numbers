@@ -851,7 +851,12 @@ function registerPage(ctx, v = {}, errors = {}) {
       ${field(ctx, { id: 'password', name: 'password', label: t('f_pass'), hint: t('f_pass_hint'), type: 'password', error: errors.password, attrs: 'autocomplete="new-password" required minlength="8"' })}
       <button class="btn" type="submit">${esc(t('register'))}</button>
     </form>
-    <p class="alt">${esc(t('have_account'))} <a href="/login">${esc(t('login'))}</a></p>
+    <div class="login-cards">
+      <a class="login-card" href="/login">
+        <span class="lc-ico">${ICON.user}</span>
+        <span class="lc-text"><b>${esc(t('have_account'))}</b><small>${esc(t('login_sub'))}</small></span>
+      </a>
+    </div>
   </section>`;
   return layout(ctx, { title: t('register'), body, noindex: true });
 }
