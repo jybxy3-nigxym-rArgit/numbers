@@ -660,6 +660,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
       </dl>
       ${l.description ? `<div class="desc"><h2>${esc(t('details'))}</h2><p>${esc(l.description).replace(/\n/g, '<br>')}</p></div>` : ''}
+      <div class="desc about-num"><h2>${esc(t('about_num_title'))}</h2><p>${esc(t('about_num_1', { n: formatNumberPlain(shownNumber(ctx, l)), net: netName(ctx, l.network), city: cityName(ctx, l.city) }))}</p><p>${esc(t('about_num_2'))}</p></div>
       ${isLive ? `<ul class="policy-note"><li>${esc(t('policy_1'))}</li><li>${esc(t('policy_2'))}</li><li>${esc(t('policy_3'))}</li></ul>` : ''}
     </div>
 
@@ -681,7 +682,10 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
 
   const plain = formatNumberPlain(shownNumber(ctx, l));
   const priceText = l.price != null ? `${formatPrice(l.price)} ${t('sar')}` : '';
-  const title = `${t('listing_title_word', { n: plain })} | ${netName(ctx, l.network)} | ${cityName(ctx, l.city)}${priceText ? ' | ' + priceText : ''}`;
+  // Keep the whole page title within about 60 characters (the city stays in the description and the heading).
+  const baseTitle = `${t('listing_title_word', { n: plain })} | ${netName(ctx, l.network)}`;
+  const withPrice = priceText ? `${baseTitle} | ${priceText}` : baseTitle;
+  const title = `${withPrice} | ${t('site_name')}`.length <= 60 ? withPrice : baseTitle;
   const desc = t('listing_desc', {
     n: plain,
     net: netName(ctx, l.network),

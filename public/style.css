@@ -2472,3 +2472,4 @@ a.adv:focus-visible {
 .pop-card h2 { margin: 0; }
 .pop-card p { margin: 0; color: var(--muted); }
 .login-card.last-card { margin: 0 0 1rem; }
+.about-num p + p { margin-top: 0.6rem; }
