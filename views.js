@@ -709,6 +709,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         url,
         priceCurrency: 'SAR',
         price: String(l.price),
+        validFrom: String(l.renewed_at || l.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
         priceValidUntil: validUntil,
         itemCondition: 'https://schema.org/NewCondition',
         availability: isLive ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',

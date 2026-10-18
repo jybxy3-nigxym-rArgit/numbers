@@ -706,7 +706,7 @@ async function main() {
 
     {
       const ldPage = (await anon.get('/n/' + rid1)).text;
-      check('product data has image, shipping details and return policy', ldPage.includes('"image"') && ldPage.includes('OfferShippingDetails') && ldPage.includes('MerchantReturnPolicy') && ldPage.includes('NewCondition') && ldPage.includes('priceValidUntil') && ldPage.includes('"sku"'));
+      check('product data has image, shipping details and return policy', ldPage.includes('"image"') && ldPage.includes('OfferShippingDetails') && ldPage.includes('MerchantReturnPolicy') && ldPage.includes('NewCondition') && ldPage.includes('priceValidUntil') && ldPage.includes('"validFrom"') && ldPage.includes('"sku"'));
     }
 
     // seller ratings and likes
