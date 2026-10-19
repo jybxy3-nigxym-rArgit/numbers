@@ -159,10 +159,10 @@ ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:locale" content="${lang === 'ar' ? 'ar_SA' : 'en_US'}">
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
-<meta property="og:image" content="${esc(ctx.base)}/og.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="${esc(ctx.base)}/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
 <link rel="icon" href="/favicon.png" type="image/png" sizes="128x128">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
