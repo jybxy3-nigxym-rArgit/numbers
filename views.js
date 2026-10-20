@@ -1251,6 +1251,7 @@ function adminPage(ctx, tab, data) {
     ['review', t('a_review')],
     ['reported', t('a_reported')],
     ['all', t('a_all')],
+    ['sold', t('a_sold_tab')],
     ['ratings', t('a_ratings')],
     ['users', t('a_users')],
     ['blocked', t('a_blocked')],
@@ -1263,10 +1264,10 @@ function adminPage(ctx, tab, data) {
   const tabNav = `<nav class="adm-nav" aria-label="Admin">${
     senior
       ? grp(t('a_grp_general'), [tl('stats'), tl('log')]) +
-        grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all'), tl('ratings')]) +
+        grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all'), tl('sold'), tl('ratings')]) +
         grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
         grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users'))])
-      : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('ratings'), tl('users')])
+      : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('sold'), tl('ratings'), tl('users')])
   }</nav>`;
 
   const roleLabel = (u) => (u.is_admin ? t('role_owner') : u.role === 'super' ? t('role_super') : u.role === 'mod' ? t('role_mod') : t('role_user'));
@@ -1304,6 +1305,7 @@ function adminPage(ctx, tab, data) {
             if (mayAct) {
               if (senior) {
                 if (l.status === 'pending') acts.push(act(l, 'approve', t('approve'), 'btn'));
+                if (l.status === 'sold') acts.push(act(l, 'resell', t('resell'), 'btn'));
                 if (l.status === 'hidden' && rank >= 3) acts.push(act(l, 'restore', t('restore'), 'btn'));
                 if (l.status === 'active') acts.push(act(l, l.pinned ? 'unpin' : 'pin', t(l.pinned ? 'unpin' : 'pin'), 'btn-gold'));
                 if (l.status === 'active') acts.push(act(l, l.featured ? 'unfeature' : 'feature', t(l.featured ? 'unfeature' : 'feature'), 'btn-gold'));
@@ -1412,7 +1414,7 @@ function adminPage(ctx, tab, data) {
   }
 
   // Search box (number, phone or name) and page links for the long lists.
-  const searchable = ['pending', 'reported', 'review', 'all', 'users'].includes(tab);
+  const searchable = ['pending', 'reported', 'review', 'all', 'sold', 'users'].includes(tab);
   const q = data.q || '';
   const searchBox = searchable
     ? `<form method="get" action="/admin" class="admin-search" role="search">

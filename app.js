@@ -892,8 +892,8 @@ route('POST', '/my/bulk', async (ctx) => {
 
 // ---- Admin ----
 
-const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'ratings', 'users', 'blocked', 'log'];
-const TABS_MOD = ['pending', 'reported', 'all', 'ratings', 'users'];
+const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'sold', 'ratings', 'users', 'blocked', 'log'];
+const TABS_MOD = ['pending', 'reported', 'all', 'sold', 'ratings', 'users'];
 const adminTabs = (ctx) => (util.rankOf(ctx.user) >= 2 ? TABS_SENIOR : TABS_MOD);
 const ADMIN_PAGE = 30; // rows per admin screen (keeps the page quick on the free plan)
 const ADMIN_PAGE_LOG = 50;
@@ -969,6 +969,8 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   // A hidden ad stays hidden: only the owner can bring it back (not even a general moderator), and approve is for pending ads only.
   if (action === 'restore' && rank < 3) return notFound(ctx);
   if (action === 'approve' && l.status !== 'pending') return notFound(ctx);
+  // Putting a sold number back on sale is for the owner and general moderators.
+  if (action === 'resell' && (rank < 2 || l.status !== 'sold')) return notFound(ctx);
   if (!util.canActOn(ctx.user, sellerOf(l))) return notFound(ctx);
 
   if ((action === 'pin' || action === 'feature') && l.status !== 'active') {
@@ -984,7 +986,13 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   let msg = 'updated';
   if (action === 'approve') await ctx.store.setListingStatus(id, 'active');
   else if (action === 'hide') await ctx.store.setListingStatus(id, 'hidden', rank === 1 ? ctx.user.id : 0);
-  else if (action === 'restore') {
+  else if (action === 'resell') {
+    if (await ctx.store.numberIsListed(l.number)) {
+      flash(ctx, 'error', 'err_dup');
+      return redirect(ctx, back);
+    }
+    await ctx.store.setListingStatus(id, 'active');
+  } else if (action === 'restore') {
     await ctx.store.setListingStatus(id, 'active');
     await ctx.store.clearReports(id);
   } else if (action === 'delete') await ctx.store.deleteListing(id);

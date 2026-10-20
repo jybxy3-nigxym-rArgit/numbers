@@ -623,6 +623,12 @@ async function main() {
     check('login page has the sign-up card and the forgot-password pop-up', rr.text.includes('login-card') && rr.text.includes('href="/register"') && rr.text.includes('id="forgot"') && rr.text.includes('wa.me/'));
     rr = await anon.get('/');
     check('home page loads the live search file and the file is served', rr.text.includes('/live.js') && (await anon.get('/live.js')).status === 200);
+    const soldId = (await omar.post('/post', { ...AD, number: '0566111780', price: '5000' })).location.split('/').pop();
+    await omar.post(`/my/${soldId}/sold`);
+    rr = await admin.get('/admin?tab=sold');
+    check('sold numbers have a tab with a put-back-on-sale button', rr.text.includes('0566 111 780') && rr.text.includes(`/admin/l/${soldId}/resell`));
+    check('a moderator cannot put a sold number back on sale', (await nora.post(`/admin/l/${soldId}/resell`)).status === 404);
+    check('staff put a sold number back on sale', (await admin.post(`/admin/l/${soldId}/resell`, { tab: 'sold' })).status === 303 && !(await admin.get('/admin?tab=sold')).text.includes(`/admin/l/${soldId}/resell`));
     check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));

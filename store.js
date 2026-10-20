@@ -571,6 +571,7 @@ function createStore(d) {
     const params = [];
     if (tab === 'pending') where.push("l.status = 'pending'");
     else if (tab === 'reported') where.push(`((l.status = 'hidden' AND l.hidden_by >= 0) OR ${REPORT_COUNT_SQL} > 0)`);
+    else if (tab === 'sold') where.push("l.status = 'sold'");
     else if (tab === 'review') where.push("(l.status = 'hidden' AND (l.hidden_by > 0 OR l.hidden_by = -2))");
     const digits = String(q).replace(/\D/g, '');
     if (digits.length >= 2 && digits.length === String(q).trim().replace(/[\s-]/g, '').length) {
