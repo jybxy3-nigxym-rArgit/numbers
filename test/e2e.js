@@ -629,6 +629,10 @@ async function main() {
     check('sold numbers have a tab with a put-back-on-sale button', rr.text.includes('0566 111 780') && rr.text.includes(`/admin/l/${soldId}/resell`));
     check('a moderator cannot put a sold number back on sale', (await nora.post(`/admin/l/${soldId}/resell`)).status === 404);
     check('staff put a sold number back on sale', (await admin.post(`/admin/l/${soldId}/resell`, { tab: 'sold' })).status === 303 && !(await admin.get('/admin?tab=sold')).text.includes(`/admin/l/${soldId}/resell`));
+    rr = await anon.get('/');
+    check('a visitor goes to sign-up from the free-ad buttons, not to login', rr.text.includes('<a class="cta-free" href="/register">') && rr.text.includes('<a class="tab-add" href="/register">'));
+    rr = await admin.get('/');
+    check('a member goes straight to the post page from the free-ad buttons', rr.text.includes('<a class="cta-free" href="/post">') && rr.text.includes('<a class="tab-add" href="/post">'));
     check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));
