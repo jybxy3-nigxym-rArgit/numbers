@@ -209,7 +209,7 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
 <a class="to-top" href="#top" aria-label="${esc(t('to_top'))}" title="${esc(t('to_top'))}">${ICON.up}</a>
 <nav class="tabbar${user ? ' has-out' : ''}" aria-label="${esc(t('tabbar'))}">
   <a href="/">${ICON.home}<span>${esc(t('tab_home'))}</span></a>
-  <a class="tab-add" href="/post">${ICON.plus}<span>${esc(t('post_ad'))}</span></a>
+  <a class="tab-add" href="/post">${ICON.plus}<span>${esc(t('post_free'))}</span></a>
   ${user ? `<a href="/my">${ICON.list}<span>${esc(t('my_ads'))}</span></a>` : `<a href="/login">${ICON.user}<span>${esc(t('login'))}</span></a>`}
   ${isStaff ? `<a href="/admin">${ICON.shield}<span>${esc(t('admin'))}${alerts}</span></a>` : `<a href="/faq">${ICON.help}<span>${esc(t('page_faq'))}</span></a>`}
   ${user ? `<form method="post" action="/logout" class="tab-out">${csrfInput(ctx)}<button type="submit">${ICON.logout}<span>${esc(t('logout'))}</span></button></form>` : ''}
@@ -496,6 +496,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
       <h1>${esc(info.h1)}</h1>
       <p class="lede">${esc(info.lede.length > 140 ? t('home_lede') : info.lede)}</p>
       ${form}
+      <a class="cta-free" href="/post"><b>${ICON.plus}<span>${esc(t('post_free'))}</span></b><small>${esc(t('post_free_sub'))}</small></a>
       ${landing && landing.type === 'new' ? '' : `<a class="new-link" href="/new">${ICON.clock}<span>${esc(t('page_new'))}</span></a>`}
       ${counts && counts.total ? `<p class="hero-stats">${esc(t('hero_stats', { n: formatPrice(counts.total), when: ageText(ctx, counts.latest) }))}</p>` : ''}
     </section>

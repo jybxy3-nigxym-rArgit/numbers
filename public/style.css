@@ -2473,3 +2473,11 @@ a.adv:focus-visible {
 .pop-card p { margin: 0; color: var(--muted); }
 .login-card.last-card { margin: 0 0 1rem; }
 .about-num p + p { margin-top: 0.6rem; }
+
+/* ---- Home: big free-ad call to action under the search ---- */
+.cta-free { display: grid; gap: 0.25rem; justify-items: center; margin-top: 0.9rem; padding: 0.8rem 1rem; border-radius: var(--radius); background: transparent; border: 2px dashed var(--gold); color: #fff; text-decoration: none; text-align: center; }
+.cta-free b { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.3rem; font-weight: 900; }
+.cta-free b .ico { width: 26px; height: 26px; padding: 4px; border-radius: 50%; background: var(--gold); color: var(--plate); }
+.cta-free b { color: var(--gold); }
+.cta-free small { font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+.cta-free:hover, .cta-free:focus-visible { background: rgba(242, 184, 75, 0.12); }
