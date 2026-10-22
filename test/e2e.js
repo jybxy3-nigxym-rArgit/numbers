@@ -633,6 +633,16 @@ async function main() {
     check('a visitor goes to sign-up from the free-ad buttons, not to login', rr.text.includes('<a class="cta-free" href="/register">') && rr.text.includes('<a class="tab-add" href="/register">'));
     rr = await admin.get('/');
     check('a member goes straight to the post page from the free-ad buttons', rr.text.includes('<a class="cta-free" href="/post">') && rr.text.includes('<a class="tab-add" href="/post">'));
+    {
+      const sm = await anon.get('/sitemap.xml');
+      const paths = [...sm.text.matchAll(/<loc>https?:\/\/[^/<]+(\/[^<]*)<\/loc>/g)].map((m) => m[1]).filter((p) => !/\.xml$/.test(p));
+      const bad = [];
+      for (const p of paths) {
+        const pg = await anon.get(p);
+        if (pg.status !== 200 || /name="robots" content="[^"]*noindex/.test(pg.text)) bad.push(p);
+      }
+      check('every sitemap page opens and is indexable (no noindex)', paths.length > 5 && bad.length === 0, bad.join(' '));
+    }
     check('private note is saved and shown to staff', (await admin.post(`/admin/u/${omarId}/note`, { note: 'calls late at night' })).status === 303 && (await admin.get(`/admin/u/${omarId}`)).text.includes('calls late at night'));
     rr = await admin.post(`/admin/l/${adA}/hide`, { tab: 'all', reason: 'price' });
     check('hide goes to a ready message with the reason', rr.status === 303 && rr.location.startsWith('/admin/notify'));

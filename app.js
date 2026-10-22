@@ -1372,7 +1372,11 @@ route('GET', '/sitemap.xml', async (ctx) => {
   for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });
   for (const k of Object.keys(CITY_BY_KEY)) if (counts.city[k]) urls.push({ loc: `${ctx.base}/city/${k}` });
   for (const n of Object.keys(NETWORK_BY_KEY)) for (const c of Object.keys(CITY_BY_KEY)) if (c !== 'other' && counts.combo[`${n}/${c}`]) urls.push({ loc: `${ctx.base}/network/${n}/${c}` });
-  for (const k of PATTERN_KEYS) urls.push({ loc: `${ctx.base}/type/${k}` });
+  // Only type pages that have ads: an empty one is marked noindex, and Google complains about noindex pages in a sitemap.
+  for (const k of PATTERN_KEYS) {
+    const r = await ctx.store.searchListings({ pattern: k, sort: 'new', limit: 1, offset: 0 });
+    if (r.total > 0) urls.push({ loc: `${ctx.base}/type/${k}` });
+  }
   for (const n of UNDER_PRICES) if (counts.under[n]) urls.push({ loc: `${ctx.base}/under/${n}` });
   for (const p of ['/new', '/faq', '/articles', '/about', '/contact']) urls.push({ loc: ctx.base + p });
   for (const a of content.ARTICLES) urls.push({ loc: `${ctx.base}/articles/${a.slug}`, lastmod: a.date });
