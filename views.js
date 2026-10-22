@@ -420,22 +420,31 @@ function comboLinks(ctx, counts, landing) {
 
 function browseLinks(ctx, counts) {
   const { t } = ctx;
-  const chip = (href, label, n) =>
-    `<a class="chip" href="${href}">${esc(label)}${n ? ` <small>${esc(n)}</small>` : ''}</a>`;
-  const nets = NETWORKS.map((n) => chip(`/network/${n.key}`, n[ctx.lang], counts.network[n.key])).join('');
-  const cities = CITIES.filter((c) => counts.city[c.key])
-    .map((c) => chip(`/city/${c.key}`, c[ctx.lang], counts.city[c.key]))
-    .join('');
-  const types = PATTERN_KEYS.map((k) => chip(`/type/${k}`, t('pat_' + k))).join('');
-  const unders = UNDER_PRICES.filter((n) => counts.under && counts.under[n])
-    .map((n) => chip(`/under/${n}`, t('under_chip', { n: formatPrice(n) }), counts.under[n]))
-    .join('');
+  const TOP = 5;
+  // Rectangles: the 5 with the most ads are on show; the rest stay as ordinary links inside "more" (Google still sees every link).
+  const tile = (href, label, n) =>
+    `<a class="tile${n === 0 ? ' tile-empty' : ''}" href="${href}"><b>${esc(label)}</b>${n ? `<small>${esc(t(n === 1 ? 'count_one' : 'count', { n: formatPrice(n) }))}</small>` : ''}</a>`;
+  const group = (title, items) => {
+    if (!items.length) return '';
+    const live = (x) => x.n === undefined || x.n > 0; // a group without counts (the number types) counts as all live
+    const sorted = items.map((x, k) => ({ ...x, k })).sort((a, b) => (live(b) ? 1 : 0) - (live(a) ? 1 : 0) || (b.n || 0) - (a.n || 0) || a.k - b.k);
+    const top = sorted.filter(live).slice(0, TOP);
+    const rest = sorted.filter((x) => !top.includes(x));
+    const html = (list) => list.map((x) => tile(x.href, x.label, x.n)).join('');
+    return `<h2>${esc(title)}</h2><div class="tiles">${html(top)}</div>${
+      rest.length ? `<details class="more-tiles"><summary>${esc(t('browse_more', { n: rest.length }))}</summary><div class="tiles">${html(rest)}</div></details>` : ''
+    }`;
+  };
+  const nets = NETWORKS.map((n) => ({ href: `/network/${n.key}`, label: n[ctx.lang], n: counts.network[n.key] || 0 }));
+  const cities = CITIES.filter((c) => counts.city[c.key]).map((c) => ({ href: `/city/${c.key}`, label: c[ctx.lang], n: counts.city[c.key] }));
+  const types = PATTERN_KEYS.map((k) => ({ href: `/type/${k}`, label: t('pat_' + k) }));
+  const unders = UNDER_PRICES.filter((n) => counts.under && counts.under[n]).map((n) => ({ href: `/under/${n}`, label: t('under_chip', { n: formatPrice(n) }), n: counts.under[n] }));
   return `
   <nav class="browse" aria-label="${esc(t('browse_net'))}">
-    <h2>${esc(t('browse_net'))}</h2><div class="chips">${nets}</div>
-    ${cities ? `<h2>${esc(t('browse_city'))}</h2><div class="chips">${cities}</div>` : ''}
-    <h2>${esc(t('browse_type'))}</h2><div class="chips">${types}</div>
-    ${unders ? `<h2>${esc(t('browse_price'))}</h2><div class="chips">${unders}</div>` : ''}
+    ${group(t('browse_net'), nets)}
+    ${group(t('browse_city'), cities)}
+    ${group(t('browse_type'), types)}
+    ${group(t('browse_price'), unders)}
   </nav>`;
 }
 

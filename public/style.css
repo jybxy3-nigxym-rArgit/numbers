@@ -2481,3 +2481,15 @@ a.adv:focus-visible {
 .cta-free b { color: var(--gold); }
 .cta-free small { font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.85); }
 .cta-free:hover, .cta-free:focus-visible { background: rgba(242, 184, 75, 0.12); }
+
+/* ---- Browse blocks as equal rectangles ---- */
+.browse .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.2rem, 1fr)); gap: 0.6rem; margin: 0.6rem 0 0.4rem; }
+.tile { display: grid; align-content: center; justify-items: center; gap: 0.15rem; min-height: 4rem; padding: 0.55rem 0.5rem; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); color: var(--ink); text-align: center; text-decoration: none; }
+.tile b { font-size: 1rem; font-weight: 800; }
+.tile small { color: var(--muted); font-size: 0.82rem; }
+.tile:hover, .tile:focus-visible { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--card)); }
+.tile-empty { opacity: 0.6; }
+.more-tiles { margin: 0.2rem 0 0.8rem; }
+.more-tiles summary { cursor: pointer; display: table; margin: 0.2rem auto; padding: 0.35rem 1rem; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 700; font-size: 0.9rem; color: var(--ink); list-style: none; }
+.more-tiles summary::-webkit-details-marker { display: none; }
+.more-tiles[open] summary { border-color: var(--gold); }
