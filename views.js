@@ -204,7 +204,7 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
   </div>
   <div class="wrap foot-bar">
     <p>${esc(t('footer_note'))}</p>
-    <p class="sponsor">${esc(t('sponsor_label'))} <a href="${esc(LINKS.store)}" rel="noopener" target="_blank">${esc(t('sponsor_name'))}</a><br><a href="${esc(LINKS.store)}" rel="noopener" target="_blank" dir="ltr">souq3rb.com</a></p>
+    <p class="sponsor">${esc(t('sponsor_label'))} <a href="${esc(LINKS.store)}" rel="noopener" target="_blank">${esc(t('sponsor_name'))}</a></p>
   </div>
 </footer>
 <a class="to-top" href="#top" aria-label="${esc(t('to_top'))}" title="${esc(t('to_top'))}">${ICON.up}</a>
