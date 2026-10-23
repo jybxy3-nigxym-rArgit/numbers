@@ -2497,3 +2497,11 @@ a.adv:focus-visible {
 .more-tiles summary { cursor: pointer; display: table; margin: 0.2rem auto; padding: 0.35rem 1rem; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 700; font-size: 0.9rem; color: var(--ink); list-style: none; }
 .more-tiles summary::-webkit-details-marker { display: none; }
 .more-tiles[open] summary { border-color: var(--gold); }
+
+.foot-bar .sponsor {
+  margin-top: 0.4rem;
+}
+.foot-bar .sponsor a {
+  color: inherit;
+  font-weight: 700;
+}
