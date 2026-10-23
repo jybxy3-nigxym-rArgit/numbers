@@ -1019,6 +1019,11 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
       flash(ctx, 'error', 'err_dup');
       return redirect(ctx, back);
     }
+    const seller = (await ctx.store.getUser(l.user_id)) || sellerOf(l);
+    if ((await ctx.store.countActiveByUser(l.user_id)) >= adLimit(seller)) {
+      flash(ctx, 'error', 'err_resell_limit', { n: adLimit(seller) });
+      return redirect(ctx, back);
+    }
     await ctx.store.setListingStatus(id, 'active');
   } else if (action === 'restore') {
     await ctx.store.setListingStatus(id, 'active');

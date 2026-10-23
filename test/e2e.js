@@ -658,6 +658,16 @@ async function main() {
       check('no more than 6 ads can be pinned at once', pinned <= 6 && (await admin.get('/')).text.includes('pin-badge'), pinned);
       for (const id of ids) await admin.post(`/admin/l/${id}/unpin`, { next: '/' });
     }
+    rr = await anon.get('/n/' + pm[0]);
+    check('the about-number text shows the ending digits', rr.text.includes('about-num') && rr.text.includes('<bdi dir="ltr">1778</bdi>'));
+    {
+      const sid = (await omar.post('/post', { ...AD, number: '0566111790', price: '5000' })).location.split('/').pop();
+      await omar.post(`/my/${sid}/sold`);
+      await admin.post(`/admin/u/${omarId}/limit`, { limit: '1' });
+      await admin.post(`/admin/l/${sid}/resell`, { tab: 'sold' });
+      check('resell is refused when the owner is at his ad limit', (await admin.get('/admin?tab=sold')).text.includes(`/admin/l/${sid}/resell`));
+      await admin.post(`/admin/u/${omarId}/limit`, { limit: '' });
+    }
     rr = await anon.get('/articles/' + (await anon.get('/articles')).text.match(/\/articles\/([a-z0-9-]+)/)[1]);
     check('articles show the latest numbers', rr.status === 200 && rr.text.includes('class="similar"'));
 
