@@ -1292,6 +1292,10 @@ a.price-link:hover {
   background: var(--deep);
   color: var(--gold);
 }
+.drop-badge {
+  background: #1f6b3a;
+  color: #fff;
+}
 .vmark {
   display: inline-grid;
   place-items: center;

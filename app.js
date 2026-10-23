@@ -464,10 +464,12 @@ route('GET', '/about', (ctx) => html(ctx, 200, views.aboutPage(ctx)));
 route('GET', '/contact', (ctx) => html(ctx, 200, views.contactPage(ctx)));
 route('GET', '/faq', (ctx) => html(ctx, 200, views.faqPage(ctx, content.FAQ)));
 route('GET', '/articles', (ctx) => html(ctx, 200, views.articlesPage(ctx, content.ARTICLES)));
-route('GET', '/articles/:slug', (ctx) => {
+route('GET', '/articles/:slug', async (ctx) => {
   const a = content.ARTICLE_BY_SLUG[ctx.params.slug];
   if (!a) return notFound(ctx);
-  html(ctx, 200, views.articlePage(ctx, a, content.ARTICLES));
+  // The newest live numbers under the article, so readers (and Google) get from the guide to real ads.
+  const latest = (await ctx.store.searchListings({ sort: 'new', limit: 6, offset: 0 })).rows;
+  html(ctx, 200, views.articlePage(ctx, a, content.ARTICLES, latest));
 });
 
 route('GET', '/n/:id', async (ctx) => {
@@ -568,8 +570,9 @@ route('GET', '/post', (ctx) => {
 });
 
 // Where a new ad starts: normal numbers go live; special-looking ones wait for staff (members only; staff are trusted).
-function statusForNew(user, number) {
+function statusForNew(user, number, price) {
   if (util.rankOf(user) >= 1) return 'active';
+  if (price != null && price >= config.highPrice) return 'pending';
   const risk = util.numberRisk(number);
   if (risk === 'hold') return 'hidden';
   if (risk === 'review' || config.requireApproval) return 'pending';
@@ -611,7 +614,7 @@ route('POST', '/post', async (ctx) => {
 
   if (Object.keys(errors).length) return html(ctx, 400, views.postPage(ctx, v, errors));
 
-  const status = statusForNew(ctx.user, util.toLocal(nat));
+  const status = statusForNew(ctx.user, util.toLocal(nat), price);
   const id = await ctx.store.insertListing({
     userId: ctx.user.id,
     number: util.toLocal(nat),
@@ -666,7 +669,8 @@ route('POST', '/n/:id/edit', async (ctx) => {
   if (Object.keys(errors).length) return html(ctx, 400, views.editPage(ctx, l, v, errors));
 
   // With approval mode on, a changed live ad goes back to review so contact details cannot be swapped after approval.
-  const status = config.requireApproval && !ctx.user.is_admin && l.status === 'active' ? 'pending' : l.status;
+  const highRaise = util.rankOf(ctx.user) < 1 && price != null && price >= config.highPrice && price !== l.price;
+  const status = (config.requireApproval || highRaise) && !ctx.user.is_admin && l.status === 'active' ? 'pending' : l.status;
   await ctx.store.updateListing({
     id: l.id,
     userId: ctx.user.id,
@@ -890,6 +894,30 @@ route('POST', '/my/bulk', async (ctx) => {
   redirect(ctx, '/my');
 });
 
+// All prices in one go.
+route('GET', '/my/prices', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const rows = (await ctx.store.userListings(ctx.user.id)).filter((l) => l.status !== 'sold');
+  html(ctx, 200, views.pricesPage(ctx, rows));
+});
+route('POST', '/my/prices', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  if (!(await ctx.store.allow(`prices:${ctx.user.id}`, 20, 3600 * 1000))) return tooMany(ctx);
+  const rows = (await ctx.store.userListings(ctx.user.id)).filter((l) => l.status !== 'sold');
+  const items = [];
+  for (const l of rows) {
+    const raw = str(ctx.body['p_' + l.id], 12).trim();
+    if (raw === '' || raw === undefined) continue;
+    const price = parsePrice(raw);
+    if (price == null || price > 10000000) continue;
+    if (price === l.price) continue;
+    items.push({ id: l.id, price, hold: util.rankOf(ctx.user) < 1 && price >= config.highPrice });
+  }
+  const n = items.length ? await ctx.store.setPrices(ctx.user.id, items) : 0;
+  flash(ctx, 'ok', 'prices_done', { n });
+  redirect(ctx, '/my');
+});
+
 // ---- Admin ----
 
 const TABS_SENIOR = ['stats', 'pending', 'review', 'reported', 'all', 'sold', 'ratings', 'users', 'blocked', 'log'];
@@ -997,7 +1025,11 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
     await ctx.store.clearReports(id);
   } else if (action === 'delete') await ctx.store.deleteListing(id);
   else if (action === 'pin' || action === 'unpin') {
-    await ctx.store.setPinned(id, action === 'pin');
+    const r = await ctx.store.setPinned(id, action === 'pin', config.pinDays, config.pinMax);
+    if (r === -1) {
+      flash(ctx, 'error', 'err_pin_full', { n: config.pinMax });
+      return redirect(ctx, back);
+    }
     msg = action === 'pin' ? 'pinned' : 'unpinned';
   } else if (action === 'feature' || action === 'unfeature') {
     await ctx.store.setFeatured(id, action === 'feature');
@@ -1212,6 +1244,16 @@ const csvCell = (v) => {
 };
 const toCsv = (cols, rows) => '﻿' + [cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\r\n') + '\r\n';
 
+// A member's own sold numbers, for tracking their results.
+route('GET', '/my/sold.csv', async (ctx) => {
+  if (!requireLogin(ctx)) return;
+  const rows = await ctx.store.exportSold(ctx.user.id);
+  send(ctx, 200, 'text/csv; charset=utf-8', toCsv(['number', 'network', 'city', 'price', 'views', 'created_at', 'sold_at'], rows), {
+    'Content-Disposition': `attachment; filename="sold-${new Date().toISOString().slice(0, 10)}.csv"`,
+    'Cache-Control': 'no-store',
+  });
+});
+
 route('GET', '/admin/export/:what', async (ctx) => {
   if (!requireStaff(ctx, 2)) return;
   const day = new Date().toISOString().slice(0, 10);
@@ -1222,6 +1264,16 @@ route('GET', '/admin/export/:what', async (ctx) => {
   } else if (ctx.params.what === 'numbers.csv') {
     const rows = (await ctx.store.exportListings()).map((l) => ({ ...l, seller_phone: '0' + l.seller_phone }));
     body = toCsv(['id', 'number', 'network', 'city', 'price', 'price_type', 'status', 'views', 'pinned', 'featured', 'seller', 'seller_phone', 'created_at'], rows);
+  } else if (ctx.params.what === 'sold.csv') {
+    const rows = (await ctx.store.exportSold()).map((l) => ({ ...l, seller_phone: '0' + l.seller_phone }));
+    body = toCsv(['number', 'network', 'city', 'price', 'views', 'seller', 'seller_phone', 'created_at', 'sold_at'], rows);
+  } else if (ctx.params.what === 'backup.json') {
+    if (!requireStaff(ctx, 3)) return;
+    await audit(ctx, 'export', 'backup.json');
+    return send(ctx, 200, 'application/json; charset=utf-8', JSON.stringify(await ctx.store.exportBackup()), {
+      'Content-Disposition': `attachment; filename="backup-${day}.json"`,
+      'Cache-Control': 'no-store',
+    });
   } else if (ctx.params.what === 'log.csv') {
     if (!requireStaff(ctx, 3)) return;
     const r = await ctx.store.auditSearch({ ...logFilters(ctx), all: true });
@@ -1477,4 +1529,12 @@ async function handle(request, { store, ip, waitUntil }) {
   }
 }
 
-module.exports = { handle };
+// Called by the scheduled job: a WhatsApp summary once a full week has passed.
+async function weekly(store) {
+  if (!notifier.enabled()) return false;
+  const s = await store.weeklyReportText();
+  if (!s) return false;
+  return notifier.send(ar('wa_weekly', { users: s.users7, ads: s.ads7, views: s.views7, active: s.active, total: s.users }));
+}
+
+module.exports = { handle, weekly };

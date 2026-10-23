@@ -214,7 +214,7 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
   ${isStaff ? `<a href="/admin">${ICON.shield}<span>${esc(t('admin'))}${alerts}</span></a>` : `<a href="/faq">${ICON.help}<span>${esc(t('page_faq'))}</span></a>`}
   ${user ? `<form method="post" action="/logout" class="tab-out">${csrfInput(ctx)}<button type="submit">${ICON.logout}<span>${esc(t('logout'))}</span></button></form>` : ''}
 </nav>
-${liveJs ? `<script src="/live.js?v=${esc(ASSET_V)}" defer></script>` : ''}
+${liveJs || !(ctx.ack || noindex) ? `<script src="/live.js?v=${esc(ASSET_V)}" defer></script>` : ''}
 </body>
 </html>`;
 }
@@ -295,6 +295,9 @@ const advTab = (ctx, l) =>
 const plateBadges = (ctx, l) =>
   (l.pinned && l.status === 'active' ? `<span class="pin-badge">${esc(ctx.t('pinned_badge'))}</span>` : '') +
   (l.featured && l.status === 'active' && !l.pinned ? `<span class="pin-badge feat-badge">★ ${esc(ctx.t('featured_badge'))}</span>` : '') +
+  (l.status === 'active' && l.price != null && l.price_drop_at && Date.now() - util.parseDbDate(l.price_drop_at).getTime() < 7 * 86400000
+    ? `<span class="pin-badge drop-badge">${esc(ctx.t('drop_badge'))}</span>`
+    : '') +
   `<span class="views-chip" title="${esc(ctx.t('views'))}">${ICON.eye}<bdi>${esc(l.views || 0)}</bdi></span>` +
   (l.status === 'sold' ? `<span class="sold-stamp">${esc(ctx.t('sold_stamp'))}</span>` : '');
 
@@ -774,7 +777,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
 // Under the price: "negotiable / final" choice, and the "yes the price is right" box after a strange price.
 function priceExtra(ctx, v, errors) {
   const warn = errors.price && errors.price.key === 'warn_price';
-  return `${selectField(ctx, {
+  return `<p class="hint-line high-price">${esc(ctx.t('high_price_note', { n: config.highPrice.toLocaleString('en-US') }))}</p>${selectField(ctx, {
     id: 'price_type',
     name: 'price_type',
     label: ctx.t('f_price_type'),
@@ -993,9 +996,35 @@ function myPage(ctx, rows) {
     <p class="hint-line">${esc(t('stale_rule'))}</p>
     ${ctx.user.verified ? `<p class="hint-line">${esc(t('auto_rule', { n: config.autoRenewDays }))}</p>` : ''}
     ${canBulk ? `<p><a class="btn btn-ghost btn-small" href="/my/bulk">${esc(t('bulk_link'))}</a></p>` : ''}
+    <p><a class="btn btn-ghost btn-small" href="/my/prices">${esc(t('prices_link'))}</a> <a class="btn btn-ghost btn-small" href="/my/sold.csv">${esc(t('export_sold'))}</a></p>
     ${list}<p class="alt"><a href="/profile">${esc(t('profile_title'))}</a> · <a href="/password">${esc(t('change_password'))}</a></p>
     <form method="post" action="/logout" class="logout-form">${csrfInput(ctx)}<button class="btn btn-ghost btn-small" type="submit">${esc(t('logout'))}</button></form></section>`;
   return layout(ctx, { title: t('my_title'), body, noindex: true });
+}
+
+// All prices of the member's ads in one form.
+function pricesPage(ctx, rows) {
+  const { t } = ctx;
+  const list = rows
+    .map(
+      (l) => `<div class="field"><label for="p_${l.id}"><bdi dir="ltr">${esc(l.number)}</bdi></label>
+        <input id="p_${l.id}" name="p_${l.id}" type="text" inputmode="numeric" autocomplete="off" dir="ltr" value="${l.price == null ? '' : esc(l.price)}" placeholder="${esc(t('f_price'))}"></div>`
+    )
+    .join('');
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('prices_title'))}</h1>
+    <p class="lede">${esc(t('prices_intro'))}</p>
+    ${rows.length ? `<form method="post" action="/my/prices" class="form" novalidate>
+      ${csrfInput(ctx)}
+      ${list}
+      <div class="form-actions">
+        <button class="btn" type="submit">${esc(t('prices_save'))}</button>
+        <a class="btn btn-ghost" href="/my">${esc(t('cancel'))}</a>
+      </div>
+    </form>` : `<div class="empty"><p>${esc(t('no_ads'))}</p></div>`}
+  </section>`;
+  return layout(ctx, { title: t('prices_title'), body, noindex: true });
 }
 
 // Verified advertisers: a few numbers in one go.
@@ -1276,7 +1305,7 @@ function adminPage(ctx, tab, data) {
       ? grp(t('a_grp_general'), [tl('stats'), tl('log')]) +
         grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all'), tl('sold'), tl('ratings')]) +
         grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
-        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users'))])
+        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users')), pl('/admin/export/sold.csv', t('export_sold'))].concat(rank >= 3 ? [pl('/admin/export/backup.json', t('a_backup'))] : []))
       : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('sold'), tl('ratings'), tl('users')])
   }</nav>`;
 
@@ -1551,7 +1580,7 @@ function articlesPage(ctx, articles) {
   });
 }
 
-function articlePage(ctx, a, all) {
+function articlePage(ctx, a, all, latest = []) {
   const { t } = ctx;
   const block = (b) => {
     if (b.h) return `<h2>${esc(b.h)}</h2>`;
@@ -1576,6 +1605,7 @@ function articlePage(ctx, a, all) {
     <h1>${esc(a.title)}</h1>
     <p class="lede">${esc(a.desc)}</p>
     ${a.blocks.map(block).join('')}
+    ${latest.length ? `<section class="similar"><h2>${esc(t('latest_numbers'))}</h2><div class="grid">${latest.map((x) => plate(ctx, x)).join('')}</div></section>` : ''}
     <p><a class="btn" href="/">${esc(t('see_numbers'))}</a></p>
     <h2>${esc(t('more_articles'))}</h2>
     <ul class="article-list small">${others
@@ -1640,6 +1670,7 @@ module.exports = {
   adminPage,
   errorPage,
   bulkPage,
+  pricesPage,
   confirmPage,
   notifyPage,
   aboutPage,

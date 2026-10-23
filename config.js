@@ -35,6 +35,9 @@ function apply(env = {}) {
     postPerHour: Number(env.POST_PER_HOUR) || 30,
     registerPerHour: Number(env.REGISTER_PER_HOUR) || 8,
     maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
+    highPrice: Number(env.HIGH_PRICE) || 100000, // at or above this price a member's ad waits for staff to judge the price
+    pinDays: Number(env.PIN_DAYS) || 5, // a paid pin lasts this many days
+    pinMax: Number(env.PIN_MAX) || 6, // and only this many ads can be pinned at once
     pageSize: 24,
     renewDays: env.RENEW_DAYS !== undefined && env.RENEW_DAYS !== '' ? Number(env.RENEW_DAYS) : 3, // an ad can be moved back to the top once in this many days
     sallaSecret: env.SALLA_WEBHOOK_SECRET || '', // shared secret of the Salla store webhook (empty = link off)
@@ -55,7 +58,7 @@ function apply(env = {}) {
     pbkdf2Iterations: Math.min(100000, Number(env.PBKDF2_ITERATIONS) || 30000),
 
     sessionSecret: env.SESSION_SECRET || '',
-    assetVersion: env.ASSET_V || '36',
+    assetVersion: env.ASSET_V || '37',
   });
   return config;
 }

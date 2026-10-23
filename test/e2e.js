@@ -629,6 +629,38 @@ async function main() {
     check('sold numbers have a tab with a put-back-on-sale button', rr.text.includes('0566 111 780') && rr.text.includes(`/admin/l/${soldId}/resell`));
     check('a moderator cannot put a sold number back on sale', (await nora.post(`/admin/l/${soldId}/resell`)).status === 404);
     check('staff put a sold number back on sale', (await admin.post(`/admin/l/${soldId}/resell`, { tab: 'sold' })).status === 303 && !(await admin.get('/admin?tab=sold')).text.includes(`/admin/l/${soldId}/resell`));
+    // sold export, high price, bulk prices, timed pins, price drop, article links, weekly report, backup
+    await omar.post(`/my/${soldId}/sold`);
+    rr = await omar.get('/my/sold.csv');
+    check('a member exports only his own sold numbers', rr.status === 200 && rr.text.includes('0566111780') && !rr.text.includes('seller_phone'));
+    check('a member cannot reach the admin sold export', (await omar.get('/admin/export/sold.csv')).status === 404);
+    rr = await admin.get('/admin/export/sold.csv');
+    check('the admin exports all sold numbers with the seller', rr.status === 200 && rr.text.includes('0566111780') && rr.text.includes('seller_phone'));
+    check('only the owner gets the full backup', (await nora.get('/admin/export/backup.json')).status === 404 && (await admin.get('/admin/export/backup.json')).text.includes('"listings"'));
+    check('the backup has no session secret', !(await admin.get('/admin/export/backup.json')).text.includes('session_secret'));
+    rr = await omar.get('/post');
+    check('the post page shows the high-price warning', rr.text.includes('high-price'));
+    rr = await omar.post('/post', { ...AD, number: '0566111781', price: '250000', price_ok: '1' });
+    check('a very high price waits for staff review', rr.status === 303 && (await omar.get(rr.location)).text.includes('waiting for review'), rr.status);
+    rr = await omar.get('/my/prices');
+    check('the bulk prices page opens', rr.status === 200 && rr.text.includes('name="p_'));
+    const pm = [rr.text.match(/for="p_(\d+)"><bdi dir="ltr">0566111778/)[1]];
+    rr = await omar.post('/my/prices', { ['p_' + pm[0]]: '1234' });
+    check('prices are saved in one go', rr.status === 303 && (await omar.get('/my')).text.includes('1 prices updated'));
+    await omar.post('/my/prices', { ['p_' + pm[0]]: '1000' });
+    check('a lowered price shows the price-drop badge', (await anon.get(`/n/${pm[0]}`)).text.includes('drop-badge'));
+    {
+      const ids = [];
+      for (let i = 0; i < 7; i++) ids.push((await admin.post('/post', { ...AD, number: '056677700' + i, price: '5000' })).location.split('/').pop());
+      let ok = 0;
+      for (const id of ids) if ((await admin.post(`/admin/l/${id}/pin`, { next: '/' })).status === 303) ok++;
+      const pinned = (await admin.get('/')).text.split('pin-badge">').length - 1;
+      check('no more than 6 ads can be pinned at once', pinned <= 6 && (await admin.get('/')).text.includes('pin-badge'), pinned);
+      for (const id of ids) await admin.post(`/admin/l/${id}/unpin`, { next: '/' });
+    }
+    rr = await anon.get('/articles/' + (await anon.get('/articles')).text.match(/\/articles\/([a-z0-9-]+)/)[1]);
+    check('articles show the latest numbers', rr.status === 200 && rr.text.includes('class="similar"'));
+
     rr = await anon.get('/');
     check('a visitor goes to sign-up from the free-ad buttons, not to login', rr.text.includes('<a class="cta-free" href="/register">') && rr.text.includes('<a class="tab-add" href="/register">'));
     rr = await admin.get('/');

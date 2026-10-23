@@ -1,4 +1,17 @@
-/* Live search on the home page: results update while typing. Without this file the form still works with the Search button. */
+/* Small helpers: (1) the notice pop-up closes at once, without reloading the page; (2) live search on the home page.
+   Without this file everything still works: the notice button is a normal link and the search form has its button. */
+(function () {
+  var ok = document.querySelector('.popup .btn');
+  if (ok) {
+    ok.addEventListener('click', function (e) {
+      if (!window.fetch) return;
+      e.preventDefault();
+      var pop = ok.closest('.popup');
+      if (pop) pop.parentNode.removeChild(pop);
+      fetch(ok.getAttribute('href'), { credentials: 'same-origin', redirect: 'manual' }).catch(function () {});
+    });
+  }
+})();
 (function () {
   var form = document.querySelector('form.search');
   var box = document.querySelector('section.results');

@@ -12,6 +12,7 @@ export default {
     config.apply(env);
     const store = d1.storeFor(env.DB);
     execCtx.waitUntil(store.maintenance());
+    execCtx.waitUntil(app.weekly(store).catch(() => {}));
   },
 
   async fetch(request, env, execCtx) {

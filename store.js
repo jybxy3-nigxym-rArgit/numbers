@@ -145,10 +145,14 @@ function createStore(d) {
     if (!ucols.includes('ad_limit')) await addCol('users', 'ad_limit', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('hidden_by')) await addCol('listings', 'hidden_by', 'INTEGER NOT NULL DEFAULT 0');
+    if (!cols.includes('sold_at')) await addCol('listings', 'sold_at', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('renewed_at')) await addCol('listings', 'renewed_at', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('price_type')) await addCol('listings', 'price_type', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('auto_until')) await addCol('listings', 'auto_until', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('featured')) await addCol('listings', 'featured', 'INTEGER NOT NULL DEFAULT 0');
+    if (!cols.includes('pinned_until')) await addCol('listings', 'pinned_until', "TEXT NOT NULL DEFAULT ''");
+    if (!cols.includes('prev_price')) await addCol('listings', 'prev_price', 'INTEGER');
+    if (!cols.includes('price_drop_at')) await addCol('listings', 'price_drop_at', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('pinned')) await addCol('listings', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
     if (config.adminNational) {
       await d.run('UPDATE users SET is_admin = 1 WHERE phone = ?', [config.adminNational]);
@@ -372,10 +376,32 @@ function createStore(d) {
   async function updateListing(l) {
     return (
       await d.run(
-        'UPDATE listings SET network = ?, city = ?, price = ?, contact = ?, description = ?, status = ?, price_type = ? WHERE id = ? AND user_id = ?',
-        [l.network, l.city, l.price ?? null, l.contact, l.description, l.status, l.priceType || '', l.id, l.userId]
+        `UPDATE listings SET network = ?, city = ?,
+           prev_price = CASE WHEN ? IS NOT NULL AND price IS NOT NULL AND ? < price THEN price ELSE prev_price END,
+           price_drop_at = CASE WHEN ? IS NOT NULL AND price IS NOT NULL AND ? < price THEN datetime('now') ELSE price_drop_at END,
+           price = ?, contact = ?, description = ?, status = ?, price_type = ? WHERE id = ? AND user_id = ?`,
+        [l.network, l.city, l.price ?? null, l.price ?? null, l.price ?? null, l.price ?? null, l.price ?? null, l.contact, l.description, l.status, l.priceType || '', l.id, l.userId]
       )
     ).changes;
+  }
+
+  // Several prices in one go (own ads only). Notes a price drop; `hold` sends the ad back to review.
+  async function setPrices(userId, items) {
+    dropCounts();
+    let n = 0;
+    for (const it of items) {
+      const r = await d.run(
+        `UPDATE listings SET
+           prev_price = CASE WHEN ? IS NOT NULL AND price IS NOT NULL AND ? < price THEN price ELSE prev_price END,
+           price_drop_at = CASE WHEN ? IS NOT NULL AND price IS NOT NULL AND ? < price THEN datetime('now') ELSE price_drop_at END,
+           status = CASE WHEN ? = 1 AND status = 'active' THEN 'pending' ELSE status END,
+           price = ?
+         WHERE id = ? AND user_id = ? AND status != 'sold' AND COALESCE(price, -1) != ?`,
+        [it.price, it.price, it.price, it.price, it.hold ? 1 : 0, it.price, it.id, userId, it.price]
+      );
+      n += r.changes;
+    }
+    return n;
   }
 
   const userListings = (userId) =>
@@ -384,13 +410,14 @@ function createStore(d) {
   // `by` is the moderator who hid the ad (0 when anyone else did), so the senior staff can review it.
   async function setListingStatus(id, status, by = 0) {
     dropCounts();
-    return (await d.run('UPDATE listings SET status = ?, hidden_by = ? WHERE id = ?', [status, status === 'hidden' ? by : 0, id]))
+    return (await d.run("UPDATE listings SET status = ?, hidden_by = ?, sold_at = CASE WHEN ? = 'sold' THEN datetime('now') ELSE '' END WHERE id = ?", [status, status === 'hidden' ? by : 0, status, id]))
       .changes;
   }
   async function setOwnListingStatus(id, userId, status) {
     dropCounts();
     return (
-      await d.run("UPDATE listings SET status = ?, pinned = 0 WHERE id = ? AND user_id = ? AND status = 'active'", [
+      await d.run("UPDATE listings SET status = ?, pinned = 0, sold_at = CASE WHEN ? = 'sold' THEN datetime('now') ELSE '' END WHERE id = ? AND user_id = ? AND status = 'active'", [
+        status,
         status,
         id,
         userId,
@@ -433,8 +460,16 @@ function createStore(d) {
     await d.run("UPDATE listings SET created_at = datetime('now'), renewed_at = datetime('now') WHERE id = ?", [id]);
     return { ok: true };
   }
-  async function setPinned(id, pinned) {
-    return (await d.run('UPDATE listings SET pinned = ? WHERE id = ?', [pinned ? 1 : 0, id])).changes;
+  // A pin lasts `days` days (0 = until removed). At most `max` pins at once; returns -1 when the places are full.
+  async function setPinned(id, pinned, days = 0, max = 0) {
+    dropCounts();
+    if (pinned && max) {
+      const c = await d.first("SELECT COUNT(*) AS c FROM listings WHERE pinned = 1 AND id != ? AND status = 'active'", [id]);
+      if (c.c >= max) return -1;
+    }
+    return (
+      await d.run(`UPDATE listings SET pinned = ?, pinned_until = ${pinned && days ? `datetime('now', '+${Number(days)} days')` : "''"} WHERE id = ?`, [pinned ? 1 : 0, id])
+    ).changes;
   }
   async function setFeatured(id, on) {
     return (await d.run('UPDATE listings SET featured = ? WHERE id = ?', [on ? 1 : 0, id])).changes;
@@ -543,6 +578,8 @@ function createStore(d) {
     await ready();
     const renewed = await autoRenew();
     const removed = await purgeStale();
+    const unpinned = (await d.run("UPDATE listings SET pinned = 0, pinned_until = '' WHERE pinned = 1 AND pinned_until != '' AND pinned_until <= datetime('now')")).changes;
+    if (unpinned) dropCounts();
     return { renewed, removed };
   }
 
@@ -838,6 +875,40 @@ function createStore(d) {
        FROM listings l JOIN users u ON u.id = l.user_id ORDER BY l.id LIMIT 50000`
     );
 
+  // Everything worth keeping, for the owner's own copy (no session secret).
+  async function exportBackup() {
+    const out = { made_at: new Date().toISOString() };
+    for (const t of ['users', 'listings', 'seller_ratings', 'blocked_phones', 'deleted_numbers', 'listing_likes', 'audit_log']) {
+      out[t] = await d.all(`SELECT * FROM ${t} LIMIT 200000`).catch(() => []);
+    }
+    out.meta = await d.all("SELECT k, v FROM meta WHERE k != 'session_secret'");
+    return out;
+  }
+
+  // Weekly summary for the owner: a message when a whole week has passed since the last one (the first run only starts the clock).
+  async function weeklyReportText() {
+    const r = await d.first("SELECT v FROM meta WHERE k = 'weekly_report_at'");
+    const now = Date.now();
+    const setAt = () => d.run("INSERT INTO meta (k, v) VALUES ('weekly_report_at', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [String(now)]);
+    if (!r) {
+      await setAt();
+      return null;
+    }
+    if (now - Number(r.v) < 7 * 86400000) return null;
+    const s = await adminStats();
+    await setAt();
+    return s;
+  }
+
+  // Sold ads as a table: one member's own, or everyone's (admin).
+  const exportSold = (userId = 0) =>
+    d.all(
+      `SELECT l.id, l.number, l.network, l.city, l.price, l.views, l.created_at, l.sold_at, u.name AS seller, u.phone AS seller_phone
+       FROM listings l JOIN users u ON u.id = l.user_id
+       WHERE l.status = 'sold' ${userId ? 'AND l.user_id = ?' : ''} ORDER BY l.sold_at DESC, l.id DESC LIMIT 50000`,
+      userId ? [userId] : []
+    );
+
   // Bulk add for the admin: skips numbers that are already live. Returns { added, skipped }.
   async function importListings(userId, contact, items, { penalty = false, auto = false, skipHidden = false, statusOf = null } = {}) {
     dropCounts();
@@ -958,6 +1029,10 @@ function createStore(d) {
     blockedPhones,
     exportUsers,
     exportListings,
+    exportSold,
+    setPrices,
+    exportBackup,
+    weeklyReportText,
   };
 }
 
