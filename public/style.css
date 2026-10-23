@@ -2498,8 +2498,13 @@ a.adv:focus-visible {
 .more-tiles summary::-webkit-details-marker { display: none; }
 .more-tiles[open] summary { border-color: var(--gold); }
 
+.foot-bar {
+  flex-direction: column;
+  align-items: center;
+}
 .foot-bar .sponsor {
   margin-top: 0.4rem;
+  text-align: center;
 }
 .foot-bar .sponsor a {
   color: inherit;
