@@ -166,6 +166,9 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
 <link rel="icon" href="/favicon.png" type="image/png" sizes="128x128">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/tajawal-400.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="/fonts/tajawal-700.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="/fonts/lalezar-400.woff" as="font" type="font/woff" crossorigin>
 <link rel="stylesheet" href="/style.css?v=${esc(ASSET_V)}">
 ${jsonLd(ld)}
 ${gtm ? `<!-- Google Tag Manager -->
