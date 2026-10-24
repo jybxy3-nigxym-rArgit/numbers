@@ -175,7 +175,7 @@ ${gtm ? `<!-- Google Tag Manager -->
 <script nonce="${esc(ctx.nonce)}">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${esc(config.gtmId)}');</script>
 <!-- End Google Tag Manager -->` : ''}
 </head>
-<body id="top"${ctx.plateStyle && ctx.plateStyle !== 'classic' ? ` data-plate="${esc(ctx.plateStyle)}"` : ''}>
+<body id="top" data-plate="pro">
 ${gtm ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${esc(config.gtmId)}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` : ''}
 <a class="skip" href="#main">${esc(t('skip'))}</a>
 <header class="top">
@@ -1212,35 +1212,6 @@ function syncPage(ctx, v = {}) {
   return layout(ctx, { title: t('sync_title'), body, noindex: true });
 }
 
-function designPage(ctx) {
-  const { t } = ctx;
-  const sample = (extra) => ({
-    id: 0, number: '0555123456', network: 'stc', city: 'riyadh', price: 15000, status: 'active',
-    created_at: new Date().toISOString().replace('T', ' ').slice(0, 19), views: 120, seller: t('site_name'), ...extra,
-  });
-  const card = (l) => `<div class="${cardClass(l)}"><div class="plate">${plateFace(ctx, l, 'span')}</div><span class="adv">${esc(l.seller)}</span></div>`;
-  const opts = ['xmin', 'min', 'light', 'classic', 'pro', 'elite']
-    .map(
-      (k) => `
-    <form method="post" action="/admin/design" class="design-opt${ctx.plateStyle === k ? ' is-on' : ''}" data-plate="${k === 'classic' ? '' : k}">
-      ${csrfInput(ctx)}
-      <h2>${esc(t('design_' + k))}</h2>
-      <p>${esc(t('design_' + k + '_d'))}</p>
-      <div class="design-prev">${card(sample({}))}${card(sample({ featured: 1, number: '0505000500' }))}</div>
-      <button class="btn${ctx.plateStyle === k ? ' btn-ghost' : ''}" type="submit" name="style" value="${k}">${esc(ctx.plateStyle === k ? t('design_current') : t('design_pick'))}</button>
-    </form>`
-    )
-    .join('');
-  const body = `
-  <section class="narrow">
-    <h1>${esc(t('design_title'))}</h1>
-    <p class="lede">${esc(t('design_intro'))}</p>
-    ${opts}
-    <p class="form-actions"><a class="btn btn-ghost" href="/admin?tab=all">${esc(t('cancel'))}</a></p>
-  </section>`;
-  return layout(ctx, { title: t('design_title'), body, noindex: true });
-}
-
 function profilePage(ctx, v = {}, errors = {}, ads = 0) {
   const { t } = ctx;
   const u = ctx.user;
@@ -1317,7 +1288,7 @@ function adminPage(ctx, tab, data) {
       ? grp(t('a_grp_general'), [tl('stats'), tl('log')]) +
         grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all'), tl('sold'), tl('ratings')]) +
         grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
-        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/design', t('a_design')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users')), pl('/admin/export/sold.csv', t('export_sold'))].concat(rank >= 3 ? [pl('/admin/export/backup.json', t('a_backup'))] : []))
+        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users')), pl('/admin/export/sold.csv', t('export_sold'))].concat(rank >= 3 ? [pl('/admin/export/backup.json', t('a_backup'))] : []))
       : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('sold'), tl('ratings'), tl('users')])
   }</nav>`;
 
@@ -1666,7 +1637,6 @@ function errorPage(ctx, status) {
 
 module.exports = {
   syncPage,
-  designPage,
   homePage,
   listingPage,
   postPage,

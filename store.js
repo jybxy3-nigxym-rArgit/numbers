@@ -161,23 +161,6 @@ function createStore(d) {
   }
 
   // Secret used to sign session cookies. Set SESSION_SECRET, or one is generated and kept in the database.
-  // Look of the number plates, chosen by the admin: classic (default), light or pro.
-  const PLATE_STYLES = ['classic', 'light', 'pro', 'xmin', 'min', 'elite'];
-  let plateCache = null;
-  async function getPlateStyle() {
-    if (plateCache && Date.now() - plateCache.at < 60000) return plateCache.v;
-    const r = await d.first("SELECT v FROM meta WHERE k = 'plate_style'");
-    const v = r && PLATE_STYLES.includes(r.v) ? r.v : 'classic';
-    plateCache = { v, at: Date.now() };
-    return v;
-  }
-  async function setPlateStyle(v) {
-    if (!PLATE_STYLES.includes(v)) return false;
-    await d.run("INSERT INTO meta (k, v) VALUES ('plate_style', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [v]);
-    plateCache = { v, at: Date.now() };
-    return true;
-  }
-
   async function getSecret() {
     if (config.sessionSecret) return config.sessionSecret;
     if (secretCache) return secretCache;
@@ -958,8 +941,6 @@ function createStore(d) {
   return {
     ready,
     getSecret,
-    getPlateStyle,
-    setPlateStyle,
     allow,
     getUser,
     getUserByPhone,
