@@ -493,8 +493,14 @@ route('GET', '/n/:id', async (ctx) => {
     }
   }
   const similar = publicVisible ? await ctx.store.similarListings(l, 6) : [];
-  if (ctx.user) ctx.liked = await ctx.store.likedAmong(ctx.user.id, [l.id, ...similar.map((x) => x.id)]);
-  html(ctx, 200, views.listingPage(ctx, l, { canManage, similar }));
+  // The advertiser's other numbers, shown under this one.
+  let more = { total: 0, rows: [] };
+  if (publicVisible) {
+    const r = await ctx.store.searchListings({ userId: l.user_id, sort: 'new', limit: 7, offset: 0 });
+    more = { total: r.total, rows: r.rows.filter((x) => x.id !== l.id).slice(0, 6) };
+  }
+  if (ctx.user) ctx.liked = await ctx.store.likedAmong(ctx.user.id, [l.id, ...similar.map((x) => x.id), ...more.rows.map((x) => x.id)]);
+  html(ctx, 200, views.listingPage(ctx, l, { canManage, similar, more }));
 });
 
 route('POST', '/n/:id/report', async (ctx) => {

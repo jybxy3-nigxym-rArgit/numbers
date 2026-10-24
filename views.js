@@ -631,7 +631,7 @@ function sellerRatings(ctx, landing) {
 
 // ---- Listing page ----------------------------------------------------------
 
-function listingPage(ctx, l, { canManage, similar = [] }) {
+function listingPage(ctx, l, { canManage, similar = [], more = { total: 0, rows: [] } }) {
   const { t } = ctx;
   const waText = t('wa_message', { number: shownNumber(ctx, l) });
   const wa = `https://wa.me/${encodeURIComponent(l.contact)}?text=${encodeURIComponent(waText)}`;
@@ -670,7 +670,7 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
         <div><dt>${esc(t('network'))}</dt><dd><a href="/network/${esc(l.network)}">${esc(netName(ctx, l.network))}</a></dd></div>
         <div><dt>${esc(t('city'))}</dt><dd><a href="/city/${esc(l.city)}">${esc(cityName(ctx, l.city))}</a></dd></div>
         ${l.price != null && l.price_type ? `<div><dt>${esc(t('price_word'))}</dt><dd>${esc(t('pt_' + l.price_type))}</dd></div>` : ''}
-        <div><dt>${esc(t('seller'))}</dt><dd><a href="/u/${esc(l.user_id)}">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}${l.seller_rating_n ? `<br>${sellerStars(ctx, l)}` : ''}</dd></div>
+        <div><dt>${esc(t('seller'))}</dt><dd><a href="#seller">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}${l.seller_rating_n ? `<br>${sellerStars(ctx, l)}` : ''}</dd></div>
         <div><dt>${esc(t('ad_ref'))}</dt><dd dir="ltr">#${esc(l.id)}</dd></div>
         <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
@@ -697,6 +697,10 @@ function listingPage(ctx, l, { canManage, similar = [] }) {
     </details>`
         : ''
     }
+    ${more.rows.length ? `<section class="similar" id="seller"><h2>${esc(t('adv_block', { name: l.seller }))}${l.seller_verified ? ` ${verifiedMark(ctx)}` : ''}</h2>
+      <p class="hint-line">${l.seller_rating_n ? `${sellerStars(ctx, l)} ` : ''}${esc(t('adv_count', { n: more.total }))}</p>
+      <div class="grid">${more.rows.map((x) => plate(ctx, x)).join('')}</div>
+      <p><a class="btn btn-ghost btn-small" href="/u/${esc(l.user_id)}">${esc(t('adv_all'))}</a></p></section>` : `<section class="similar" id="seller"><h2>${esc(l.seller)}${l.seller_verified ? ` ${verifiedMark(ctx)}` : ''}</h2><p><a class="btn btn-ghost btn-small" href="/u/${esc(l.user_id)}">${esc(t('adv_page'))}</a></p></section>`}
     ${similar.length ? `<section class="similar"><h2>${esc(t(isLive ? 'similar_title' : 'similar_sold'))}</h2><div class="grid">${similar.map((x) => plate(ctx, x)).join('')}</div></section>` : ''}
   </article>`;
 
