@@ -21,7 +21,7 @@
     // "true" = every new ad waits for your approval
     "REQUIRE_APPROVAL": "false"
   },
-  // Every 3 hours: automatic refresh for verified advertisers, and removal of ads nobody refreshed for a year.
-  "triggers": { "crons": ["0 */3 * * *"] },
+  // Every hour: automatic refresh for verified advertisers, one of the owner's old ads, and removal of ads nobody refreshed for a year.
+  "triggers": { "crons": ["0 * * * *"] },
   "observability": { "enabled": true }
 }

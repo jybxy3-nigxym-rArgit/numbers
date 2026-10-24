@@ -491,6 +491,25 @@ function createStore(d) {
     return r.changes;
   }
 
+  // The owner's own ads: when one has not been refreshed for N days it goes back to the top, one ad per hour,
+  // so a long list is refreshed gradually (never all at once) without anyone pressing a button.
+  async function ownerRenew() {
+    if (!(config.ownerRenewDays >= 0)) return 0;
+    const gap = await d.first("SELECT v FROM meta WHERE k = 'owner_renew_at'");
+    if (gap && Date.now() - Number(gap.v) < config.ownerRenewGapMin * 60000) return 0;
+    const l = await d.first(
+      `SELECT id FROM listings
+       WHERE status = 'active' AND user_id IN (SELECT id FROM users WHERE is_admin = 1)
+         AND COALESCE(NULLIF(renewed_at, ''), created_at) <= datetime('now', '-${Number(config.ownerRenewDays)} days')
+       ORDER BY COALESCE(NULLIF(renewed_at, ''), created_at) ASC, id ASC LIMIT 1`
+    );
+    if (!l) return 0;
+    await d.run("UPDATE listings SET created_at = datetime('now'), renewed_at = datetime('now') WHERE id = ?", [l.id]);
+    await d.run("INSERT INTO meta (k, v) VALUES ('owner_renew_at', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [String(Date.now())]);
+    dropCounts();
+    return 1;
+  }
+
   // The Salla store (souq3rb.com) link: one product -> the matching ad of the admin account.
   // Available -> listed (or listed again); sold out, hidden or deleted -> hidden.
   async function applyStoreProduct(item) {
@@ -559,7 +578,7 @@ function createStore(d) {
 
   async function maintenance() {
     await ready();
-    const renewed = await autoRenew();
+    const renewed = (await autoRenew()) + (await ownerRenew());
     const removed = await purgeStale();
     const unpinned = (await d.run("UPDATE listings SET pinned = 0, pinned_until = '' WHERE pinned = 1 AND pinned_until != '' AND pinned_until <= datetime('now')")).changes;
     if (unpinned) dropCounts();

@@ -7,7 +7,7 @@ import app from './app.js';
 import d1 from './d1.js';
 
 export default {
-  // Cloudflare cron (see wrangler.jsonc): refresh verified advertisers' ads and remove year-old ads.
+  // Cloudflare cron (see wrangler.jsonc, every hour): refresh verified advertisers' ads, one old owner ad, and remove year-old ads.
   async scheduled(event, env, execCtx) {
     config.apply(env);
     const store = d1.storeFor(env.DB);

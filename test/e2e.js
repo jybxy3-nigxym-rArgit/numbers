@@ -909,7 +909,7 @@ async function main() {
   }
 
   console.log('\nAuto refresh and year-old ads');
-  const srv5 = await startServer(port + 4, { AUTO_RENEW_DAYS: '0' });
+  const srv5 = await startServer(port + 4, { AUTO_RENEW_DAYS: '0', OWNER_RENEW_DAYS: '99999' });
   try {
     const adm = await newClient(srv5.base);
     await register(adm, 'Boss', '0500000001');
@@ -936,6 +936,27 @@ async function main() {
     void idC; void order;
   } finally {
     srv5.stop();
+  }
+
+  console.log('\nOwner ads refresh one at a time');
+  const srvO = await startServer(port + 9, { OWNER_RENEW_DAYS: '0', OWNER_RENEW_GAP_MIN: '1000' });
+  try {
+    const boss = await newClient(srvO.base);
+    await register(boss, 'Boss', '0500000001');
+    const idA = (await boss.post('/post', { ...AD, number: '0555222001' })).location.split('/').pop();
+    await new Promise((r) => setTimeout(r, 1100));
+    const idB = (await boss.post('/post', { ...AD, number: '0555222002' })).location.split('/').pop();
+    const first = async () => /href="\/n\/(\d+)"/.exec((await (await newClient(srvO.base)).get('/')).text.split('class="plate-card')[1])[1];
+    check('newest owner ad is first before any refresh', (await first()) === idB);
+    await new Promise((r) => setTimeout(r, 1100));
+    await (await newClient(srvO.base)).get('/sitemap.xml');
+    const f1 = await first();
+    check('an old owner ad goes back to the top by itself', f1 === idA);
+    await new Promise((r) => setTimeout(r, 1100));
+    await (await newClient(srvO.base)).get('/sitemap.xml');
+    check('only one owner ad per hour is refreshed', (await first()) === f1);
+  } finally {
+    srvO.stop();
   }
 
   const srv6 = await startServer(port + 5, { STALE_DAYS: '0' });

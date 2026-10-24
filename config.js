@@ -36,6 +36,8 @@ function apply(env = {}) {
     registerPerHour: Number(env.REGISTER_PER_HOUR) || 8,
     maxAdsPerDay: Number(env.MAX_ADS_PER_DAY) || 10,
     highPrice: Number(env.HIGH_PRICE) || 100000, // at or above this price a member's ad waits for staff to judge the price
+    ownerRenewDays: env.OWNER_RENEW_DAYS !== undefined && env.OWNER_RENEW_DAYS !== '' ? Number(env.OWNER_RENEW_DAYS) : 14, // the owner's ads: one is refreshed per run when it is this old
+    ownerRenewGapMin: env.OWNER_RENEW_GAP_MIN !== undefined && env.OWNER_RENEW_GAP_MIN !== '' ? Number(env.OWNER_RENEW_GAP_MIN) : 50, // and at most one per this many minutes
     pinDays: Number(env.PIN_DAYS) || 5, // a paid pin lasts this many days
     pinMax: Number(env.PIN_MAX) || 6, // and only this many ads can be pinned at once
     pageSize: 24,
