@@ -47,7 +47,6 @@ ADMIN_PHONE=0555123456 node --disable-warning=ExperimentalWarning server.js
 الزر ينسخ المشروع لحسابك في GitHub وينشره على Cloudflare Workers وينشئ قاعدة البيانات (D1) لوحده. الإعدادات في `wrangler.jsonc` (رقم المدير `ADMIN_PHONE` وغيره). نقطة الدخول `worker.mjs`.
 
 **2) سيرفر عادي (Oracle أو أي VPS)**
-
 - مجلد `deploy/` فيه سكربت تثبيت يسوي كل شي لوحده (Node و HTTPS وخدمة تشتغل دايم ونسخ احتياطي يومي). الملف `deploy/cloud-init.yaml` تلصقه وقت إنشاء السيرفر.
 - أو Docker: الملف `Dockerfile` جاهز.
 - أو منصة مثل Render أو Railway: لازم تضيف قرص دائم (Disk/Volume) وتوجّه `DATA_DIR` له.
