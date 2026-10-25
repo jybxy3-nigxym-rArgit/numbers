@@ -512,7 +512,7 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
       <h1>${esc(info.h1)}</h1>
       <p class="lede">${esc(info.lede.length > 140 ? t('home_lede') : info.lede)}</p>
       ${form}
-      <a class="cta-free" href="${ctx.user ? '/post' : '/register'}"><b>${ICON.plus}<span>${esc(t('post_free'))}</span></b><small>${esc(t('post_free_sub'))}</small></a>
+      ${ctx.user ? '' : `<a class="cta-free" href="/register"><b>${ICON.plus}<span>${esc(t('post_free'))}</span></b><small>${esc(t('post_free_sub'))}</small></a>`}
       ${landing && landing.type === 'new' ? '' : `<a class="new-link" href="/new">${ICON.clock}<span>${esc(t('page_new'))}</span></a>`}
       ${counts && counts.total ? `<p class="hero-stats">${esc(t('hero_stats', { n: formatPrice(counts.total), when: ageText(ctx, counts.latest) }))}</p>` : ''}
     </section>

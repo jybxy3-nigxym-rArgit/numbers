@@ -674,7 +674,7 @@ async function main() {
     rr = await anon.get('/');
     check('a visitor goes to sign-up from the free-ad buttons, not to login', rr.text.includes('<a class="cta-free" href="/register">') && rr.text.includes('<a class="tab-add" href="/register">'));
     rr = await admin.get('/');
-    check('a member goes straight to the post page from the free-ad buttons', rr.text.includes('<a class="cta-free" href="/post">') && rr.text.includes('<a class="tab-add" href="/post">'));
+    check('a member does not see the free-ad banner, and the tab bar goes to the post page', !rr.text.includes('class="cta-free"') && rr.text.includes('<a class="tab-add" href="/post">'));
     {
       const sm = await anon.get('/sitemap.xml');
       const paths = [...sm.text.matchAll(/<loc>https?:\/\/[^/<]+(\/[^<]*)<\/loc>/g)].map((m) => m[1]).filter((p) => !/\.xml$/.test(p));
