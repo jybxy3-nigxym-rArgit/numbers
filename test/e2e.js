@@ -673,7 +673,8 @@ async function main() {
 
     rr = await anon.get('/');
     check('the ad banner is on the home page with a sponsored link and the file is served', rr.text.includes('class="ad-banner') && rr.text.includes('rel="sponsored noopener"') && (await anon.get('/ad-router.webp')).status === 200);
-    check('the ad banner is not on search results', !(await anon.get('/?q=05')).text.includes('class="ad-banner'));
+    check('the ad banner is on search results, number pages and articles too', (await anon.get('/?q=05')).text.includes('class="ad-banner') && (await anon.get('/n/' + pm[0])).text.includes('class="ad-banner') && (await anon.get('/articles')).text.includes('class="ad-banner') && (await anon.get('/faq')).text.includes('class="ad-banner'));
+    check('the ad banner is not on forms or the admin', !(await anon.get('/login')).text.includes('class="ad-banner') && !(await admin.get('/admin')).text.includes('class="ad-banner'));
     rr = await anon.get('/');
     check('a visitor goes to sign-up from the free-ad buttons, not to login', rr.text.includes('<a class="cta-free" href="/register">') && rr.text.includes('<a class="tab-add" href="/register">'));
     rr = await admin.get('/');

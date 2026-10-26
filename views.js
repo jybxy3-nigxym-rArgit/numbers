@@ -455,6 +455,12 @@ function browseLinks(ctx, counts) {
   </nav>`;
 }
 
+// The ad banner, on every public page: home and results, number pages, articles, FAQ, about, contact.
+function adBanner(ctx) {
+  if (!BANNER) return '';
+  return `<a class="ad-banner${BANNER.width < 900 ? ' ad-small' : ''}" href="${esc(BANNER.href)}" target="_blank" rel="sponsored noopener"><img src="${esc(BANNER.img)}" width="${BANNER.width}" height="${BANNER.height}" alt="${esc(BANNER.alt)}" decoding="async"><span class="ad-tag">${esc(ctx.t('ad_tag'))}</span></a>`;
+}
+
 function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, counts }) {
   const { t } = ctx;
   const f = filters;
@@ -519,12 +525,8 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
   </div>`;
 
   const sellerBlock = landing && landing.type === 'seller' && landing.rating ? sellerRatings(ctx, landing) : '';
-  // The ad banner: main home page only, under the search and above the numbers.
-  const banner = BANNER && !landing && !anyFilter && page === 1
-    ? `<a class="ad-banner${BANNER.width < 900 ? ' ad-small' : ''}" href="${esc(BANNER.href)}" target="_blank" rel="sponsored noopener"><img src="${esc(BANNER.img)}" width="${BANNER.width}" height="${BANNER.height}" alt="${esc(BANNER.alt)}" decoding="async"><span class="ad-tag">${esc(t('ad_tag'))}</span></a>`
-    : '';
   const body = `
-  ${sellerBlock}${banner}
+  ${sellerBlock}${adBanner(ctx)}
   <section class="results" aria-live="polite">
     <div class="results-head">
       <h2>${esc(total === 1 ? t('count_one') : t('count', { n: formatPrice(total) }))}</h2>
@@ -654,6 +656,7 @@ function listingPage(ctx, l, { canManage, similar = [], more = { total: 0, rows:
   const shareUrl = shareHref(ctx, l);
 
   const body = `
+  ${adBanner(ctx)}
   <article class="listing">
     ${notices.join('')}
     <div class="${cardClass(l, ' plate-big')}">
@@ -1479,6 +1482,7 @@ function crumbsLd(ctx, items) {
 function aboutPage(ctx) {
   const { t } = ctx;
   const body = `
+  ${adBanner(ctx)}
   <article class="narrow prose">
     <h1>${esc(t('about_page_title'))}</h1>
     <p class="lede">${esc(t('about_page_lede'))}</p>
@@ -1502,6 +1506,7 @@ function contactPage(ctx) {
   const owner = config.adminLocal;
   const wa = owner ? `https://wa.me/${util.toIntl(owner.slice(1))}?text=${encodeURIComponent(t('contact_wa_msg'))}` : '';
   const body = `
+  ${adBanner(ctx)}
   <article class="narrow prose">
     <h1>${esc(t('contact_title'))}</h1>
     <p class="lede">${esc(t('contact_lede'))}</p>
@@ -1524,6 +1529,7 @@ function contactPage(ctx) {
 function faqPage(ctx, faq) {
   const { t } = ctx;
   const body = `
+  ${adBanner(ctx)}
   <article class="narrow prose">
     <h1>${esc(t('faq_title'))}</h1>
     <p class="lede">${esc(t('faq_lede'))}</p>
@@ -1550,6 +1556,7 @@ function faqPage(ctx, faq) {
 function articlesPage(ctx, articles) {
   const { t } = ctx;
   const body = `
+  ${adBanner(ctx)}
   <section class="narrow prose">
     <h1>${esc(t('articles_title'))}</h1>
     <p class="lede">${esc(t('articles_lede'))}</p>
@@ -1587,6 +1594,7 @@ function articlePage(ctx, a, all, latest = []) {
   };
   const others = all.filter((x) => x.slug !== a.slug);
   const body = `
+  ${adBanner(ctx)}
   <article class="narrow prose">
     <p class="crumb"><a href="/articles">${esc(t('articles_title'))}</a></p>
     <h1>${esc(a.title)}</h1>
