@@ -672,7 +672,7 @@ async function main() {
     check('articles show the latest numbers', rr.status === 200 && rr.text.includes('class="similar"'));
 
     rr = await anon.get('/');
-    check('the ad banner is on the home page with a sponsored link and the file is served', rr.text.includes('class="ad-banner') && rr.text.includes('rel="sponsored noopener"') && (await anon.get('/ad-router.png')).status === 200);
+    check('the ad banner is on the home page with a sponsored link and the file is served', rr.text.includes('class="ad-banner') && rr.text.includes('rel="sponsored noopener"') && (await anon.get('/ad-router.webp')).status === 200);
     check('the ad banner is not on search results', !(await anon.get('/?q=05')).text.includes('class="ad-banner'));
     rr = await anon.get('/');
     check('a visitor goes to sign-up from the free-ad buttons, not to login', rr.text.includes('<a class="cta-free" href="/register">') && rr.text.includes('<a class="tab-add" href="/register">'));

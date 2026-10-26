@@ -60,11 +60,11 @@ const LINKS = {
 
 // The ad banner under the search on the home page (image file in /public, link to the store product). null = no banner.
 const BANNER = {
-  img: '/ad-router.png',
-  width: 358,
-  height: 119,
+  img: '/ad-router.webp',
+  width: 1200,
+  height: 400,
   href: 'https://souq3rb.com/راوتر-stc-5g-cpe-5-موديل-h155-383-–-واي-فاي-6-سرعة-3600-ميجا/p326537034',
-  alt: 'راوتر 5G من الاتصالات السعودية، لمزيد من التفاصيل اضغط هنا',
+  alt: 'راوتر 5G من الاتصالات السعودية جديد لم يستخدم، اضغط هنا لمزيد من التفاصيل',
 };
 
 const byKey = (list) => Object.fromEntries(list.map((x) => [x.key, x]));
