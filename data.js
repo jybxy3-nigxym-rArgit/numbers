@@ -58,6 +58,15 @@ const LINKS = {
   adminWa: '966599900079',
 };
 
+// The ad banner under the search on the home page (image file in /public, link to the store product). null = no banner.
+const BANNER = {
+  img: '/ad-router.png',
+  width: 358,
+  height: 119,
+  href: 'https://souq3rb.com/راوتر-stc-5g-cpe-5-موديل-h155-383-–-واي-فاي-6-سرعة-3600-ميجا/p326537034',
+  alt: 'راوتر 5G من الاتصالات السعودية، لمزيد من التفاصيل اضغط هنا',
+};
+
 const byKey = (list) => Object.fromEntries(list.map((x) => [x.key, x]));
 
 module.exports = {
@@ -68,6 +77,7 @@ module.exports = {
   UNDER_PRICES,
   PRICE_TYPES,
   LINKS,
+  BANNER,
   NETWORK_BY_KEY: byKey(NETWORKS),
   CITY_BY_KEY: byKey(CITIES),
 };

@@ -1,6 +1,6 @@
 'use strict';
 
-const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY, UNDER_PRICES, PRICE_TYPES, LINKS } = require('./data');
+const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY, UNDER_PRICES, PRICE_TYPES, LINKS, BANNER } = require('./data');
 const util = require('./util');
 const { esc, plateDigits, formatNumberPlain, intlToLocal, daysSince, formatPrice } = require('./util');
 const config = require('./config');
@@ -519,8 +519,12 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
   </div>`;
 
   const sellerBlock = landing && landing.type === 'seller' && landing.rating ? sellerRatings(ctx, landing) : '';
+  // The ad banner: main home page only, under the search and above the numbers.
+  const banner = BANNER && !landing && !anyFilter && page === 1
+    ? `<a class="ad-banner${BANNER.width < 900 ? ' ad-small' : ''}" href="${esc(BANNER.href)}" target="_blank" rel="sponsored noopener"><img src="${esc(BANNER.img)}" width="${BANNER.width}" height="${BANNER.height}" alt="${esc(BANNER.alt)}" decoding="async"><span class="ad-tag">${esc(t('ad_tag'))}</span></a>`
+    : '';
   const body = `
-  ${sellerBlock}
+  ${sellerBlock}${banner}
   <section class="results" aria-live="polite">
     <div class="results-head">
       <h2>${esc(total === 1 ? t('count_one') : t('count', { n: formatPrice(total) }))}</h2>

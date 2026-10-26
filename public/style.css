@@ -2294,3 +2294,35 @@ a.adv:focus-visible {
   color: inherit;
   font-weight: 700;
 }
+
+/* ---- Ad banner under the home search ---- */
+.ad-banner {
+  position: relative;
+  display: block;
+  max-width: 900px;
+  margin: 0 auto 1rem;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(42, 28, 68, 0.25);
+}
+/* A small source image is not stretched wide on big screens (it would blur). */
+.ad-small {
+  max-width: 480px;
+}
+.ad-banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+}
+.ad-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #2a1c44;
+  font-size: 11px;
+}
