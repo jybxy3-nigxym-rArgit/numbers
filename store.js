@@ -653,7 +653,7 @@ function createStore(d) {
         sql: `SELECT u.*, (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS ads,
                      (SELECT COUNT(*) FROM banned_devices b WHERE b.user_id = u.id) AS banned_devices
               FROM users u WHERE ${w}
-              ORDER BY COALESCE((SELECT MAX(last_seen) FROM user_devices x WHERE x.user_id = u.id), u.created_at) DESC, u.id DESC LIMIT ? OFFSET ?`,
+              ORDER BY u.is_admin DESC, CASE u.role WHEN 'super' THEN 2 WHEN 'mod' THEN 1 ELSE 0 END DESC, u.created_at DESC, u.id DESC LIMIT ? OFFSET ?`,
         params: [...params, limit, offset],
       },
     ]);

@@ -458,6 +458,11 @@ async function main() {
     await admin.post(`/admin/u/${supId}/role`, { role: 'super' });
     await admin.post(`/admin/u/${sup2Id}/role`, { role: 'super' });
     await admin.post(`/admin/u/${modId}/role`, { role: 'mod' });
+    {
+      const ut = (await admin.get('/admin?tab=users')).text;
+      const at = (id) => ut.indexOf(`href="/admin/u/${id}"`);
+      check('users list: owner first, then general moderators, then moderators, then members (newest first)', at(ownerId) >= 0 && at(ownerId) < at(sup2Id) && at(sup2Id) < at(supId) && at(supId) < at(modId) && at(modId) < at(vicId), [at(ownerId), at(sup2Id), at(supId), at(modId), at(vicId)].join());
+    }
     check('general moderator opens the admin panel', (await sup.get('/admin')).status === 200);
     check('moderator opens the admin panel', (await mod.get('/admin')).status === 200);
     check('a moderator cannot give roles', (await mod.post(`/admin/u/${vicId}/role`, { role: 'mod' })).status === 404);
