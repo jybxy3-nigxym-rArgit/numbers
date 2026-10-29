@@ -1204,9 +1204,9 @@ function syncFeedBox(ctx, f) {
   let line;
   if (f.status === 'error') line = t('sync_feed_error', { err: f.error || '' });
   else if (f.status === 'blocked') line = t('sync_feed_blocked', { err: f.error || '' });
-  else line = t(f.status === 'applied' ? 'sync_feed_applied' : 'sync_feed_preview', { added: f.added || 0, shown: f.shown || 0, updated: f.updated || 0, hidden: f.hidden || 0 });
+  else line = t(f.status === 'applied' ? 'sync_feed_applied' : 'sync_feed_preview', { added: f.added || 0, shown: f.shown || 0, updated: f.updated || 0, sold: f.sold || 0 });
   const list = (label, a) => (a && a.length ? `<p dir="ltr"><strong>${esc(label)}:</strong> ${esc(a.join('  '))}</p>` : '');
-  const lists = f.status === 'error' ? '' : list('+', f.add_numbers) + list('SAR', f.price_numbers) + list('hide', f.hide_numbers);
+  const lists = f.status === 'error' ? '' : list('+', f.add_numbers) + list('SAR', f.price_numbers) + list('sold', f.sold_numbers);
   return `<div class="note"><p><strong>${esc(t('sync_feed_title'))}</strong> (${when} UTC)</p><p>${esc(line)}</p>${lists}</div>`;
 }
 

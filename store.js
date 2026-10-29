@@ -525,8 +525,8 @@ function createStore(d) {
       return 'none';
     }
     if (ex) {
-      if (ex.status === 'hidden' && ex.hidden_by === -1) {
-        await d.run("UPDATE listings SET status = 'active', price = ?, created_at = datetime('now') WHERE id = ?", [item.price, ex.id]);
+      if ((ex.status === 'hidden' || ex.status === 'sold') && ex.hidden_by === -1) {
+        await d.run("UPDATE listings SET status = 'active', hidden_by = 0, sold_at = '', price = ?, created_at = datetime('now') WHERE id = ?", [item.price, ex.id]);
         return 'shown';
       }
       if (ex.status === 'active' && item.price && item.price !== ex.price) {
@@ -545,12 +545,13 @@ function createStore(d) {
   }
 
   // Whole-list sync: `items` = every number available in the store right now.
-  // Missing ones are added (or shown again), prices updated, and the admin's other live ads are hidden.
+  // Missing ones are added (or shown again), prices updated, and the admin's other live ads are marked SOLD
+  // (hidden_by = -1 marks "sold by the sync", so the ad comes back by itself if the number returns to the list).
   async function syncStoreList(items) {
     const admin = await d.first('SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
     if (!admin) return null;
     const have = new Set(items.map((x) => x.number));
-    const res = { added: 0, shown: 0, updated: 0, hidden: 0, taken: 0 };
+    const res = { added: 0, shown: 0, updated: 0, sold: 0, taken: 0 };
     for (const it of items) {
       const r = await applyStoreProduct({ ...it, available: true });
       if (r in res) res[r]++;
@@ -558,8 +559,8 @@ function createStore(d) {
     const live = await d.all("SELECT id, number FROM listings WHERE user_id = ? AND status IN ('active','pending')", [admin.id]);
     for (const l of live) {
       if (have.has(l.number)) continue;
-      await d.run("UPDATE listings SET status = 'hidden', hidden_by = -1, pinned = 0 WHERE id = ?", [l.id]);
-      res.hidden++;
+      await d.run("UPDATE listings SET status = 'sold', hidden_by = -1, pinned = 0, sold_at = datetime('now') WHERE id = ?", [l.id]);
+      res.sold++;
     }
     dropCounts();
     return res;
@@ -574,11 +575,11 @@ function createStore(d) {
     for (const r of mine) latest.set(r.number, r);
     const others = new Set((await d.all("SELECT number FROM listings WHERE user_id != ? AND status IN ('active','pending')", [admin.id])).map((r) => r.number));
     const have = new Set(items.map((x) => x.number));
-    const res = { added: 0, shown: 0, updated: 0, hidden: 0, taken: 0, same: 0, hide_numbers: [], add_numbers: [], price_numbers: [] };
+    const res = { added: 0, shown: 0, updated: 0, sold: 0, taken: 0, same: 0, sold_numbers: [], add_numbers: [], price_numbers: [] };
     for (const it of items) {
       const ex = latest.get(it.number);
       if (ex) {
-        if (ex.status === 'hidden' && ex.hidden_by === -1) {
+        if ((ex.status === 'hidden' || ex.status === 'sold') && ex.hidden_by === -1) {
           res.shown++;
           res.add_numbers.push(it.number);
         } else if (ex.status === 'active' && it.price && it.price !== ex.price) {
@@ -593,8 +594,8 @@ function createStore(d) {
     }
     for (const r of mine) {
       if ((r.status === 'active' || r.status === 'pending') && !have.has(r.number)) {
-        res.hidden++;
-        res.hide_numbers.push(r.number);
+        res.sold++;
+        res.sold_numbers.push(r.number);
       }
     }
     return res;

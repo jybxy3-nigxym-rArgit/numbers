@@ -3,7 +3,7 @@
 // Hourly sync from the owner's Google Sheet into the admin's ads.
 // The sheet publishes ONE tab as CSV with only three columns: number, network, price (no owner names, no cost prices).
 // Whole-list rule (same as store.syncStoreList): numbers in the list are added or shown again, prices updated,
-// and the admin's other live ads are hidden (never deleted). Bundle rows (two numbers in one cell) are skipped.
+// and the admin's other live ads are marked SOLD ("تم البيع"; never deleted). A sold number comes back if it returns to the sheet. Bundle rows (two numbers in one cell) are skipped.
 // Safety: with SHEET_FEED_APPLY off it only reports what it WOULD do; a broken or too-small list changes nothing.
 
 const { normPhone, toLocal, toWestern } = require('./util');
@@ -11,8 +11,8 @@ const { networkOf } = require('./salla');
 
 const META_KEY = 'sheet_feed_last';
 const MIN_ROWS = 20; // a list shorter than this is treated as broken
-const MAX_HIDE_SHARE = 0.3; // hiding more than this share of the live ads at once is blocked...
-const MIN_HIDE_BLOCK = 8; // ...but only when it is more than this many ads
+const MAX_SOLD_SHARE = 0.3; // marking more than this share of the live ads as sold at once is blocked...
+const MIN_SOLD_BLOCK = 8; // ...but only when it is more than this many ads
 const DEFAULT_CITY = 'riyadh'; // the sheet has no city column: new numbers are listed in Riyadh (existing ads keep their city)
 const SAMPLE = 40; // how many numbers of each kind to keep in the report
 
@@ -110,21 +110,21 @@ async function run(store, config, fetchFn) {
   if (items.length < MIN_ROWS) return record(store, { status: 'error', error: `only ${items.length} numbers in the list; expected at least ${MIN_ROWS}` });
   const plan = await store.previewStoreList(items);
   if (!plan) return record(store, { status: 'error', error: 'no admin account' });
-  const live = plan.same + plan.updated + plan.hidden;
+  const live = plan.same + plan.updated + plan.sold;
   const base = {
     rows: items.length,
     skipped: skipped.length,
     added: plan.added,
     shown: plan.shown,
     updated: plan.updated,
-    hidden: plan.hidden,
+    sold: plan.sold,
     taken: plan.taken,
     add_numbers: cut(plan.add_numbers),
     price_numbers: cut(plan.price_numbers),
-    hide_numbers: cut(plan.hide_numbers),
+    sold_numbers: cut(plan.sold_numbers),
   };
-  if (plan.hidden > MIN_HIDE_BLOCK && plan.hidden > MAX_HIDE_SHARE * live) {
-    return record(store, { status: 'blocked', error: `would hide ${plan.hidden} of ${live} live ads at once`, ...base });
+  if (plan.sold > MIN_SOLD_BLOCK && plan.sold > MAX_SOLD_SHARE * live) {
+    return record(store, { status: 'blocked', error: `would mark ${plan.sold} of ${live} live ads as sold at once`, ...base });
   }
   if (!config.sheetFeedApply) return record(store, { status: 'preview', ...base });
   const res = await store.syncStoreList(items);
