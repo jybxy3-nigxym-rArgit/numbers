@@ -565,6 +565,51 @@ function createStore(d) {
     return res;
   }
 
+  // Read-only twin of syncStoreList: says what a whole-list sync WOULD do, and changes nothing.
+  async function previewStoreList(items) {
+    const admin = await d.first('SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
+    if (!admin) return null;
+    const mine = await d.all('SELECT number, status, hidden_by, price FROM listings WHERE user_id = ? ORDER BY id', [admin.id]);
+    const latest = new Map();
+    for (const r of mine) latest.set(r.number, r);
+    const others = new Set((await d.all("SELECT number FROM listings WHERE user_id != ? AND status IN ('active','pending')", [admin.id])).map((r) => r.number));
+    const have = new Set(items.map((x) => x.number));
+    const res = { added: 0, shown: 0, updated: 0, hidden: 0, taken: 0, same: 0, hide_numbers: [], add_numbers: [], price_numbers: [] };
+    for (const it of items) {
+      const ex = latest.get(it.number);
+      if (ex) {
+        if (ex.status === 'hidden' && ex.hidden_by === -1) {
+          res.shown++;
+          res.add_numbers.push(it.number);
+        } else if (ex.status === 'active' && it.price && it.price !== ex.price) {
+          res.updated++;
+          res.price_numbers.push(`${it.number} ${ex.price}→${it.price}`);
+        } else res.same++;
+      } else if (others.has(it.number)) res.taken++;
+      else {
+        res.added++;
+        res.add_numbers.push(it.number);
+      }
+    }
+    for (const r of mine) {
+      if ((r.status === 'active' || r.status === 'pending') && !have.has(r.number)) {
+        res.hidden++;
+        res.hide_numbers.push(r.number);
+      }
+    }
+    return res;
+  }
+
+  async function metaGet(k) {
+    await ready();
+    const r = await d.first('SELECT v FROM meta WHERE k = ?', [k]);
+    return r ? r.v : null;
+  }
+  async function metaSet(k, v) {
+    await ready();
+    await d.run('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v', [k, String(v)]);
+  }
+
   // An ad nobody refreshed for a whole year is removed (sold ads stay as records).
   async function purgeStale() {
     const r = await d.run(
@@ -979,6 +1024,9 @@ function createStore(d) {
     insertListing,
     applyStoreProduct,
     syncStoreList,
+    previewStoreList,
+    metaGet,
+    metaSet,
     updateListing,
     userListings,
     setListingStatus,

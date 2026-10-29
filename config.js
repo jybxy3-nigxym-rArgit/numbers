@@ -42,6 +42,10 @@ function apply(env = {}) {
     pinMax: Number(env.PIN_MAX) || 6, // and only this many ads can be pinned at once
     pageSize: 24,
     renewDays: env.RENEW_DAYS !== undefined && env.RENEW_DAYS !== '' ? Number(env.RENEW_DAYS) : 3, // an ad can be moved back to the top once in this many days
+    // Hourly sync from the owner's Google Sheet (published as CSV with only number, network, price). Empty URL = off.
+    // SHEET_FEED_APPLY must be "true" for it to change ads; otherwise it only reports what it WOULD do (shown on /admin/sync).
+    sheetFeedUrl: /^https:\/\/docs\.google\.com\//.test(env.SHEET_FEED_URL || '') ? env.SHEET_FEED_URL : '',
+    sheetFeedApply: /^(1|true|yes)$/i.test(env.SHEET_FEED_APPLY || ''),
     sallaSecret: env.SALLA_WEBHOOK_SECRET || '', // shared secret of the Salla store webhook (empty = link off)
     staleDays: env.STALE_DAYS !== undefined && env.STALE_DAYS !== '' ? Number(env.STALE_DAYS) : 365, // an ad nobody refreshed for this long is removed
     autoRenewDays: env.AUTO_RENEW_DAYS !== undefined && env.AUTO_RENEW_DAYS !== '' ? Number(env.AUTO_RENEW_DAYS) : 3, // verified advertisers: refreshed this often by itself

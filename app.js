@@ -1380,9 +1380,15 @@ route('POST', '/admin/import', async (ctx) => {
 });
 
 // Sync with the store: paste every number available in the store; the rest of the admin's ads are hidden.
-route('GET', '/admin/sync', (ctx) => {
+route('GET', '/admin/sync', async (ctx) => {
   if (!requireAdmin(ctx)) return;
-  html(ctx, 200, views.syncPage(ctx));
+  let feed = null;
+  try {
+    feed = JSON.parse((await ctx.store.metaGet('sheet_feed_last')) || 'null');
+  } catch {
+    feed = null;
+  }
+  html(ctx, 200, views.syncPage(ctx, { feed }));
 });
 
 route('POST', '/admin/sync', async (ctx) => {

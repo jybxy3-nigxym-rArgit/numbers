@@ -5,6 +5,7 @@
 import config from './config.js';
 import app from './app.js';
 import d1 from './d1.js';
+import sheetfeed from './sheetfeed.js';
 
 export default {
   // Cloudflare cron (see wrangler.jsonc, every hour): refresh verified advertisers' ads, one old owner ad, and remove year-old ads.
@@ -13,6 +14,8 @@ export default {
     const store = d1.storeFor(env.DB);
     execCtx.waitUntil(store.maintenance());
     execCtx.waitUntil(app.weekly(store).catch(() => {}));
+    // Hourly: pull the owner's sheet list (does nothing unless SHEET_FEED_URL is set; changes ads only when SHEET_FEED_APPLY is true).
+    execCtx.waitUntil(sheetfeed.run(store, config).catch(() => {}));
   },
 
   async fetch(request, env, execCtx) {

@@ -1196,12 +1196,27 @@ function importPage(ctx, v = {}) {
   return layout(ctx, { title: t('import_title'), body, noindex: true });
 }
 
+// Last report of the hourly sheet sync (admin page only).
+function syncFeedBox(ctx, f) {
+  const { t } = ctx;
+  if (!f) return `<p class="lede">${esc(t('sync_feed_none'))}</p>`;
+  const when = esc(String(f.at || '').replace('T', ' ').slice(0, 16));
+  let line;
+  if (f.status === 'error') line = t('sync_feed_error', { err: f.error || '' });
+  else if (f.status === 'blocked') line = t('sync_feed_blocked', { err: f.error || '' });
+  else line = t(f.status === 'applied' ? 'sync_feed_applied' : 'sync_feed_preview', { added: f.added || 0, shown: f.shown || 0, updated: f.updated || 0, hidden: f.hidden || 0 });
+  const list = (label, a) => (a && a.length ? `<p dir="ltr"><strong>${esc(label)}:</strong> ${esc(a.join('  '))}</p>` : '');
+  const lists = f.status === 'error' ? '' : list('+', f.add_numbers) + list('SAR', f.price_numbers) + list('hide', f.hide_numbers);
+  return `<div class="note"><p><strong>${esc(t('sync_feed_title'))}</strong> (${when} UTC)</p><p>${esc(line)}</p>${lists}</div>`;
+}
+
 function syncPage(ctx, v = {}) {
   const { t } = ctx;
   const body = `
   <section class="narrow">
     <h1>${esc(t('sync_title'))}</h1>
     <p class="lede">${esc(t('sync_intro'))}</p>
+    ${syncFeedBox(ctx, v.feed)}
     <form method="post" action="/admin/sync" class="form" novalidate>
       ${csrfInput(ctx)}
       ${selectField(ctx, { id: 'network', name: 'network', label: t('import_net'), options: networkOptions(ctx), value: v.network || 'stc' })}

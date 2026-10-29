@@ -103,4 +103,4 @@ async function handleWebhook(request, store, secret) {
   return new Response(JSON.stringify({ ok: true, done }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
-module.exports = { fromProduct, handleWebhook, verify };
+module.exports = { fromProduct, handleWebhook, verify, networkOf };
