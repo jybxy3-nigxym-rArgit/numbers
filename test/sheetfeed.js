@@ -38,6 +38,7 @@ async function main() {
   const parsed = feed.parseFeed(csvOf(rows));
   const singles = lines.filter(([n]) => !n.includes('-')).length;
   check('bundle rows are skipped, singles kept', parsed.items.length === singles && parsed.skipped.length === lines.length - singles, [parsed.items.length, parsed.skipped.length]);
+  check('new numbers are listed in Riyadh', parsed.items.every((x) => x.city === 'riyadh'));
   check('network read from the sheet column', parsed.items.find((x) => x.number === '0500020152').network === 'mobily' && parsed.items.find((x) => x.number === '0501022088').network === 'stc');
   const q = feed.parseFeed('الرقم,المقسم,السعر\n"599940909","سوا","1,500"\n0555000111,سوا,٣٠٠\n0555000111,سوا,900\nabc,سوا,5\n0555000222,سوا,\n');
   check('9-digit, quoted, Arabic digits, duplicate keeps the higher price, bad rows skipped', q.items.length === 2 && q.items.find((x) => x.number === '0599940909').price === 1500 && q.items.find((x) => x.number === '0555000111').price === 900, q);

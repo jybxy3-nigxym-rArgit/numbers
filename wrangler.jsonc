@@ -20,9 +20,9 @@
     "ADMIN_PHONE": "0599900079",
     // "true" = every new ad waits for your approval
     "REQUIRE_APPROVAL": "false",
-    // Hourly sync from the owner's Google Sheet: the published CSV link of the "PublicFeed" tab (number, network, price only).
+    // Hourly sync from the owner's Google Sheet: the CSV link of the "PublicFeed" tab (number, network, price only).
     // Empty = off. While SHEET_FEED_APPLY is "false" it only reports on /admin/sync what it WOULD change.
-    "SHEET_FEED_URL": "",
+    "SHEET_FEED_URL": "https://docs.google.com/spreadsheets/d/1JDHfxnoNGNwI6atxmVl9de4VlDJ8x8rSj9jSgGnIFEo/export?format=csv&gid=181613853",
     "SHEET_FEED_APPLY": "false"
   },
   // Every hour: automatic refresh for verified advertisers, one of the owner's old ads, and removal of ads nobody refreshed for a year.

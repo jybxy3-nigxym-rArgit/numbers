@@ -13,6 +13,7 @@ const META_KEY = 'sheet_feed_last';
 const MIN_ROWS = 20; // a list shorter than this is treated as broken
 const MAX_HIDE_SHARE = 0.3; // hiding more than this share of the live ads at once is blocked...
 const MIN_HIDE_BLOCK = 8; // ...but only when it is more than this many ads
+const DEFAULT_CITY = 'riyadh'; // the sheet has no city column: new numbers are listed in Riyadh (existing ads keep their city)
 const SAMPLE = 40; // how many numbers of each kind to keep in the report
 
 function parseCsv(text) {
@@ -73,7 +74,7 @@ function parseFeed(text) {
     }
     const number = toLocal(nat);
     const prev = best.get(number);
-    if (!prev || price > prev.price) best.set(number, { number, price, network: networkOf(String(row[1] ?? '')), city: 'other' });
+    if (!prev || price > prev.price) best.set(number, { number, price, network: networkOf(String(row[1] ?? '')), city: DEFAULT_CITY });
   }
   return { items: [...best.values()], skipped };
 }
