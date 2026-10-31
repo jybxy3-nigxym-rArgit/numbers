@@ -21,8 +21,7 @@
     // "true" = every new ad waits for your approval
     "REQUIRE_APPROVAL": "false",
     // Twice a day (09:00 and 21:00 Riyadh) sync from the owner's Google Sheet: the CSV link of the "PublicFeed" tab (number, network, price only).
-    // Empty = off. SHEET_FEED_APPLY "true" = it changes the ads (numbers missing from the sheet become sold); "false" = it only reports on /admin/sync what it WOULD change.
-    "SHEET_FEED_URL": "https://docs.google.com/spreadsheets/d/1JDHfxnoNGNwI6atxmVl9de4VlDJ8x8rSj9jSgGnIFEo/export?format=csv&gid=181613853",
+    // The sheet link itself is NOT stored here (this file is public): add it in Cloudflare as a secret named SHEET_FEED_URL. No secret = off. SHEET_FEED_APPLY "true" = it changes the ads (numbers missing from the sheet become sold); "false" = it only reports on /admin/sync what it WOULD change.
     "SHEET_FEED_APPLY": "true"
   },
   // Every hour: automatic refresh for verified advertisers, one of the owner's old ads, and removal of ads nobody refreshed for a year.
