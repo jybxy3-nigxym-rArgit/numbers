@@ -118,6 +118,16 @@ function parseDbDate(s) {
   return new Date(String(s).replace(' ', 'T') + 'Z');
 }
 
+// Saudi time (UTC+3) as "2026-10-31 9:05 م" / "9:05 PM", from a database timestamp (UTC).
+function riyadhStamp(s, lang) {
+  const d = new Date(parseDbDate(s).getTime() + 3 * 3600 * 1000);
+  if (isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  const h = d.getUTCHours();
+  const suffix = h < 12 ? (lang === 'ar' ? 'ص' : 'AM') : lang === 'ar' ? 'م' : 'PM';
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${h % 12 || 12}:${p(d.getUTCMinutes())} ${suffix}`;
+}
+
 function daysSince(s) {
   const ms = Date.now() - parseDbDate(s).getTime();
   return Math.max(0, Math.floor(ms / 86400000));
@@ -180,5 +190,6 @@ module.exports = {
   formatNumberPlain,
   parseDbDate,
   daysSince,
+  riyadhStamp,
   formatPrice,
 };

@@ -809,9 +809,15 @@ async function main() {
     await fan.post(`/n/${rid1}/like`, { next: '/' });
     check('like shows with a count and is pressed for the member', (await fan.get('/n/' + rid1)).text.includes('like-n') && (await fan.get('/n/' + rid1)).text.includes('aria-pressed="true"'));
     await fan.post(`/n/${rid1}/like`, { next: '/' });
+    await fan.post(`/n/${rid1}/like`, { next: '/' });
+    const likeAdm = (await admin.get('/admin?tab=all')).text;
+    check('the admin sees who liked each number', likeAdm.includes('adm-likes') && likeAdm.includes(`/admin/u/${fanId}`));
+    check('the admin list shows the date and time of the ad', /class="adm-time" dir="ltr">\d{4}-\d\d-\d\d \d{1,2}:\d\d (?:AM|PM|[صم])</.test(likeAdm));
+    check('public cards show the date and time of the ad', /class="p-age"><bdi dir="ltr">\d{4}-\d\d-\d\d \d{1,2}:\d\d (?:AM|PM|[صم])</.test((await anon.get('/')).text));
+    await fan.post(`/n/${rid1}/like`, { next: '/' });
     check('a second tap removes the like', !(await fan.get('/n/' + rid1)).text.includes('like-n'));
+    check('a removed like leaves the admin list', !(await admin.get('/admin?tab=all')).text.includes('adm-likes'));
     check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
-    void fanId;
 
     // night mode
     const night = await newClient(base);

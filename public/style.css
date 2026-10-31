@@ -561,6 +561,10 @@ a.plate:hover {
 }
 .p-age {
   justify-self: end;
+  font-size: max(0.62rem, 0.5em);
+  font-weight: 500;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 .p-foot .price {
   justify-self: center;
@@ -2113,6 +2117,8 @@ a.adv:focus-visible {
 .adm-ads { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: 0.7rem; }
 .adm-ad { padding: 0.9rem 1rem; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); }
 .adm-ad-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.adm-time { color: var(--muted); font-size: 0.88rem; margin-inline-end: auto; }
+.adm-likes a { font-weight: 700; }
 .adm-num { font-size: 1.25rem; font-weight: 800; color: var(--ink); text-decoration: none; letter-spacing: 0.02em; }
 .adm-badges { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 .adm-meta { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.92rem; }

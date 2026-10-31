@@ -281,7 +281,7 @@ function plateFace(ctx, l, tag = 'span', { links = false, numHref = '' } = {}) {
     <span class="p-foot">
       ${links ? `<a class="p-city" href="/city/${esc(l.city)}">${city}</a>` : `<span class="p-city">${city}</span>`}
       ${links && l.price != null ? `<a class="price-link" href="/price/${esc(l.price)}">${price}</a>` : price}
-      <span class="p-age">${esc(ageText(ctx, l.created_at))}</span>
+      <span class="p-age"><bdi dir="ltr">${esc(util.riyadhStamp(l.created_at, ctx.lang))}</bdi></span>
     </span>`;
 }
 
@@ -682,7 +682,7 @@ function listingPage(ctx, l, { canManage, similar = [], more = { total: 0, rows:
         ${l.price != null && l.price_type ? `<div><dt>${esc(t('price_word'))}</dt><dd>${esc(t('pt_' + l.price_type))}</dd></div>` : ''}
         <div><dt>${esc(t('seller'))}</dt><dd><a href="#seller">${esc(l.seller)}</a>${l.seller_verified ? ` ${verifiedMark(ctx)} <small>${esc(t('verified'))}</small>` : ''}${l.seller_rating_n ? `<br>${sellerStars(ctx, l)}` : ''}</dd></div>
         <div><dt>${esc(t('ad_ref'))}</dt><dd dir="ltr">#${esc(l.id)}</dd></div>
-        <div><dt>${esc(t('posted'))}</dt><dd>${esc(ageText(ctx, l.created_at))}</dd></div>
+        <div><dt>${esc(t('posted'))}</dt><dd><bdi dir="ltr">${esc(util.riyadhStamp(l.created_at, ctx.lang))}</bdi></dd></div>
         <div><dt>${esc(t('views'))}</dt><dd>${esc(l.views)}</dd></div>
       </dl>
       ${l.description ? `<div class="desc"><h2>${esc(t('details'))}</h2><p>${esc(l.description).replace(/\n/g, '<br>')}</p></div>` : ''}
@@ -1362,8 +1362,9 @@ function adminPage(ctx, tab, data) {
             }
             const badges = `${statusBadge(ctx, l.status)}${l.pinned ? ` <span class="badge badge-pin">${esc(t('pinned_badge'))}</span>` : ''}${l.featured ? ` <span class="badge badge-pin">${esc(t('featured_badge'))}</span>` : ''}${l.price != null && (l.price < 100 || l.price > 3000000) ? ` <span class="badge badge-pending">${esc(t('odd_price'))}</span>` : ''}${l.report_count ? ` <span class="badge badge-pending">${esc(t('reports_n', { n: l.report_count }))}</span>` : ''}`;
             return `<li class="adm-ad">
-          <div class="adm-ad-top"><a class="adm-num" href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><span class="adm-badges">${badges}</span></div>
+          <div class="adm-ad-top"><a class="adm-num" href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><bdi class="adm-time" dir="ltr">${esc(util.riyadhStamp(l.created_at, ctx.lang))}</bdi><span class="adm-badges">${badges}</span></div>
           <p class="adm-meta">${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}${l.hidden_by > 0 ? ` · ${esc(t('hidden_by_mod'))}` : ''}${l.hidden_by === -2 ? ` · ${esc(t('held_badge'))}` : ''}</p>
+          ${l.likers && l.likers.length ? `<p class="adm-meta adm-likes">${esc(t('a_likes', { n: l.likers.length }))} ${l.likers.map((k) => `<a href="/admin/u/${k.uid}">${esc(k.name)}</a> <bdi dir="ltr">0${esc(k.phone)}</bdi>`).join(' · ')}</p>` : ''}
           <p class="adm-meta adm-seller">${esc(l.seller)} · <bdi dir="ltr">0${esc(l.seller_phone)}</bdi>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</p>
           ${acts.length ? `<form method="post" action="/admin/l/${l.id}/hide" class="adm-acts">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}">${acts.join('')}</form>` : ''}
         </li>`;

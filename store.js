@@ -707,7 +707,19 @@ function createStore(d) {
         params: [...params, limit, offset],
       },
     ]);
-    return { total: rs[0].rows[0].c, rows: rs[1].rows };
+    const rows = rs[1].rows;
+    if (rows.length) {
+      const ids = rows.map((r) => r.id);
+      const likers = await d.all(
+        `SELECT k.listing_id, u.id AS uid, u.name, u.phone FROM listing_likes k JOIN users u ON u.id = k.user_id
+         WHERE k.listing_id IN (${ids.map(() => '?').join(',')}) ORDER BY k.created_at`,
+        ids
+      );
+      const by = new Map();
+      for (const k of likers) (by.get(k.listing_id) || by.set(k.listing_id, []).get(k.listing_id)).push(k);
+      for (const r of rows) r.likers = by.get(r.id) || [];
+    }
+    return { total: rs[0].rows[0].c, rows };
   }
 
   async function adminUsers({ q = '', limit = 40, offset = 0 } = {}) {
