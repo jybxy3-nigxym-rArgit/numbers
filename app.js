@@ -420,9 +420,14 @@ route('POST', '/n/:id/like', async (ctx) => {
   const id = Number(ctx.params.id);
   const l = Number.isInteger(id) ? await ctx.store.getListing(id) : undefined;
   if (!l || l.status !== 'active' || l.seller_banned || l.seller_suspended) return notFound(ctx);
+  const back = ctx.body.next ? safeNext(ctx.body.next) : `/n/${l.id}`;
+  if (l.user_id === ctx.user.id) {
+    flash(ctx, 'error', 'err_like_own');
+    return redirect(ctx, back);
+  }
   if (!(await ctx.store.allow(`like:${ctx.user.id}`, 200, 3600 * 1000))) return tooMany(ctx);
   await ctx.store.toggleLike(l.id, ctx.user.id);
-  redirect(ctx, ctx.body.next ? safeNext(ctx.body.next) : `/n/${l.id}`);
+  redirect(ctx, back);
 });
 route('GET', '/price/:key', async (ctx) => {
   const price = /^\d{1,8}$/.test(ctx.params.key) ? Number(ctx.params.key) : null;

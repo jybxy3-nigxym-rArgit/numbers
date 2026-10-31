@@ -341,6 +341,8 @@ function likeButton(ctx, l, { big = false } = {}) {
   const label = ctx.user ? t(liked ? 'like_remove' : 'like_add') : t('like_login');
   const inner = `${ICON.heart}${big ? `<span>${esc(t(liked ? 'like_remove' : 'like_add'))}</span>` : ''}${n ? `<bdi class="like-n">${esc(n)}</bdi>` : ''}`;
   const cls = `${big ? 'btn btn-ghost like-big' : 'like-mini'}${liked ? ' on' : ''}`;
+  // Nobody likes their own number: the owner sees the count only.
+  if (ctx.user && l.user_id === ctx.user.id) return n ? `<span class="${cls}" title="${esc(t('like_own_count'))}">${inner}</span>` : '';
   if (!ctx.user) return `<a class="${cls}" href="/login" rel="nofollow" title="${esc(label)}" aria-label="${esc(label)}">${inner}</a>`;
   const next = ctx.url ? ctx.url.pathname + ctx.url.search : `/n/${l.id}`;
   return `<form method="post" action="/n/${esc(l.id)}/like" class="like-form">${csrfInput(ctx)}<input type="hidden" name="next" value="${esc(next)}"><button class="${cls}" type="submit" title="${esc(label)}" aria-label="${esc(label)}" aria-pressed="${liked}">${inner}</button></form>`;

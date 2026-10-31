@@ -817,6 +817,8 @@ async function main() {
     await fan.post(`/n/${rid1}/like`, { next: '/' });
     check('a second tap removes the like', !(await fan.get('/n/' + rid1)).text.includes('like-n'));
     check('a removed like leaves the admin list', !(await admin.get('/admin?tab=all')).text.includes('adm-likes'));
+    await rare.post(`/n/${rid1}/like`, { next: '/' });
+    check('nobody can like their own number', !(await rare.get('/n/' + rid1)).text.includes(`action="/n/${rid1}/like"`) && (await anon.get('/n/' + rid1)).text.includes('href="/login"') && !(await admin.get('/admin?tab=all')).text.includes('Rare</a> <bdi'));
     check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
 
     // night mode

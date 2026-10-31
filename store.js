@@ -655,6 +655,8 @@ function createStore(d) {
     await ready();
     const renewed = (await autoRenew()) + (await ownerRenew());
     const removed = await purgeStale();
+    // Likes members gave to their own numbers (not allowed) are removed.
+    await d.run('DELETE FROM listing_likes WHERE EXISTS (SELECT 1 FROM listings l WHERE l.id = listing_likes.listing_id AND l.user_id = listing_likes.user_id)');
     const unpinned = (await d.run("UPDATE listings SET pinned = 0, pinned_until = '' WHERE pinned = 1 AND pinned_until != '' AND pinned_until <= datetime('now')")).changes;
     if (unpinned) dropCounts();
     return { renewed, removed };
@@ -821,6 +823,7 @@ function createStore(d) {
 
   // Like / unlike: returns true when the ad is now liked.
   async function toggleLike(listingId, userId) {
+    if (await d.first('SELECT 1 AS x FROM listings WHERE id = ? AND user_id = ?', [listingId, userId])) return false; // never on your own number
     const has = await d.first('SELECT 1 AS x FROM listing_likes WHERE listing_id = ? AND user_id = ?', [listingId, userId]);
     if (has) {
       await d.run('DELETE FROM listing_likes WHERE listing_id = ? AND user_id = ?', [listingId, userId]);
