@@ -20,7 +20,7 @@
     "ADMIN_PHONE": "0599900079",
     // "true" = every new ad waits for your approval
     "REQUIRE_APPROVAL": "false",
-    // Daily (09:00 Riyadh) sync from the owner's Google Sheet: the CSV link of the "PublicFeed" tab (number, network, price only).
+    // Twice a day (09:00 and 21:00 Riyadh) sync from the owner's Google Sheet: the CSV link of the "PublicFeed" tab (number, network, price only).
     // Empty = off. SHEET_FEED_APPLY "true" = it changes the ads (numbers missing from the sheet become sold); "false" = it only reports on /admin/sync what it WOULD change.
     "SHEET_FEED_URL": "https://docs.google.com/spreadsheets/d/1JDHfxnoNGNwI6atxmVl9de4VlDJ8x8rSj9jSgGnIFEo/export?format=csv&gid=181613853",
     "SHEET_FEED_APPLY": "true"

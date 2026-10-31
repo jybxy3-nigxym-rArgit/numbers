@@ -14,9 +14,9 @@ export default {
     const store = d1.storeFor(env.DB);
     execCtx.waitUntil(store.maintenance());
     execCtx.waitUntil(app.weekly(store).catch(() => {}));
-    // Once a day (09:00 Riyadh = SHEET_FEED_HOUR_UTC, default 6): pull the owner's sheet list (does nothing unless SHEET_FEED_URL is set; changes ads only when SHEET_FEED_APPLY is true).
+    // Twice a day (09:00 and 21:00 Riyadh = SHEET_FEED_HOURS_UTC, default 6,18): pull the owner's sheet list (does nothing unless SHEET_FEED_URL is set; changes ads only when SHEET_FEED_APPLY is true).
     const hour = new Date(event && event.scheduledTime ? event.scheduledTime : Date.now()).getUTCHours();
-    if (hour === config.sheetFeedHourUtc) execCtx.waitUntil(sheetfeed.run(store, config).catch(() => {}));
+    if (config.sheetFeedHoursUtc.includes(hour)) execCtx.waitUntil(sheetfeed.run(store, config).catch(() => {}));
   },
 
   async fetch(request, env, execCtx) {

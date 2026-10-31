@@ -45,7 +45,7 @@ function apply(env = {}) {
     // Hourly sync from the owner's Google Sheet (published as CSV with only number, network, price). Empty URL = off.
     // SHEET_FEED_APPLY must be "true" for it to change ads; otherwise it only reports what it WOULD do (shown on /admin/sync).
     sheetFeedUrl: /^https:\/\/docs\.google\.com\//.test(env.SHEET_FEED_URL || '') ? env.SHEET_FEED_URL : '',
-    sheetFeedHourUtc: env.SHEET_FEED_HOUR_UTC !== undefined && env.SHEET_FEED_HOUR_UTC !== '' ? Number(env.SHEET_FEED_HOUR_UTC) : 6, // hour (UTC) of the daily sheet pull; 6 = 09:00 Riyadh
+    sheetFeedHoursUtc: String(env.SHEET_FEED_HOURS_UTC || '6,18').split(',').map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x >= 0 && x < 24), // hours (UTC) of the sheet pull; 6,18 = 09:00 and 21:00 Riyadh
     sheetFeedApply: /^(1|true|yes)$/i.test(env.SHEET_FEED_APPLY || ''),
     sallaSecret: env.SALLA_WEBHOOK_SECRET || '', // shared secret of the Salla store webhook (empty = link off)
     staleDays: env.STALE_DAYS !== undefined && env.STALE_DAYS !== '' ? Number(env.STALE_DAYS) : 365, // an ad nobody refreshed for this long is removed
