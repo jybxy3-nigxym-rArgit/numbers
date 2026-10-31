@@ -547,21 +547,50 @@ function createStore(d) {
   // Whole-list sync: `items` = every number available in the store right now.
   // Missing ones are added (or shown again), prices updated, and the admin's other live ads are marked SOLD
   // (hidden_by = -1 marks "sold by the sync", so the ad comes back by itself if the number returns to the list).
+  // Few database calls on purpose: Cloudflare's free plan allows only 50 per run, so this reads twice and writes in batches.
   async function syncStoreList(items) {
-    const admin = await d.first('SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
+    const admin = await d.first('SELECT id, phone FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
     if (!admin) return null;
+    const mine = await d.all('SELECT id, number, status, hidden_by, price FROM listings WHERE user_id = ? ORDER BY id', [admin.id]);
+    const latest = new Map();
+    for (const r of mine) latest.set(r.number, r);
+    const others = new Set((await d.all("SELECT number FROM listings WHERE user_id != ? AND status IN ('active','pending')", [admin.id])).map((r) => r.number));
     const have = new Set(items.map((x) => x.number));
     const res = { added: 0, shown: 0, updated: 0, sold: 0, taken: 0 };
+    const st = [];
     for (const it of items) {
-      const r = await applyStoreProduct({ ...it, available: true });
-      if (r in res) res[r]++;
+      const ex = latest.get(it.number);
+      if (ex) {
+        if ((ex.status === 'hidden' || ex.status === 'sold') && ex.hidden_by === -1) {
+          st.push({ sql: "UPDATE listings SET status = 'active', hidden_by = 0, sold_at = '', price = ?, created_at = datetime('now') WHERE id = ?", params: [it.price, ex.id] });
+          res.shown++;
+        } else if (ex.status === 'active' && it.price && it.price !== ex.price) {
+          st.push({
+            sql: `UPDATE listings SET
+                    prev_price = CASE WHEN price IS NOT NULL AND ? < price THEN price ELSE prev_price END,
+                    price_drop_at = CASE WHEN price IS NOT NULL AND ? < price THEN datetime('now') ELSE price_drop_at END,
+                    price = ? WHERE id = ?`,
+            params: [it.price, it.price, it.price, ex.id],
+          });
+          res.updated++;
+        }
+      } else if (others.has(it.number)) res.taken++;
+      else {
+        st.push({
+          sql: `INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats)
+                VALUES (?, ?, ?, ?, ?, ?, '', 'active', ?)`,
+          params: [admin.id, it.number, it.network, it.city, it.price, '966' + admin.phone, patternTags(it.number)],
+        });
+        res.added++;
+      }
     }
-    const live = await d.all("SELECT id, number FROM listings WHERE user_id = ? AND status IN ('active','pending')", [admin.id]);
-    for (const l of live) {
-      if (have.has(l.number)) continue;
-      await d.run("UPDATE listings SET status = 'sold', hidden_by = -1, pinned = 0, sold_at = datetime('now') WHERE id = ?", [l.id]);
-      res.sold++;
+    for (const r of mine) {
+      if ((r.status === 'active' || r.status === 'pending') && !have.has(r.number)) {
+        st.push({ sql: "UPDATE listings SET status = 'sold', hidden_by = -1, pinned = 0, sold_at = datetime('now') WHERE id = ?", params: [r.id] });
+        res.sold++;
+      }
     }
+    for (let i = 0; i < st.length; i += 40) await d.batch(st.slice(i, i + 40));
     dropCounts();
     return res;
   }
