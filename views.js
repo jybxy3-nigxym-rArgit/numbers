@@ -294,7 +294,7 @@ const advSize = (name) => {
   const n = [...String(name)].length;
   return n <= 16 ? '' : n <= 22 ? ' adv-m' : n <= 30 ? ' adv-s' : ' adv-xs';
 };
-// Small role label before the advertiser name: Admin / General moderator / Moderator / Member.
+// Small role label after the advertiser name (the left side in Arabic): Admin / General moderator / Moderator / Member.
 // Visitors never see it; the owner/admin label is for staff and verified members only.
 const roleTag = (ctx, l) => ctx.t(l.seller_is_admin ? 'tag_admin' : l.seller_role === 'super' ? 'tag_super' : l.seller_role === 'mod' ? 'tag_mod' : 'tag_member');
 const showRole = (ctx, l) => {
@@ -302,10 +302,10 @@ const showRole = (ctx, l) => {
   if (l.seller_is_admin) return util.rankOf(ctx.user) >= 1 || !!ctx.user.verified;
   return true;
 };
-const roleHtml = (ctx, l) => (showRole(ctx, l) ? `<small class="adv-role">${esc(roleTag(ctx, l))}</small> ` : '');
+const roleHtml = (ctx, l) => (showRole(ctx, l) ? ` <small class="adv-role">${esc(roleTag(ctx, l))}</small>` : '');
 const advTab = (ctx, l) =>
   l.seller
-    ? `<a class="adv${advSize(l.seller)}" href="/u/${esc(l.user_id)}" title="${esc(l.seller)}"><span class="adv-name">${roleHtml(ctx, l)}${esc(l.seller)}${l.seller_verified ? verifiedMark(ctx) : ''}</span></a>`
+    ? `<a class="adv${advSize(l.seller)}" href="/u/${esc(l.user_id)}" title="${esc(l.seller)}"><span class="adv-name">${esc(l.seller)}${l.seller_verified ? verifiedMark(ctx) : ''}${roleHtml(ctx, l)}</span></a>`
     : '';
 
 const plateBadges = (ctx, l) =>
