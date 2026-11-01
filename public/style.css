@@ -558,6 +558,7 @@ a.plate:hover {
 }
 .p-city {
   justify-self: start;
+  font-size: 0.7em;
 }
 .p-age {
   justify-self: end;
