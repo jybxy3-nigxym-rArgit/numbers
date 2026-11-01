@@ -1123,6 +1123,29 @@ async function main() {
     srv8.stop();
   }
 
+  console.log('\nTrust pages (privacy, terms, about)');
+  const srvT = await startServer(port + 22);
+  try {
+    const v = await newClient(srvT.base);
+    for (const p of ['/privacy', '/terms']) {
+      const r = await v.get(p);
+      check(`${p} opens with one h1`, r.status === 200 && (r.text.match(/<h1/g) || []).length === 1, r.status);
+      check(`${p} has its own canonical link`, r.text.includes(`rel="canonical" href="${srvT.base}${p}"`) || r.text.includes(`${p}"`));
+      check(`${p} is linked from the footer`, r.text.includes(`<a href="${p}">`));
+    }
+    const sm = (await v.get('/sitemap.xml')).text;
+    check('privacy and terms are listed in the sitemap', sm.includes('/privacy</loc>') && sm.includes('/terms</loc>'));
+    const ab = (await v.get('/about')).text;
+    check('about has the extra sections and links to both policies', ab.includes('href="/privacy"') && ab.includes('href="/terms"') && ab.split('<h2>').length > 4);
+    const pv = (await v.get('/privacy')).text;
+    check('the privacy page says what is collected and is not noindex', pv.includes('Google Tag Manager') && !pv.includes('noindex'));
+    const en = await newClient(srvT.base);
+    await en.get('/lang/en');
+    check('the English privacy page exists', (await en.get('/privacy')).text.includes('Privacy policy'));
+  } finally {
+    srvT.stop();
+  }
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
   process.exit(failures ? 1 : 0);
 }

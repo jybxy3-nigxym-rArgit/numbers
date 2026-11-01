@@ -465,6 +465,8 @@ route('GET', '/ack', (ctx) => {
 // ---- Information pages (they also bring visitors from Google) ----
 
 route('GET', '/about', (ctx) => html(ctx, 200, views.aboutPage(ctx)));
+route('GET', '/privacy', (ctx) => html(ctx, 200, views.legalPage(ctx, 'privacy')));
+route('GET', '/terms', (ctx) => html(ctx, 200, views.legalPage(ctx, 'terms')));
 route('GET', '/contact', (ctx) => html(ctx, 200, views.contactPage(ctx)));
 route('GET', '/faq', (ctx) => html(ctx, 200, views.faqPage(ctx, content.FAQ)));
 route('GET', '/articles', (ctx) => html(ctx, 200, views.articlesPage(ctx, content.ARTICLES)));
@@ -1437,7 +1439,7 @@ route('GET', '/sitemap.xml', async (ctx) => {
     if (r.total > 0) urls.push({ loc: `${ctx.base}/type/${k}` });
   }
   for (const n of UNDER_PRICES) if (counts.under[n]) urls.push({ loc: `${ctx.base}/under/${n}` });
-  for (const p of ['/new', '/faq', '/articles', '/about', '/contact']) urls.push({ loc: ctx.base + p });
+  for (const p of ['/new', '/faq', '/articles', '/about', '/contact', '/privacy', '/terms']) urls.push({ loc: ctx.base + p });
   for (const a of content.ARTICLES) urls.push({ loc: `${ctx.base}/articles/${a.slug}`, lastmod: a.date });
   for (const l of await ctx.store.sitemapListings()) {
     urls.push({ loc: `${ctx.base}/n/${l.id}`, lastmod: String(l.created_at).slice(0, 10) });

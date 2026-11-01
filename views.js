@@ -2,6 +2,7 @@
 
 const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY, UNDER_PRICES, PRICE_TYPES, LINKS, BANNER } = require('./data');
 const util = require('./util');
+const { PAGES, UPDATED } = require('./pages');
 const { esc, plateDigits, formatNumberPlain, intlToLocal, daysSince, formatPrice } = require('./util');
 const config = require('./config');
 
@@ -204,6 +205,8 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
     <a href="/articles">${esc(t('page_articles'))}</a>
     <a href="/about">${esc(t('page_about'))}</a>
     <a href="/contact">${esc(t('page_contact'))}</a>
+    <a href="/privacy">${esc(t('page_privacy'))}</a>
+    <a href="/terms">${esc(t('page_terms'))}</a>
   </div>
   <div class="wrap foot-bar">
     <p>${esc(t('footer_note'))}</p>
@@ -1506,7 +1509,9 @@ function aboutPage(ctx) {
     <p class="lede">${esc(t('about_page_lede'))}</p>
     <p>${esc(t('about_page_p1'))}</p>
     <p>${esc(t('about_page_p2'))}</p>
+    ${(PAGES.about[ctx.lang] || PAGES.about.ar).map(renderBlock).join('')}
     <p>${esc(t('footer_note'))}</p>
+    <p><a href="/privacy">${esc(t('page_privacy'))}</a> · <a href="/terms">${esc(t('page_terms'))}</a></p>
     <p><a class="btn" href="/post">${esc(t('post_ad'))}</a> <a class="btn btn-ghost" href="/contact">${esc(t('page_contact'))}</a></p>
   </article>`;
   return layout(ctx, {
@@ -1515,6 +1520,29 @@ function aboutPage(ctx) {
     body,
     canonical: ctx.base + '/about',
     ld: [crumbsLd(ctx, [[t('site_name'), '/'], [t('about_page_title'), '/about']])],
+    promo: true,
+  });
+}
+
+// Privacy policy and terms of use.
+function legalPage(ctx, key) {
+  const { t } = ctx;
+  const p = PAGES[key][ctx.lang] || PAGES[key].ar;
+  const body = `
+  ${adBanner(ctx)}
+  <article class="narrow prose">
+    <h1>${esc(p.title)}</h1>
+    <p class="lede">${esc(p.lede)}</p>
+    ${p.blocks.map(renderBlock).join('')}
+    <p class="crumb">${esc(t('last_updated'))} <bdi dir="ltr">${esc(UPDATED)}</bdi></p>
+    <p><a class="btn btn-ghost" href="/contact">${esc(t('page_contact'))}</a></p>
+  </article>`;
+  return layout(ctx, {
+    fullTitle: `${p.title} | ${t('site_name')}`,
+    desc: p.desc,
+    body,
+    canonical: ctx.base + '/' + key,
+    ld: [crumbsLd(ctx, [[t('site_name'), '/'], [p.title, '/' + key]])],
     promo: true,
   });
 }
@@ -1592,24 +1620,26 @@ function articlesPage(ctx, articles) {
   });
 }
 
+// Blocks of text (articles, trust pages): heading, paragraph, list, code table, type links.
+const renderBlock = (b) => {
+  if (b.h) return `<h2>${esc(b.h)}</h2>`;
+  if (b.p) return `<p>${esc(b.p)}</p>`;
+  if (b.ul) return `<ul>${b.ul.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  if (b.codes) {
+    return `<div class="table-wrap"><table class="codes"><tbody>${b.codes
+      .map(([k, v]) => `<tr><td>${esc(k)}</td><td dir="ltr"><code>${esc(v)}</code></td></tr>`)
+      .join('')}</tbody></table></div>`;
+  }
+  if (b.links) {
+    return `<ul class="type-list">${b.links
+      .map(([key, name, about]) => `<li><a href="/type/${esc(key)}"><strong>${esc(name)}</strong></a> ${esc(about)}</li>`)
+      .join('')}</ul>`;
+  }
+  return '';
+};
+
 function articlePage(ctx, a, all, latest = []) {
   const { t } = ctx;
-  const block = (b) => {
-    if (b.h) return `<h2>${esc(b.h)}</h2>`;
-    if (b.p) return `<p>${esc(b.p)}</p>`;
-    if (b.ul) return `<ul>${b.ul.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
-    if (b.codes) {
-      return `<div class="table-wrap"><table class="codes"><tbody>${b.codes
-        .map(([k, v]) => `<tr><td>${esc(k)}</td><td dir="ltr"><code>${esc(v)}</code></td></tr>`)
-        .join('')}</tbody></table></div>`;
-    }
-    if (b.links) {
-      return `<ul class="type-list">${b.links
-        .map(([key, name, about]) => `<li><a href="/type/${esc(key)}"><strong>${esc(name)}</strong></a> ${esc(about)}</li>`)
-        .join('')}</ul>`;
-    }
-    return '';
-  };
   const others = all.filter((x) => x.slug !== a.slug);
   const body = `
   ${adBanner(ctx)}
@@ -1617,7 +1647,7 @@ function articlePage(ctx, a, all, latest = []) {
     <p class="crumb"><a href="/articles">${esc(t('articles_title'))}</a></p>
     <h1>${esc(a.title)}</h1>
     <p class="lede">${esc(a.desc)}</p>
-    ${a.blocks.map(block).join('')}
+    ${a.blocks.map(renderBlock).join('')}
     ${latest.length ? `<section class="similar"><h2>${esc(t('latest_numbers'))}</h2><div class="grid">${latest.map((x) => plate(ctx, x)).join('')}</div></section>` : ''}
     <p><a class="btn" href="/">${esc(t('see_numbers'))}</a></p>
     <h2>${esc(t('more_articles'))}</h2>
@@ -1667,6 +1697,7 @@ function errorPage(ctx, status) {
 
 module.exports = {
   syncPage,
+  legalPage,
   homePage,
   listingPage,
   postPage,
