@@ -2334,21 +2334,10 @@ a.adv:focus-visible {
   font-size: 11px;
 }
 
-/* Role label: tiny text in the dark band of the plate, at the start corner. */
-.p-role {
-  position: absolute;
-  inset-block-start: 0.38rem;
-  inset-inline-start: 0.7rem;
-  z-index: 1;
-  font-family: "Tajawal", var(--font);
-  font-size: 0.64rem;
+/* Role label: tiny text right before the advertiser name, on the same line. */
+.adv .adv-role {
+  font-size: 0.62em;
   font-weight: 500;
-  line-height: 1.2;
-  color: #fff;
-  opacity: 0.9;
-  pointer-events: none;
-}
-.plate-big .p-role {
-  inset-block-start: 0.55rem;
-  font-size: 0.74rem;
+  color: inherit;
+  opacity: 0.85;
 }

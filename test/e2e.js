@@ -820,11 +820,11 @@ async function main() {
     await rare.post(`/n/${rid1}/like`, { next: '/' });
     check('nobody can like their own number', !(await rare.get('/n/' + rid1)).text.includes(`action="/n/${rid1}/like"`) && (await anon.get('/n/' + rid1)).text.includes('href="/login"') && !(await admin.get('/admin?tab=all')).text.includes('Rare</a> <bdi'));
     {
-      const roleRe = /class="p-role">/;
+      const roleRe = /class="adv-role">/;
       check('visitors do not see role labels', !roleRe.test((await anon.get('/')).text));
-      check('members see the role label of staff and members', /class="p-role">(Moderator|General moderator|Member|مشرف|المشرف العام|عضو)</.test((await fan.get('/')).text));
-      check('members do not see the admin label', !/class="p-role">(Admin|الإدارة)</.test((await fan.get('/')).text));
-      check('the admin sees role labels', /class="p-role">(Admin|Member|الإدارة|عضو)</.test((await admin.get('/')).text));
+      check('members see the role label of staff and members', /class="adv-role">(Moderator|General moderator|Member|مشرف|المشرف العام|عضو)</.test((await fan.get('/')).text));
+      check('members do not see the admin label', !/class="adv-role">(Admin|الإدارة)</.test((await fan.get('/')).text));
+      check('the admin sees role labels', /class="adv-role">(Admin|Member|الإدارة|عضو)</.test((await admin.get('/')).text));
     }
     check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
 
