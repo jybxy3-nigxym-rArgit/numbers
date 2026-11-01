@@ -2334,28 +2334,21 @@ a.adv:focus-visible {
   font-size: 11px;
 }
 
-/* Role under the advertiser name (Admin / General moderator / Moderator / Member): tiny, and the tab keeps its old height. */
-.adv {
-  padding-block: 0.17rem 0.05rem;
-  line-height: 1.05;
-}
-.adv .adv-name {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.adv .adv-role {
-  display: block;
+/* Role label: tiny text in the dark band of the plate, at the start corner. */
+.p-role {
+  position: absolute;
+  inset-block-start: 0.38rem;
+  inset-inline-start: 0.7rem;
+  z-index: 1;
+  font-family: "Tajawal", var(--font);
   font-size: 0.64rem;
   font-weight: 500;
-  line-height: 1.05;
-  color: inherit;
+  line-height: 1.2;
+  color: #fff;
   opacity: 0.9;
+  pointer-events: none;
 }
-.plate-big .adv {
-  padding-block: 0.3rem 0.2rem;
-}
-.plate-big .adv .adv-role {
+.plate-big .p-role {
+  inset-block-start: 0.55rem;
   font-size: 0.74rem;
 }
