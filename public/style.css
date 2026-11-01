@@ -2333,3 +2333,29 @@ a.adv:focus-visible {
   color: #2a1c44;
   font-size: 11px;
 }
+
+/* Role under the advertiser name (Admin / General moderator / Moderator / Member): tiny, and the tab keeps its old height. */
+.adv {
+  padding-block: 0.17rem 0.05rem;
+  line-height: 1.05;
+}
+.adv .adv-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adv .adv-role {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 500;
+  line-height: 1.05;
+  color: inherit;
+  opacity: 0.9;
+}
+.plate-big .adv {
+  padding-block: 0.3rem 0.2rem;
+}
+.plate-big .adv .adv-role {
+  font-size: 0.74rem;
+}

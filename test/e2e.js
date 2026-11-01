@@ -819,6 +819,7 @@ async function main() {
     check('a removed like leaves the admin list', !(await admin.get('/admin?tab=all')).text.includes('adm-likes'));
     await rare.post(`/n/${rid1}/like`, { next: '/' });
     check('nobody can like their own number', !(await rare.get('/n/' + rid1)).text.includes(`action="/n/${rid1}/like"`) && (await anon.get('/n/' + rid1)).text.includes('href="/login"') && !(await admin.get('/admin?tab=all')).text.includes('Rare</a> <bdi'));
+    check('each ad shows the advertiser role under the name', /class="adv-role">(Admin|General moderator|Moderator|Member|الإدارة|المشرف العام|مشرف|عضو)</.test((await anon.get('/')).text));
     check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
 
     // night mode
