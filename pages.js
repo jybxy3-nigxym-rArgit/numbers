@@ -39,10 +39,6 @@ const PAGES = {
         {
           p: 'نستخدم ملفات صغيرة في متصفحك لتسجيل دخولك، ولتذكّر اللغة والوضع الليلي ورقم الجوال في صفحة الدخول، ولإخفاء إشعار الموقع بعد قراءته، ولمعرّف الحماية المذكور أعلاه. كما نستخدم Google Tag Manager لقياس الزيارات. يمكنك حذف الكوكيز من إعدادات متصفحك في أي وقت، وقد تحتاج بعدها إلى تسجيل الدخول من جديد.',
         },
-        { h: 'الجهات الخارجية' },
-        {
-          p: 'يعمل الموقع على خدمة Cloudflare للاستضافة والحماية، ويستخدم Google Tag Manager للإحصاءات. قد تصل إشعارات تشغيلية لإدارة الموقع عبر خدمة رسائل خارجية. التواصل عبر واتساب يتم بينك وبين الطرف الآخر وفق سياسات واتساب. لا نبيع بياناتك ولا نؤجرها.',
-        },
         { h: 'مدة الاحتفاظ بالبيانات' },
         {
           p: 'يبقى الإعلان ما دام يُجدَّد، والإعلان الذي لا يُجدَّد لمدة سنة كاملة يُحذف تلقائياً. الإعلانات المباعة تبقى كسجل لصاحبها. بيانات حسابك تبقى ما دام حسابك قائماً.',
@@ -87,10 +83,6 @@ const PAGES = {
         { h: 'Cookies' },
         {
           p: 'We use small files in your browser to keep you signed in, to remember your language, dark mode and phone number on the sign-in page, to hide the site notice once read, and for the safety identifier above. We also use Google Tag Manager to measure visits. You can delete cookies in your browser at any time; you may then need to sign in again.',
-        },
-        { h: 'Third parties' },
-        {
-          p: 'The site runs on Cloudflare for hosting and protection and uses Google Tag Manager for statistics. Operational alerts to the site team may travel through an external messaging service. Contact over WhatsApp happens between you and the other person under WhatsApp\'s own policies. We do not sell or rent your data.',
         },
         { h: 'How long we keep data' },
         {
