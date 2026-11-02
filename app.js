@@ -386,7 +386,7 @@ route('GET', '/u/:id', async (ctx) => {
     mine: ctx.user ? await ctx.store.myRating(id, ctx.user.id) : null,
     canRate: !!ctx.user && ctx.user.id !== id,
   };
-  await renderHome(ctx, f, { type: 'seller', key: String(id), name: u.name, rating });
+  await renderHome(ctx, f, { type: 'seller', key: String(id), name: u.name, rating, profile: { created_at: u.created_at, phone: u.phone, verified: u.verified, is_admin: u.is_admin, role: u.role } });
 });
 
 // A member rates a seller (1-5 stars and a short comment). It waits for staff approval before anyone sees it.

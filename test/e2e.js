@@ -830,6 +830,13 @@ async function main() {
       check('members do not see the admin label', !/class="adv-role">(Admin|الإدارة)</.test((await fan.get('/')).text));
       check('the admin sees role labels', /class="adv-role">(Admin|Member|الإدارة|عضو)</.test((await admin.get('/')).text));
     }
+    {
+      const sp = (await anon.get('/n/' + rid1)).text;
+      const sid = /href="\/u\/(\d+)"/.exec(sp);
+      const su = sid ? (await anon.get('/u/' + sid[1])).text : '';
+      check('the advertiser page has a header card with a WhatsApp button and no search form', su.includes('seller-card') && su.includes('btn-wa') && !su.includes('name="q"'));
+      check('the advertiser page stays out of the index', /noindex/.test(su));
+    }
     check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
 
     // night mode
