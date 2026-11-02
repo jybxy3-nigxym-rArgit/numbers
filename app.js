@@ -1398,6 +1398,23 @@ route('GET', '/admin/sync', async (ctx) => {
   html(ctx, 200, views.syncPage(ctx, { feed }));
 });
 
+// Run the sheet sync right now (the same job that runs at 09:00 and 21:00 Riyadh time).
+route('POST', '/admin/sync/feed', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  if (!config.sheetFeedUrl) {
+    flash(ctx, 'error', 'sync_feed_off');
+    return redirect(ctx, '/admin/sync');
+  }
+  try {
+    await require('./sheetfeed').run(ctx.store, config);
+  } catch {
+    /* the report box shows the error */
+  }
+  await audit(ctx, 'sheet_sync_now', '', '');
+  flash(ctx, 'ok', 'sync_feed_ran');
+  redirect(ctx, '/admin/sync');
+});
+
 route('POST', '/admin/sync', async (ctx) => {
   if (!requireAdmin(ctx)) return;
   const network = NETWORK_BY_KEY[ctx.body.network] ? ctx.body.network : 'stc';

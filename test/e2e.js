@@ -749,6 +749,10 @@ async function main() {
 
     r = await admin.get('/admin/sync');
     check('batch page has network and city dropdowns', r.status === 200 && r.text.includes('name="network"') && r.text.includes('name="city"'));
+    check('the sync page has a run-now button for the sheet', r.text.includes('action="/admin/sync/feed"'));
+    r = await admin.post('/admin/sync/feed');
+    check('run-now is safe when no sheet is linked', r.status === 303 && r.location === '/admin/sync');
+    check('run-now is closed to visitors', (await anon.post('/admin/sync/feed')).status !== 200);
     r = await admin.post('/admin/sync', { network: 'zain', city: 'jeddah', lines: '0591234567 : 4000' });
     r = await anon.get('/network/zain/jeddah');
     check('batch page uses the chosen network and city', r.text.includes('0591 234 567'));

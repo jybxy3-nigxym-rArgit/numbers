@@ -1231,6 +1231,10 @@ function syncPage(ctx, v = {}) {
     <h1>${esc(t('sync_title'))}</h1>
     <p class="lede">${esc(t('sync_intro'))}</p>
     ${syncFeedBox(ctx, v.feed)}
+    <form method="post" action="/admin/sync/feed" class="form" novalidate>
+      ${csrfInput(ctx)}
+      <div class="form-actions"><button class="btn" type="submit">${esc(t('sync_feed_run'))}</button></div>
+    </form>
     <form method="post" action="/admin/sync" class="form" novalidate>
       ${csrfInput(ctx)}
       ${selectField(ctx, { id: 'network', name: 'network', label: t('import_net'), options: networkOptions(ctx), value: v.network || 'stc' })}
