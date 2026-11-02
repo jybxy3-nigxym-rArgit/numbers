@@ -2356,3 +2356,44 @@ a.adv:focus-visible {
 .plate-big .adv .adv-role {
   font-size: 0.74rem;
 }
+
+/* Advertiser page header */
+.seller-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+.seller-card h1 {
+  margin: 0;
+}
+.sc-role {
+  font-size: 0.8rem;
+  padding: 0.1rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  opacity: 0.9;
+}
+.sc-stars {
+  color: inherit;
+  text-decoration: none;
+}
+.sc-facts {
+  display: flex;
+  gap: 1.6rem;
+  margin: 0.2rem 0 0.4rem;
+}
+.sc-facts div {
+  display: grid;
+  gap: 0.1rem;
+}
+.sc-facts dt {
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+.sc-facts dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+}

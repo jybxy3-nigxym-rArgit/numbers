@@ -526,7 +526,8 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
     results = `<div class="grid">${rows.map((l) => plate(ctx, l)).join('')}</div>${pager}`;
   }
 
-  const hero = `
+  const sellerHero = landing && landing.type === 'seller' && landing.profile ? sellerCard(ctx, landing, total) : '';
+  const hero = sellerHero || `
   <div class="hero-band">
     <section class="wrap hero">
       <h1>${esc(info.h1)}</h1>
@@ -621,6 +622,31 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
 }
 
 // Ratings of one seller: the average, the accepted comments, and the form for members.
+// Advertiser page header: who he is, how to reach him, and (below) all his numbers. No phone digits are printed; contact goes through WhatsApp.
+function sellerCard(ctx, landing, total) {
+  const { t } = ctx;
+  const p = landing.profile;
+  const fake = { seller: landing.name, seller_is_admin: p.is_admin, seller_role: p.role };
+  const role = showRole(ctx, fake) ? `<span class="sc-role">${esc(roleTag(ctx, fake))}</span>` : '';
+  const r = landing.rating || {};
+  const stars = r.n ? `<a class="sc-stars" href="#ratings">${starsHtml(r.avg)} <b>${esc(r.avg)}</b> <small>${esc(t('ratings_count', { n: r.n }))}</small></a>` : '';
+  const wa = `https://wa.me/${encodeURIComponent(util.toIntl(p.phone))}?text=${encodeURIComponent(t('adv_wa_msg', { name: landing.name }))}`;
+  const since = p.created_at ? `<div><dt>${esc(t('a_col_joined'))}</dt><dd><bdi dir="ltr">${esc(String(p.created_at).slice(0, 10))}</bdi></dd></div>` : '';
+  return `
+  <div class="hero-band">
+    <section class="wrap hero seller-card">
+      <h1>${esc(landing.name)}${p.verified ? ` ${verifiedMark(ctx)}` : ''}</h1>
+      ${role}
+      ${stars}
+      <dl class="sc-facts">
+        <div><dt>${esc(t('adv_n_label'))}</dt><dd>${esc(formatPrice(total))}</dd></div>
+        ${since}
+      </dl>
+      <a class="btn btn-wa" href="${esc(wa)}" target="_blank" rel="noopener nofollow">${esc(t('adv_wa_btn'))}</a>
+    </section>
+  </div>`;
+}
+
 function sellerRatings(ctx, landing) {
   const { t } = ctx;
   const r = landing.rating;
