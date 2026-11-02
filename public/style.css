@@ -2334,10 +2334,25 @@ a.adv:focus-visible {
   font-size: 11px;
 }
 
-/* Role label: tiny text right before the advertiser name, on the same line. */
+/* Role label: tiny text pinned to the right end of the name tab; the name keeps its own space. */
+.adv {
+  position: relative;
+}
+.adv.has-role {
+  padding-inline: 3.9rem;
+}
 .adv .adv-role {
-  font-size: 0.62em;
+  position: absolute;
+  inset-inline-start: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.64rem;
   font-weight: 500;
+  line-height: 1;
   color: inherit;
-  opacity: 0.85;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+.plate-big .adv .adv-role {
+  font-size: 0.74rem;
 }
