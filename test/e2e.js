@@ -131,7 +131,7 @@ async function main() {
     r = await anon.get('/lang/en?next=//evil.example');
     check('open redirect blocked', r.location === '/');
     check('404 page', (await anon.get('/nope')).status === 404);
-    check('healthz', (await anon.get('/healthz')).text === 'ok');
+    check('healthz', /^ok v\d+$/.test((await anon.get('/healthz')).text));
     const css = await anon.get('/style.css');
     check('stylesheet served', css.status === 200 && (css.headers.get('content-type') || '').includes('text/css'));
     check('path traversal blocked', (await anon.get('/..%2f..%2fserver.js')).status === 404);

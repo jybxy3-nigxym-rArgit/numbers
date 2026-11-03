@@ -1472,7 +1472,7 @@ route('GET', '/sitemap.xml', async (ctx) => {
 
 route('GET', '/healthz', async (ctx) => {
   await ctx.store.ready(); // also proves the database answers
-  send(ctx, 200, 'text/plain; charset=utf-8', 'ok', { 'Cache-Control': 'no-store' });
+  send(ctx, 200, 'text/plain; charset=utf-8', `ok v${config.assetVersion}`, { 'Cache-Control': 'no-store' });
 });
 
 // ---- Main handler ----------------------------------------------------------

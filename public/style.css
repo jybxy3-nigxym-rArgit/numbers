@@ -2421,3 +2421,21 @@ html:not([data-theme="dark"]) .hero-band .new-link {
 html:not([data-theme="dark"]) .sc-role {
   border-color: #d9d0ea;
 }
+
+/* Night mode: fields are lighter than the dark page so they stand out (search, login, add a number). */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #352a50;
+  color: #fff;
+  border: 1px solid #6a5a94;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #b9add3;
+}
+[data-theme="dark"] .search-bar input,
+[data-theme="dark"] .search-bar select {
+  background: #3d3158;
+  border: 1px solid #7a6aa6;
+}
