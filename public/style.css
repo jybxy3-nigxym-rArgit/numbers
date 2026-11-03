@@ -1628,8 +1628,8 @@ blockquote.msg {
   --ink: #efe9fb;
   --ink-soft: #d3c9e8;
   --muted: #a79bc2;
-  --paper: #15101f;
-  --card: #1f1830;
+  --paper: #1d1630;
+  --card: #271f3d;
   --line: #3b3158;
   --green: #7a58c9;
   --green-dark: #9577dc;
@@ -1642,16 +1642,16 @@ blockquote.msg {
   color: #cdb9ff;
 }
 [data-theme="dark"] .top {
-  background: #0f0a1a;
+  background: #1b1330;
 }
 [data-theme="dark"] .hero-band {
   background:
     repeating-radial-gradient(ellipse 90% 140% at 8% 130%, transparent 0 14px, rgba(242, 184, 75, 0.07) 14px 17px),
-    linear-gradient(180deg, #0f0a1a, #2a1c44);
+    linear-gradient(180deg, #1b1330, #34255a);
 }
 [data-theme="dark"] .foot,
 [data-theme="dark"] .tabbar {
-  background: #0f0a1a;
+  background: #1b1330;
 }
 [data-theme="dark"] input,
 [data-theme="dark"] select,
@@ -2445,4 +2445,10 @@ html:not([data-theme="dark"]) .sc-role {
 [data-theme="dark"] .search-bar select {
   background: #3d3158;
   border: 1px solid #7a6aa6;
+}
+
+/* Night mode: the add-ad button keeps dark letters on its gold background. */
+[data-theme="dark"] .top .nav a.nav-add {
+  color: #2a1c44;
+  font-weight: 700;
 }
