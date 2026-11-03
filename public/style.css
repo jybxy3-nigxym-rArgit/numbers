@@ -2380,6 +2380,11 @@ html:not([data-theme="dark"]) .top .nav a.nav-add {
   font-weight: 700;
   border-color: #3d2b5c;
 }
+html:not([data-theme="dark"]) .top .nav a.nav-add:hover,
+html:not([data-theme="dark"]) .top .nav a.nav-add:focus-visible {
+  background: #2a1c44;
+  color: #fff;
+}
 html:not([data-theme="dark"]) .hero-band {
   background: #f4f0fa;
   color: #2a1c44;
