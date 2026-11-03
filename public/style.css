@@ -2356,3 +2356,68 @@ a.adv:focus-visible {
 .plate-big .adv .adv-role {
   font-size: 0.74rem;
 }
+
+/* ---- Light look (day mode only): white header and hero, thin lines, calmer colours. Night mode keeps the dark look. ---- */
+html:not([data-theme="dark"]) .top {
+  background: #fff;
+  color: #3d2b5c;
+  border-bottom: 1px solid #e6e0f0;
+}
+html:not([data-theme="dark"]) .top .brand,
+html:not([data-theme="dark"]) .top .nav a,
+html:not([data-theme="dark"]) .top .nav button,
+html:not([data-theme="dark"]) .top .who {
+  color: #3d2b5c;
+}
+html:not([data-theme="dark"]) .top .nav,
+html:not([data-theme="dark"]) .top .nav a,
+html:not([data-theme="dark"]) .top .nav button {
+  border-color: #e0d8ee;
+}
+html:not([data-theme="dark"]) .top .nav-add {
+  background: #3d2b5c;
+  color: #fff;
+}
+html:not([data-theme="dark"]) .hero-band {
+  background: #fff;
+  color: #2a1c44;
+  border-bottom: 1px solid #e6e0f0;
+}
+html:not([data-theme="dark"]) .hero-band h1,
+html:not([data-theme="dark"]) .hero-band .lede,
+html:not([data-theme="dark"]) .hero-band .hero-stats {
+  color: #2a1c44;
+}
+html:not([data-theme="dark"]) .hero-band .lede,
+html:not([data-theme="dark"]) .hero-band .hero-stats {
+  opacity: 0.75;
+}
+html:not([data-theme="dark"]) .hero-band .search-bar input,
+html:not([data-theme="dark"]) .hero-band .search-bar select {
+  border: 1px solid #d9d0ea;
+  background: #faf8fd;
+  box-shadow: none;
+}
+html:not([data-theme="dark"]) .hero-band .search-bar .btn {
+  background: #3d2b5c;
+  border-color: #3d2b5c;
+  color: #fff;
+}
+html:not([data-theme="dark"]) .hero-band .cta-free {
+  border: 1.5px dashed #c9bfe0;
+  background: #faf8fd;
+}
+html:not([data-theme="dark"]) .hero-band .cta-free b {
+  color: #3d2b5c;
+}
+html:not([data-theme="dark"]) .hero-band .cta-free small {
+  color: #6b6180;
+}
+html:not([data-theme="dark"]) .hero-band .new-link {
+  background: #faf8fd;
+  border: 1px solid #d9d0ea;
+  color: #3d2b5c;
+}
+html:not([data-theme="dark"]) .sc-role {
+  border-color: #d9d0ea;
+}
