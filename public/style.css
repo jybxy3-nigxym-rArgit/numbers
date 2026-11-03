@@ -11,7 +11,7 @@
   --ink: #1c1230;
   --ink-soft: #43375a;
   --muted: #6b6180;
-  --paper: #f6f3fb;
+  --paper: #f1edf8;
   --card: #ffffff;
   --line: #ddd5ea;
   --green: #3d2b5c; /* main action colour (the plate purple) */
@@ -2359,7 +2359,7 @@ a.adv:focus-visible {
 
 /* ---- Light look (day mode only): white header and hero, thin lines, calmer colours. Night mode keeps the dark look. ---- */
 html:not([data-theme="dark"]) .top {
-  background: #fff;
+  background: #f4f0fa;
   color: #3d2b5c;
   border-bottom: 1px solid #e6e0f0;
 }
@@ -2374,12 +2374,14 @@ html:not([data-theme="dark"]) .top .nav a,
 html:not([data-theme="dark"]) .top .nav button {
   border-color: #e0d8ee;
 }
-html:not([data-theme="dark"]) .top .nav-add {
+html:not([data-theme="dark"]) .top .nav a.nav-add {
   background: #3d2b5c;
   color: #fff;
+  font-weight: 700;
+  border-color: #3d2b5c;
 }
 html:not([data-theme="dark"]) .hero-band {
-  background: #fff;
+  background: #f4f0fa;
   color: #2a1c44;
   border-bottom: 1px solid #e6e0f0;
 }
@@ -2395,7 +2397,7 @@ html:not([data-theme="dark"]) .hero-band .hero-stats {
 html:not([data-theme="dark"]) .hero-band .search-bar input,
 html:not([data-theme="dark"]) .hero-band .search-bar select {
   border: 1px solid #d9d0ea;
-  background: #faf8fd;
+  background: #fbf9fe;
   box-shadow: none;
 }
 html:not([data-theme="dark"]) .hero-band .search-bar .btn {
@@ -2405,7 +2407,7 @@ html:not([data-theme="dark"]) .hero-band .search-bar .btn {
 }
 html:not([data-theme="dark"]) .hero-band .cta-free {
   border: 1.5px dashed #c9bfe0;
-  background: #faf8fd;
+  background: #fbf9fe;
 }
 html:not([data-theme="dark"]) .hero-band .cta-free b {
   color: #3d2b5c;
@@ -2414,7 +2416,7 @@ html:not([data-theme="dark"]) .hero-band .cta-free small {
   color: #6b6180;
 }
 html:not([data-theme="dark"]) .hero-band .new-link {
-  background: #faf8fd;
+  background: #fbf9fe;
   border: 1px solid #d9d0ea;
   color: #3d2b5c;
 }
