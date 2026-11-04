@@ -2451,6 +2451,8 @@ html:not([data-theme="dark"]) .sc-role {
 [data-theme="dark"] .top .nav a.nav-add {
   color: #2a1c44;
   font-weight: 700;
+}
+
 /* Advertiser page header */
 .seller-card {
   display: flex;
