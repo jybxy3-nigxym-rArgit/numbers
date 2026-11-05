@@ -643,6 +643,7 @@ function sellerCard(ctx, landing, total) {
         ${since}
       </dl>
       <a class="btn btn-wa" href="${esc(wa)}" target="_blank" rel="noopener nofollow">${esc(t('adv_wa_btn'))}</a>
+      <a class="btn btn-ghost sc-call" href="tel:+${esc(util.toIntl(p.phone))}" rel="nofollow">${esc(t('adv_call_btn'))}</a>
     </section>
   </div>`;
 }

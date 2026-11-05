@@ -2493,3 +2493,12 @@ html:not([data-theme="dark"]) .sc-role {
   font-weight: 700;
   font-size: 1.1rem;
 }
+
+.seller-card .sc-call {
+  width: 100%;
+  text-align: center;
+}
+[data-theme="dark"] .seller-card .sc-call {
+  border-color: #b9add3;
+  color: #fff;
+}

@@ -834,7 +834,7 @@ async function main() {
       const sp = (await anon.get('/n/' + rid1)).text;
       const sid = /href="\/u\/(\d+)"/.exec(sp);
       const su = sid ? (await anon.get('/u/' + sid[1])).text : '';
-      check('the advertiser page has a header card with a WhatsApp button and no search form', su.includes('seller-card') && su.includes('btn-wa') && !su.includes('name="q"'));
+      check('the advertiser page has a header card with a WhatsApp button and no search form', su.includes('seller-card') && su.includes('btn-wa') && /href="tel:\+966\d+"/.test(su) && !su.includes('name="q"'));
       check('the advertiser page stays out of the index', /noindex/.test(su));
     }
     check('likes are only for live ads', (await fan.post(`/n/${rid2 + 999}/like`)).status === 404);
