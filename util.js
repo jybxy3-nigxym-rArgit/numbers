@@ -151,6 +151,12 @@ const hasOutsideContact = (text) => OUTSIDE_RE.test(toWestern(String(text ?? '')
 // Staff levels: 3 = site owner (the admin phone), 2 = general moderator (مشرف عام), 1 = moderator (مشرف), 0 = everyone else.
 const rankOf = (u) => (!u ? 0 : u.is_admin ? 3 : u.role === 'super' ? 2 : u.role === 'mod' ? 1 : 0);
 // A staff member can act on himself or on someone of a lower level, never on his equals or above.
+// The owner's password: at least 10 characters, with letters, digits and symbols.
+const strongPassword = (p) => {
+  p = String(p || '');
+  return p.length >= 10 && /[A-Za-z\u0600-\u06FF]/.test(p) && /[0-9\u0660-\u0669]/.test(p) && /[^A-Za-z0-9\u0600-\u06FF\u0660-\u0669\s]/.test(p);
+};
+
 const canActOn = (actor, target) => !!actor && !!target && (actor.id === target.id || rankOf(actor) > rankOf(target));
 
 // Numbers that need a staff look before they go live.
@@ -175,6 +181,7 @@ module.exports = {
   hasOutsideContact,
   rankOf,
   canActOn,
+  strongPassword,
   esc,
   toWestern,
   digitsOnly,

@@ -143,6 +143,7 @@ function createStore(d) {
     if (!ucols.includes('suspended')) await addCol('users', 'suspended', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('verified')) await addCol('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('ad_limit')) await addCol('users', 'ad_limit', 'INTEGER NOT NULL DEFAULT 0');
+    if (!ucols.includes('banned_rank')) await addCol('users', 'banned_rank', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('hidden_by')) await addCol('listings', 'hidden_by', 'INTEGER NOT NULL DEFAULT 0');
     if (!cols.includes('sold_at')) await addCol('listings', 'sold_at', "TEXT NOT NULL DEFAULT ''");
@@ -855,9 +856,9 @@ function createStore(d) {
   }
 
   // Banning a user also bans every browser he used (the internet address is not used at all); unbanning lifts it.
-  async function setUserBanned(id, banned) {
+  async function setUserBanned(id, banned, rank = 2) {
     dropCounts();
-    const stmts = [{ sql: 'UPDATE users SET banned = ? WHERE id = ? AND is_admin = 0', params: [banned ? 1 : 0, id] }];
+    const stmts = [{ sql: 'UPDATE users SET banned = ?, banned_rank = ? WHERE id = ? AND is_admin = 0', params: [banned ? 1 : 0, banned ? rank : 0, id] }];
     if (banned) {
       stmts.push({
         sql: "UPDATE listings SET status = 'hidden' WHERE user_id = ? AND status IN ('active','pending') AND (SELECT is_admin FROM users WHERE id = ?) = 0",

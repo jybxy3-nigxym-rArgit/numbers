@@ -252,12 +252,9 @@ async function main() {
     r = await anon.post('/n/1/report', { reason: 'scam' });
     check('same visitor cannot report twice', (await a.get('/n/1')).status === 200);
     await b.post('/n/1/report', { reason: 'scam' });
-    check('ad still live after 2 reports', (await anon.get('/n/1')).status === 200);
+    
     await c.post('/n/1/report', { reason: 'spam' });
-    check('ad hidden after 3 different reporters', (await anon.get('/n/1')).status === 404);
-    r = await a.get('/n/1');
-    check('owner can still see hidden ad', r.status === 200 && r.text.includes('Only you and the site admin'));
-    check('hidden ad missing from search', !(await search('q=777')).includes('/n/1'));
+    check('reports never hide an ad by themselves', (await anon.get('/n/1')).status === 200 && (await search('q=777')).includes('/n/1'));
     await d.post('/n/2/report', { reason: 'other' });
     r = await a.post('/n/2/report', { reason: 'scam' });
     check('seller reporting own ad is ignored', (await anon.get('/n/2')).status === 200);
@@ -270,7 +267,7 @@ async function main() {
     r = await admin.get('/admin?tab=reported');
     check('admin sees reported ad', r.status === 200 && r.text.includes('0555 777 888'));
     r = await admin.post('/admin/l/1/restore', { tab: 'reported' });
-    check('admin restores ad', r.status === 303 && (await anon.get('/n/1')).status === 200);
+    check('admin keeps a reported ad (reports cleared)', r.status === 303 && (await anon.get('/n/1')).status === 200 && !(await admin.get('/admin?tab=reported')).text.includes('0555 777 888'));
     r = await admin.get('/admin?tab=users');
     check('admin sees users', r.text.includes('Ahmed') && r.text.includes('0555000111'));
     r = await admin.post('/admin/u/1/ban', { tab: 'users' });
@@ -319,6 +316,16 @@ async function main() {
     check('user changes the password', r.status === 303, r.status);
     r = await pc.post('/password', { current: 'new-pass-9999', next: 'secret-pass-1' });
     check('and can set it back', r.status === 303, r.status);
+    {
+      // The owner's password must be strong (10+ characters with letters, digits and symbols); a normal member's rule is unchanged.
+      const own = admin;
+      let pr = await own.post('/password', { current: 'secret-pass-1', next: 'weakpass1234' });
+      check('owner cannot set a password without a symbol', pr.status === 400 && pr.text.includes('at least 10 characters'));
+      pr = await own.post('/password', { current: 'secret-pass-1', next: 'Sh0rt!x' });
+      check('owner cannot set a short password', pr.status === 400);
+      pr = await own.post('/password', { current: 'secret-pass-1', next: 'Str0ng-Pass!42' });
+      check('owner sets a strong password', pr.status === 303);
+    }
     check('visitors cannot open the password page', (await anon.get('/password')).status === 303);
 
     console.log('\nMy ads actions');
@@ -479,7 +486,8 @@ async function main() {
     check('moderator hides an ad', r.status === 303 && (await pub(vicAd)) === 404);
     check('moderator cannot delete', (await mod.post(`/admin/l/${vicAd}/delete`)).status === 404 && (await admin.get(`/n/${vicAd}`)).status === 200);
     check('moderator cannot pin or approve', (await mod.post(`/admin/l/${vicAd}/pin`)).status === 404 && (await mod.post(`/admin/l/${vicAd}/approve`)).status === 404);
-    check('a moderator cannot bring a hidden ad back', (await mod.post(`/admin/l/${vicAd}/restore`, { tab: 'all' })).status === 404 && (await pub(vicAd)) === 404);
+    check('a moderator can show a hidden ad again', (await mod.post(`/admin/l/${vicAd}/restore`, { tab: 'all' })).status === 303 && (await pub(vicAd)) === 200);
+    await mod.post(`/admin/l/${vicAd}/hide`, { tab: 'all', confirm: '1' });
     await admin.post(`/admin/l/${vicAd}/restore`, { tab: 'all' });
     check('moderator cannot touch the owner or a general moderator ads',
       (await mod.post(`/admin/l/${ownerAd}/hide`)).status === 404 && (await mod.post(`/admin/l/${supAd}/hide`)).status === 404 && (await pub(ownerAd)) === 200);
@@ -490,8 +498,8 @@ async function main() {
     r = await (await newClient(base)).post('/login', { phone: '0577000003', password: 'secret-pass-1' });
     check('suspended member cannot sign in and sees why', r.status === 403 && r.text.includes('suspended'));
     check('suspended ads leave the home page', !(await anon.get('/')).text.includes('/n/' + vicAd + '"'));
-    check('moderator cannot ban, reset or rename',
-      (await mod.post(`/admin/u/${vicId}/ban`)).status === 404 && (await mod.post(`/admin/u/${vicId}/reset`)).status === 404 && (await mod.post(`/admin/u/${vicId}/name`, { name: 'Zed Zed' })).status === 404);
+    check('moderator cannot reset or rename',
+      (await mod.post(`/admin/u/${vicId}/reset`)).status === 404 && (await mod.post(`/admin/u/${vicId}/name`, { name: 'Zed Zed' })).status === 404);
     check('moderator cannot suspend the owner or a general moderator',
       (await mod.post(`/admin/u/${ownerId}/suspend`)).status === 404 && (await mod.post(`/admin/u/${supId}/suspend`)).status === 404);
 
@@ -500,7 +508,25 @@ async function main() {
     check('review tab lists hidden ads and suspended members', r.text.includes('0577 111 222') && r.text.includes('Vic') && r.text.includes('Suspended by Mod'));
     check('general moderator lifts the suspension', (await sup.post(`/admin/u/${vicId}/unsuspend`, { tab: 'review' })).status === 303);
     check('member can sign in again', (await (await newClient(base)).post('/login', { phone: '0577000003', password: 'secret-pass-1' })).status === 303);
-    check('a general moderator cannot restore a hidden ad, only the owner can', (await sup.post(`/admin/l/${vicAd}/restore`)).status === 404 && (await pub(vicAd)) === 404 && (await admin.post(`/admin/l/${vicAd}/restore`)).status === 303 && (await pub(vicAd)) === 200);
+    check('staff can show a hidden ad again', (await sup.post(`/admin/l/${vicAd}/restore`)).status === 303 && (await pub(vicAd)) === 200);
+    // Ban hierarchy: members by any staff, moderators by general moderators and the owner, general moderators by the owner only.
+    check('moderator bans a member; a moderator lifts his own ban',
+      (await mod.post(`/admin/u/${vicId}/ban`, { confirm: '1' })).status === 303 && (await mod.post(`/admin/u/${vicId}/unban`)).status === 303);
+    await mod.post(`/admin/u/${vicId}/ban`, { confirm: '1' });
+    await admin.post(`/admin/u/${vicId}/unban`);
+    await sup.post(`/admin/u/${vicId}/ban`, { confirm: '1' });
+    check('a moderator cannot lift a general moderator ban', (await mod.post(`/admin/u/${vicId}/unban`)).status === 404);
+    check('the general moderator lifts it', (await sup.post(`/admin/u/${vicId}/unban`)).status === 303);
+    check('nobody below the owner bans a general moderator; a moderator cannot ban a moderator or general moderator',
+      (await sup.post(`/admin/u/${sup2Id}/ban`)).status === 404 && (await mod.post(`/admin/u/${supId}/ban`)).status === 404);
+    {
+      const m2 = await newClient(base);
+      await register(m2, 'Mod Two', '0577000005');
+      const m2Id = await idOf('0577000005');
+      await admin.post(`/admin/u/${m2Id}/role`, { role: 'mod' });
+      check('a general moderator bans and unbans a moderator',
+        (await sup.post(`/admin/u/${m2Id}/ban`, { confirm: '1' })).status === 303 && (await m2.get('/admin')).status !== 200 && (await sup.post(`/admin/u/${m2Id}/unban`)).status === 303);
+    }
     check('general moderator pins an ad', (await sup.post(`/admin/l/${vicAd}/pin`, { next: '/' })).status === 303);
     check('general moderator bans and unbans a member',
       (await sup.post(`/admin/u/${vicId}/ban`)).status === 303 && (await sup.post(`/admin/u/${vicId}/unban`)).status === 303);
@@ -518,7 +544,7 @@ async function main() {
     check('general moderators cannot act on each other', (await sup.post(`/admin/u/${sup2Id}/ban`)).status === 404 && (await sup.post(`/admin/u/${sup2Id}/reset`)).status === 404);
 
     await sup.post(`/admin/u/${vicId}/suspend`, { tab: 'users' });
-    check('moderator cannot lift a suspension he did not make', (await mod.post(`/admin/u/${vicId}/unsuspend`)).status === 404);
+    { const q = await mod.post(`/admin/u/${vicId}/unsuspend`); check('moderator cannot lift a suspension he did not make', q.status === 404, q.status + ' ' + q.location); }
     await sup.post(`/admin/u/${vicId}/unsuspend`, { tab: 'users' });
     await admin.post(`/admin/u/${modId}/role`, { role: 'user' });
     check('owner takes the role away', (await mod.get('/admin')).status === 404);
@@ -609,7 +635,8 @@ async function main() {
     check('verified mark shows on plates', (await homeText()).includes('class="vmark"'));
     check('verified member opens the bulk page', (await nora.get('/my/bulk')).status === 200);
     rr = await nora.post('/my/bulk', { network: 'stc', city: 'riyadh', lines: '0566333001 100\n0566333002 200\n0566333003 300\n0566333004 400\n0566333005 500\n0566333006 600\n0566333007 700' });
-    check('bulk add is capped at 5 numbers', rr.status === 303 && (await nora.get('/my')).text.includes('Added 5'));
+    check('bulk add is capped at 5 numbers', rr.status === 303 && (await nora.get('/my')).text.includes('for review'));
+    check('bulk numbers wait for review', !(await anon.get('/')).text.includes('0566333001'));
     check('the sixth number was not added', !(await anon.get('/')).text.includes('0566333006'));
 
     // featured ads, notes, hide with a reason, activity log

@@ -523,7 +523,7 @@ route('POST', '/n/:id/report', async (ctx) => {
       return redirect(ctx, `/n/${l.id}`);
     }
     const count = await ctx.store.addReport(l.id, key, reason);
-    if (count >= config.reportHideAt) await ctx.store.setListingStatus(l.id, 'hidden');
+    // A report never hides an ad by itself: it only alerts the staff, who decide to hide it or keep it.
     notify(ctx, ar('wa_alert_report', { number: l.number, reason: ctx.t('r_' + reason), n: count, url: `${ctx.base}/admin?tab=reported` }));
   }
   flash(ctx, 'ok', 'reported');
@@ -776,6 +776,13 @@ route('POST', '/login', async (ctx) => {
 
   await ctx.store.recordDevice(user.id, ctx.device);
   logIn(ctx, user.id);
+  // The owner's password must be strong. If it already is, nothing changes; if not, he is sent to change it.
+  if (user.is_admin && !util.strongPassword(password)) {
+    ctx.session.forcePw = 1;
+    ctx.dirty = true;
+    flash(ctx, 'error', 'pw_force');
+    return redirect(ctx, '/password');
+  }
   rememberPhone(ctx, nat);
   if (!user.is_admin) notify(ctx, ar('wa_alert_login', { name: user.name, phone: util.toLocal(nat) }));
   flash(ctx, 'ok', 'welcome_back');
@@ -815,9 +822,11 @@ route('POST', '/password', async (ctx) => {
   const next = str(ctx.body.next, 200);
   const errors = {};
   if (!(await wc.verifyPassword(current, ctx.user.pass_hash, config.pbkdf2Iterations))) errors.current = 'err_pass_current';
-  if (next.length < 8) errors.next = 'err_pass';
+  if (ctx.user.is_admin ? !util.strongPassword(next) : next.length < 8) errors.next = ctx.user.is_admin ? 'err_pass_strong' : 'err_pass';
   if (Object.keys(errors).length) return html(ctx, 400, views.passwordPage(ctx, errors));
   await ctx.store.setUserPassword(ctx.user.id, await wc.hashPassword(next, config.pbkdf2Iterations));
+  delete ctx.session.forcePw;
+  ctx.dirty = true;
   flash(ctx, 'ok', 'pw_changed');
   redirect(ctx, '/my');
 });
@@ -893,6 +902,8 @@ route('POST', '/my/bulk', async (ctx) => {
   for (const it of parsed.items) {
     if (items.some((x) => x.number === it.number)) continue;
     if (await ctx.store.isPhoneBlocked(it.number.slice(1))) continue;
+    // A reserved (hidden) number cannot come back through a batch either.
+    if (util.rankOf(ctx.user) < 1 && (await ctx.store.numberIsHeld(it.number))) continue;
     items.push(it);
   }
   const take = items.slice(0, Math.min(BULK_MAX, room));
@@ -900,7 +911,7 @@ route('POST', '/my/bulk', async (ctx) => {
     flash(ctx, 'error', room ? 'import_none' : 'err_limit_bulk', { n: adLimit(ctx.user) });
     return redirect(ctx, '/my/bulk');
   }
-  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true, auto: !!ctx.user.verified, statusOf: (n) => statusForNew(ctx.user, n) });
+  const r = await ctx.store.importListings(ctx.user.id, util.toIntl(ctx.user.phone), take, { penalty: true, auto: !!ctx.user.verified, statusOf: (n) => (util.rankOf(ctx.user) >= 1 ? 'active' : 'pending') });
   const extra = parsed.items.length - r.added;
   flash(ctx, 'ok', 'bulk_done', { added: r.added, skipped: Math.max(0, extra) });
   redirect(ctx, '/my');
@@ -1004,10 +1015,12 @@ route('POST', '/admin/l/:id/:action', async (ctx) => {
   if (!l) return notFound(ctx);
   const rank = util.rankOf(ctx.user);
   // Moderators may only hide an ad (and take back their own hiding). Nobody touches the ads of someone above them.
-  const modOk = action === 'hide' || action === 'approve';
+  const modOk = action === 'hide' || action === 'approve' || action === 'restore';
   if (rank < 2 && !modOk) return notFound(ctx);
-  // A hidden ad stays hidden: only the owner can bring it back (not even a general moderator), and approve is for pending ads only.
-  if (action === 'restore' && rank < 3) return notFound(ctx);
+  // Staff may show a hidden ad again, or keep a reported one (this clears its reports).
+  // A number held by the reserved-number rule is shown only by the owner.
+  if (action === 'restore' && l.hidden_by === -2 && rank < 3) return notFound(ctx);
+  if (action === 'restore' && l.status !== 'hidden' && l.status !== 'active') return notFound(ctx);
   if (action === 'approve' && l.status !== 'pending') return notFound(ctx);
   // Putting a sold number back on sale is for the owner and general moderators.
   if (action === 'resell' && (rank < 2 || l.status !== 'sold')) return notFound(ctx);
@@ -1201,9 +1214,11 @@ route('POST', '/admin/u/:id/:action', async (ctx) => {
     if (rank < 2 && user.suspended !== ctx.user.id) return notFound(ctx);
     await ctx.store.unsuspendUser(user.id);
   } else if (action === 'ban' || action === 'unban') {
-    if (rank < 2) return notFound(ctx);
+    // Whoever may ban is decided by canActOn above: members by any staff, moderators by general moderators and the owner, general moderators by the owner.
+    // A ban is lifted only by someone of at least the rank of whoever banned (older bans count as the general moderator's).
+    if (action === 'unban' && rank < (user.banned_rank || 2)) return notFound(ctx);
     if (action === 'ban' && needConfirm(ctx, 'ban', { back, ask: true })) return;
-    await ctx.store.setUserBanned(user.id, action === 'ban');
+    await ctx.store.setUserBanned(user.id, action === 'ban', rank);
     if (action === 'ban') reason = reasonOf(ctx);
   } else if (action === 'verify' || action === 'unverify') {
     if (rank < 2) return notFound(ctx);
@@ -1539,6 +1554,11 @@ async function handle(request, { store, ip, waitUntil }) {
           redirect(ctx, '/');
           rejected = true;
         }
+      }
+      // The owner with a weak password can do nothing else until he changes it.
+      if (!rejected && ctx.user && ctx.user.is_admin && ctx.session.forcePw && !['/password', '/logout'].includes(url.pathname) && !url.pathname.startsWith('/lang/') && url.pathname !== '/healthz') {
+        redirect(ctx, '/password');
+        rejected = true;
       }
       if (!rejected) await matched.handler(ctx);
     }

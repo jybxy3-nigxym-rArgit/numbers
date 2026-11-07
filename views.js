@@ -1187,8 +1187,8 @@ function adminUserPage(ctx, u, extra = {}) {
     if (u.suspended) {
       if (senior || u.suspended === me.id) acts.push(btn('unsuspend', t('unsuspend')));
     } else acts.push(btn('suspend', t('suspend')));
+    if (u.banned ? rank >= (u.banned_rank || 2) : true) acts.push(btn(u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban')));
     if (senior) {
-      acts.push(btn(u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban')));
       if (!u.is_admin) acts.push(btn(u.verified ? 'unverify' : 'verify', t(u.verified ? 'unverify' : 'verify')));
       acts.push(btn('reset', t('a_reset_pass')));
     }
@@ -1392,10 +1392,11 @@ function adminPage(ctx, tab, data) {
             const mayAct = util.canActOn(me, seller);
             const acts = [];
             if (mayAct) {
+              if (l.status === 'hidden') acts.push(act(l, 'restore', t('restore'), 'btn'));
+              else if (l.status === 'active' && l.report_count > 0) acts.push(act(l, 'restore', t('keep_ad'), 'btn'));
               if (senior) {
                 if (l.status === 'pending') acts.push(act(l, 'approve', t('approve'), 'btn'));
                 if (l.status === 'sold') acts.push(act(l, 'resell', t('resell'), 'btn'));
-                if (l.status === 'hidden' && rank >= 3) acts.push(act(l, 'restore', t('restore'), 'btn'));
                 if (l.status === 'active') acts.push(act(l, l.pinned ? 'unpin' : 'pin', t(l.pinned ? 'unpin' : 'pin'), 'btn-gold'));
                 if (l.status === 'active') acts.push(act(l, l.featured ? 'unfeature' : 'feature', t(l.featured ? 'unfeature' : 'feature'), 'btn-gold'));
                 if (l.status === 'active') acts.push(act(l, 'hide', t('hide')));
