@@ -876,16 +876,20 @@ async function main() {
       // Moving banner: written by the owner for visitors and/or members.
       check('banner page is for the owner only', (await anon.get('/admin/banner')).status !== 200 && (await mod.get('/admin/banner')).status === 404 && (await admin.get('/admin/banner')).status === 200);
       check('no banner until one is written', !(await anon.get('/')).text.includes('id="ann"'));
-      await admin.post('/admin/banner', { action: 'add', ar: 'الموقع مجاني للزوار', en: 'Free for visitors', aud: 'guest', link: '/new', label: 'شاهد' });
+      await admin.post('/admin/banner', { action: 'add', ar: 'الموقع مجاني للزوار', en: 'Free for visitors', aud: 'guest', kind: 'pin', link: '/new', label: 'شاهد' });
       await admin.post('/admin/banner', { action: 'add', ar: 'رسالة للأعضاء فقط', aud: 'member', link: 'javascript:alert(1)' });
       let g = (await anon.get('/')).text;
       check('visitor sees the visitor message with its link', g.includes('id="ann"') && g.includes('Free for visitors') && g.includes('href="/new"') && !g.includes('رسالة للأعضاء فقط'), (g.match(/id="ann"[\s\S]{0,500}/) || [''])[0]);
+      check('message type and live counter are shown', g.includes('data-k="pin"') && /class="ann-live"[\s\S]*\+\d+/.test(g));
       check('banner script is loaded and served', g.includes('/ann.js') && (await anon.get('/ann.js')).status === 200);
       let m = (await admin.get('/')).text;
       check('member sees the member message only, and an unsafe link is dropped', m.includes('رسالة للأعضاء فقط') && !m.includes('Free for visitors') && !m.includes('javascript:'));
       check('Arabic readers get the Arabic text', (await (async () => { const e = await newClient(base); await e.get('/lang/ar'); return (await e.get('/')).text.includes('الموقع مجاني للزوار'); })()));
       const bp = (await admin.get('/admin/banner')).text;
       const id1 = (/name="id" value="([a-z0-9]+)"/.exec(bp) || [])[1];
+      await admin.post('/admin/banner', { action: 'badge' });
+      check('the live counter can be turned off', !(await anon.get('/')).text.includes('ann-live'));
+      await admin.post('/admin/banner', { action: 'badge' });
       await admin.post('/admin/banner', { action: 'toggle', id: id1 });
       check('a paused message disappears', !(await anon.get('/')).text.includes('id="ann"'));
       await admin.post('/admin/banner', { action: 'toggleall' });

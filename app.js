@@ -163,6 +163,16 @@ function makeCtx(request, url, extra) {
   return ctx;
 }
 
+// How many ads were published or refreshed today (Riyadh time). Kept for 5 minutes so pages don't ask the database every time.
+let todayCache = { at: 0, day: '', n: 0 };
+async function adsToday(store) {
+  const day = util.riyadhDayStartUtc();
+  if (todayCache.day === day && Date.now() - todayCache.at < 300000) return todayCache.n;
+  const n = await store.countActiveSince(day);
+  todayCache = { at: Date.now(), day, n };
+  return n;
+}
+
 async function buildContext(request, url, ip, store, waitUntil) {
   const secret = await store.getSecret();
   let session = await readSession(request, secret);
@@ -201,7 +211,10 @@ async function buildContext(request, url, ip, store, waitUntil) {
     ack: cookies.ack === '1',
   });
   // The moving banner under the header: what the owner wrote, for visitors and/or members.
-  if (request.method === 'GET') ctx.ann = util.pickAnnouncements(await store.metaGet('announcements'), !!user, session.lang);
+  if (request.method === 'GET') {
+    ctx.ann = util.pickAnnouncements(await store.metaGet('announcements'), !!user, session.lang);
+    if (ctx.ann && ctx.ann.badge) ctx.ann.today = await adsToday(store);
+  }
   if (user && util.rankOf(user) >= 1) {
     const a = await store.adminAlerts();
     ctx.alertsRatings = a.ratings;
@@ -1476,6 +1489,7 @@ route('POST', '/admin/banner', async (ctx) => {
       en,
       link,
       label: link ? str(ctx.body.label, 40).trim() : '',
+      kind: util.ANN_KINDS.includes(ctx.body.kind) ? ctx.body.kind : 'offer',
       aud: ['all', 'guest', 'member'].includes(ctx.body.aud) ? ctx.body.aud : 'all',
       on: true,
     });
@@ -1486,6 +1500,8 @@ route('POST', '/admin/banner', async (ctx) => {
     data.items = data.items.filter((x) => x.id !== id);
   } else if (action === 'speed') {
     data.speed = ['slow', 'mid', 'fast'].includes(ctx.body.speed) ? ctx.body.speed : 'slow';
+  } else if (action === 'badge') {
+    data.nobadge = !data.nobadge;
   } else if (action === 'toggleall') {
     data.off = !data.off;
   }

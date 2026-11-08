@@ -636,6 +636,12 @@ function createStore(d) {
     const r = await d.first('SELECT v FROM meta WHERE k = ?', [k]);
     return r ? r.v : null;
   }
+  // Ads published or refreshed since the given UTC time ('YYYY-MM-DD HH:MM:SS').
+  async function countActiveSince(since) {
+    await ready();
+    const r = await d.first("SELECT COUNT(*) AS n FROM listings WHERE status = 'active' AND created_at >= ?", [since]);
+    return r ? r.n : 0;
+  }
   async function metaSet(k, v) {
     await ready();
     await d.run('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v', [k, String(v)]);
@@ -1073,6 +1079,7 @@ function createStore(d) {
     previewStoreList,
     metaGet,
     metaSet,
+    countActiveSince,
     updateListing,
     userListings,
     setListingStatus,

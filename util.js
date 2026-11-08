@@ -160,6 +160,7 @@ const strongPassword = (p) => {
 // ---- Moving banner (written by the owner) ----
 const ANN_MAX = 160;
 const ANN_COUNT = 10;
+const ANN_KINDS = ['offer', 'pin', 'alert'];
 const safeLink = (s) => {
   s = String(s || '').trim();
   if (/^\/(?![/\\])[^\s]*$/.test(s) || /^https?:\/\/[^\s<>"']+$/i.test(s)) return s;
@@ -173,7 +174,7 @@ const parseAnnouncements = (raw) => {
     d = null;
   }
   if (!d || !Array.isArray(d.items)) d = { items: [] };
-  return { items: d.items, speed: ['slow', 'mid', 'fast'].includes(d.speed) ? d.speed : 'slow', off: !!d.off };
+  return { items: d.items, speed: ['slow', 'mid', 'fast'].includes(d.speed) ? d.speed : 'slow', off: !!d.off, nobadge: !!d.nobadge };
 };
 // What one reader sees: only the live messages meant for visitors or members, in the page language (Arabic when no English text was written).
 const pickAnnouncements = (raw, loggedIn, lang) => {
@@ -181,13 +182,20 @@ const pickAnnouncements = (raw, loggedIn, lang) => {
   if (d.off) return null;
   const items = d.items
     .filter((x) => x.on && (x.aud === 'all' || (loggedIn ? x.aud === 'member' : x.aud === 'guest')))
-    .map((x) => ({ id: x.id, text: (lang === 'en' ? x.en || x.ar : x.ar || x.en) || '', link: x.link || '', label: x.label || '' }))
+    .map((x) => ({ id: x.id, kind: ANN_KINDS.includes(x.kind) ? x.kind : 'offer', text: (lang === 'en' ? x.en || x.ar : x.ar || x.en) || '', link: x.link || '', label: x.label || '' }))
     .filter((x) => x.text);
   if (!items.length) return null;
   const sig = items.map((x) => x.id + x.text + x.link).join('|');
   let h = 0;
   for (let i = 0; i < sig.length; i++) h = (h * 31 + sig.charCodeAt(i)) | 0;
-  return { items, speed: d.speed, v: String(h >>> 0) };
+  return { items, speed: d.speed, badge: !d.nobadge, v: String(h >>> 0) };
+};
+
+// Start of today in Riyadh (UTC+3) as a UTC timestamp string, to count today's ads.
+const riyadhDayStartUtc = (now = Date.now()) => {
+  const r = new Date(now + 3 * 3600 * 1000);
+  const start = Date.UTC(r.getUTCFullYear(), r.getUTCMonth(), r.getUTCDate()) - 3 * 3600 * 1000;
+  return new Date(start).toISOString().slice(0, 19).replace('T', ' ');
 };
 
 const canActOn = (actor, target) => !!actor && !!target && (actor.id === target.id || rankOf(actor) > rankOf(target));
@@ -214,8 +222,10 @@ module.exports = {
   hasOutsideContact,
   rankOf,
   canActOn,
+  riyadhDayStartUtc,
   ANN_MAX,
   ANN_COUNT,
+  ANN_KINDS,
   safeLink,
   parseAnnouncements,
   pickAnnouncements,
