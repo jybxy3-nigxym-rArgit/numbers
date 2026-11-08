@@ -126,7 +126,7 @@ function bannerHtml(ctx) {
     })
     .join('');
   const live = b.badge && b.today > 0 ? `<div class="ann-live"><span class="ann-dot" aria-hidden="true"></span><span>+${esc(b.today)}<span class="ann-lbl"> ${esc(ctx.t('ban_today'))}</span></span></div>` : '';
-  return `<div class="ann" id="ann" role="region" aria-label="${esc(ctx.t('ban_label'))}" data-v="${esc(b.v)}" data-speed="${esc(b.speed)}">${live}<div class="ann-win"><div class="ann-col">${items}</div></div><button class="ann-x" type="button" aria-label="${esc(ctx.t('ban_close'))}" hidden>×</button></div>`;
+  return `<div class="ann" id="ann" role="region" aria-label="${esc(ctx.t('ban_label'))}" data-v="${esc(b.v)}" data-speed="${esc(b.speed)}">${live}<div class="ann-win"><div class="ann-col">${items}</div></div></div>`;
 }
 
 function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', canonical, noindex, robots, ld = [], promo = false, liveJs = false }) {

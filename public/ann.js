@@ -1,26 +1,10 @@
 /* Banner: the messages slide up one at a time (the live counter stays). Pauses while the pointer is over it or a finger touches it.
-   Visitors can close it; it comes back only when the messages change. Without this file the first message is simply shown. */
+   Without this file the first message is simply shown. */
 (function () {
   var bar = document.getElementById('ann');
   if (!bar) return;
-  var v = bar.getAttribute('data-v');
-  try {
-    if (localStorage.getItem('annx') === v) {
-      bar.parentNode.removeChild(bar);
-      return;
-    }
-  } catch (e) {}
-  var x = bar.querySelector('.ann-x');
   var col = bar.querySelector('.ann-col');
   var timer = 0;
-  if (x) {
-    x.hidden = false;
-    x.addEventListener('click', function () {
-      try { localStorage.setItem('annx', v); } catch (e) {}
-      clearTimeout(timer);
-      bar.parentNode.removeChild(bar);
-    });
-  }
   var items = col.children;
   var n = items.length;
   if (n < 2) return;
