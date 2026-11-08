@@ -33,5 +33,7 @@
   bar.addEventListener('touchstart', function () { paused = true; }, { passive: true });
   bar.addEventListener('touchend', function () { paused = false; }, { passive: true });
   window.addEventListener('resize', function () { go(i % (n + 1), false); });
+  // A background tab does not keep counting: the next message waits until the tab is shown again.
+  document.addEventListener('visibilitychange', function () { paused = document.hidden; });
   tick();
 })();

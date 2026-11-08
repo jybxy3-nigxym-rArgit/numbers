@@ -173,6 +173,15 @@ async function adsToday(store) {
   return n;
 }
 
+// The banner text is read from the database at most once every 30 seconds per server (saving it in the admin page refreshes it at once).
+let annCache = { at: 0, v: null };
+async function annRaw(store) {
+  if (Date.now() - annCache.at < 30000) return annCache.v;
+  const v = await store.metaGet('announcements');
+  annCache = { at: Date.now(), v };
+  return v;
+}
+
 async function buildContext(request, url, ip, store, waitUntil) {
   const secret = await store.getSecret();
   let session = await readSession(request, secret);
@@ -212,7 +221,7 @@ async function buildContext(request, url, ip, store, waitUntil) {
   });
   // The moving banner under the header: what the owner wrote, for visitors and/or members.
   if (request.method === 'GET') {
-    ctx.ann = util.pickAnnouncements(await store.metaGet('announcements'), !!user, session.lang);
+    ctx.ann = util.pickAnnouncements(await annRaw(store), !!user, session.lang);
     if (ctx.ann && ctx.ann.badge) ctx.ann.today = await adsToday(store);
   }
   if (user && util.rankOf(user) >= 1) {
@@ -1506,6 +1515,7 @@ route('POST', '/admin/banner', async (ctx) => {
     data.off = !data.off;
   }
   await ctx.store.metaSet('announcements', JSON.stringify(data));
+  annCache = { at: 0, v: null };
   await audit(ctx, 'banner', action, id);
   flash(ctx, 'ok', 'ban_saved');
   redirect(ctx, '/admin/banner');
