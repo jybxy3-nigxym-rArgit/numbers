@@ -30,7 +30,6 @@ function apply(env = {}) {
     // false = new ads go live immediately (reports and the admin panel still apply)
     requireApproval: /^(1|true|yes)$/i.test(env.REQUIRE_APPROVAL || ''),
 
-    reportHideAt: Number(env.REPORT_HIDE_AT) || 3,
     maxActiveAdsPerUser: Number(env.MAX_ADS_PER_USER) || 20,
     postPerHour: Number(env.POST_PER_HOUR) || 30,
     registerPerHour: Number(env.REGISTER_PER_HOUR) || 8,

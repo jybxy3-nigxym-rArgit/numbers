@@ -287,7 +287,7 @@ const dict = {
     tip_2: 'Check that the person on WhatsApp really owns the number. Ask them to send a code to the number, then confirm it with you.',
     tip_3: 'Be careful with prices far below the market. A deal that looks too good usually is.',
     tip_4: 'Meet in a public place for in-person handovers, and keep a record of the chat and any payment receipt.',
-    tip_5: 'Use the report button on any ad that looks wrong. Three reports hide an ad until we review it.',
+    tip_5: 'Use the report button on any ad that looks wrong. Reports go to the moderators, who decide whether to hide the ad.',
 
     // pages
     nf_title: 'Page not found',
@@ -862,7 +862,7 @@ const dict = {
     tip_2: 'تأكد إن اللي يكلمك على واتساب يملك الرقم فعلاً. اطلب منه يرسل لك رمز يوصله على نفس الرقم.',
     tip_3: 'احذر من الأسعار الأقل بكثير من السوق. الصفقة اللي تبدو حلوة زيادة غالباً مو حقيقية.',
     tip_4: 'إذا بتقابله، خلّها في مكان عام، واحتفظ بالمحادثة وإيصال الدفع.',
-    tip_5: 'استخدم زر البلاغ على أي إعلان يبدو غلط. ثلاثة بلاغات تخفي الإعلان لين نراجعه.',
+    tip_5: 'استخدم زر البلاغ على أي إعلان يبدو غلط. البلاغ يوصل للمشرفين وهم يقررون إخفاء الإعلان أو إبقاءه.',
 
     nf_title: 'الصفحة غير موجودة',
     nf_body: 'الصفحة انتقلت أو ما كانت موجودة أصلاً.',
