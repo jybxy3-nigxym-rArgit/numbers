@@ -1244,11 +1244,17 @@ route('POST', '/admin/u/:id/:action', async (ctx) => {
     if (action === 'ban' && needConfirm(ctx, 'ban', { back, ask: true })) return;
     await ctx.store.setUserBanned(user.id, action === 'ban', rank);
     if (action === 'ban') reason = reasonOf(ctx);
+  } else if (action === 'mfeature' || action === 'munfeature') {
+    // Featured member: all of his ads show as featured for some days, then go back to normal by themselves.
+    if (rank < 2) return notFound(ctx);
+    const days = Math.min(365, Math.max(1, Math.floor(Number(ctx.body.days) || 0)));
+    await ctx.store.setMemberFeatured(user.id, action === 'mfeature' ? days : 0);
+    reason = '';
   } else if (action === 'verify' || action === 'unverify') {
     if (rank < 2) return notFound(ctx);
     await ctx.store.setVerified(user.id, action === 'verify');
   } else return notFound(ctx);
-  await audit(ctx, 'user_' + action, `${user.name} (#${user.id})`, reason ? 'why_' + reason : '');
+  await audit(ctx, 'user_' + action, `${user.name} (#${user.id})`, reason ? 'why_' + reason : action === 'mfeature' ? String(ctx.body.days || 1) + 'd' : '');
   flash(ctx, 'ok', 'updated');
   if (reason) {
     return redirect(ctx, `/admin/notify?${new URLSearchParams({ u: user.id, a: action, r: reason, back })}`);

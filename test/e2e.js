@@ -922,6 +922,21 @@ async function main() {
     r = await a3.post('/post', { ...AD, number: '0555001000' });
     check('same number cannot be posted twice', r.status === 400);
 
+    {
+      // Featured member: all his ads look featured for some days, then it ends by itself.
+      const fm = await newClient(base);
+      await register(fm, 'Featured', '0577000067');
+      await fm.post('/post', { number: '0555123987', network: 'stc', city: 'riyadh', price: '500', contact: '0577000067' });
+      const fid = await idOf('0577000067');
+      const plain = await anon.get(`/u/${fid}`);
+      check('before: his ads are plain', !plain.text.includes('is-featured'));
+      await admin.post(`/admin/u/${fid}/mfeature`, { days: '3' });
+      check('owner page shows when it ends', (await admin.get(`/admin/u/${fid}`)).text.includes('featured until'));
+      check('after: his ads show as featured', (await anon.get(`/u/${fid}`)).text.includes('is-featured'));
+      check('a moderator cannot feature a member', (await mod.post(`/admin/u/${fid}/munfeature`, {})).status === 404);
+      await admin.post(`/admin/u/${fid}/munfeature`, {});
+      check('stopping it makes them plain again', !(await anon.get(`/u/${fid}`)).text.includes('is-featured'));
+    }
   } finally {
     srv.stop();
   }

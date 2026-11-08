@@ -327,7 +327,7 @@ const advTab = (ctx, l) =>
 
 const plateBadges = (ctx, l) =>
   (l.pinned && l.status === 'active' ? `<span class="pin-badge">${esc(ctx.t('pinned_badge'))}</span>` : '') +
-  (l.featured && l.status === 'active' && !l.pinned ? `<span class="pin-badge feat-badge">★ ${esc(ctx.t('featured_badge'))}</span>` : '') +
+  ((l.featured || l.member_feat) && l.status === 'active' && !l.pinned ? `<span class="pin-badge feat-badge">★ ${esc(ctx.t('featured_badge'))}</span>` : '') +
   (l.status === 'active' && l.price != null && l.price_drop_at && Date.now() - util.parseDbDate(l.price_drop_at).getTime() < 7 * 86400000
     ? `<span class="pin-badge drop-badge">${esc(ctx.t('drop_badge'))}</span>`
     : '') +
@@ -335,7 +335,7 @@ const plateBadges = (ctx, l) =>
   (l.status === 'sold' ? `<span class="sold-stamp">${esc(ctx.t('sold_stamp'))}</span>` : '');
 
 const cardClass = (l, extra = '') =>
-  `plate-card${extra}${l.pinned && l.status === 'active' ? ' is-pinned' : ''}${l.featured && l.status === 'active' ? ' is-featured' : ''}${l.status === 'sold' ? ' is-sold' : ''}`;
+  `plate-card${extra}${l.pinned && l.status === 'active' ? ' is-pinned' : ''}${(l.featured || l.member_feat) && l.status === 'active' ? ' is-featured' : ''}${l.status === 'sold' ? ' is-sold' : ''}`;
 
 // The ready WhatsApp message for one number. The number and the price are wrapped so Arabic text does not flip them.
 function shareHref(ctx, l) {
@@ -1207,6 +1207,11 @@ function adminUserPage(ctx, u, extra = {}) {
     if (u.banned ? rank >= (u.banned_rank || 2) : true) acts.push(btn(u.banned ? 'unban' : 'ban', t(u.banned ? 'unban' : 'ban')));
     if (senior) {
       if (!u.is_admin) acts.push(btn(u.verified ? 'unverify' : 'verify', t(u.verified ? 'unverify' : 'verify')));
+      const feat = u.featured_until && String(u.featured_until) > new Date().toISOString().slice(0, 19).replace('T', ' ');
+      if (!u.is_admin) {
+        if (feat) acts.push(btn('munfeature', t('mfeat_off')));
+        else acts.push(`<input class="days-in" type="number" name="days" min="1" max="365" inputmode="numeric" required placeholder="${esc(t('mfeat_days'))}" aria-label="${esc(t('mfeat_days'))}">`, btn('mfeature', t('mfeat_on')));
+      }
       acts.push(btn('reset', t('a_reset_pass')));
     }
   }
@@ -1218,6 +1223,7 @@ function adminUserPage(ctx, u, extra = {}) {
     <h1>${esc(u.name)}${u.verified ? ` ${verifiedMark(ctx)}` : ''}</h1>
     <p class="ud-meta"><bdi dir="ltr">0${esc(u.phone)}</bdi> · ${esc(roleName)} · ${esc(String(u.created_at).slice(0, 10))}
       ${u.banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${u.suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</p>
+    ${u.featured_until && String(u.featured_until) > new Date().toISOString().slice(0, 19).replace('T', ' ') ? `<p class="hint">${esc(t('mfeat_until', { d: String(u.featured_until).slice(0, 10) }))}</p>` : ''}
     <p class="form-actions">
       <a class="btn btn-ghost btn-small" href="/u/${u.id}">${esc(t('a_view_ads'))}</a>
       <a class="btn btn-wa btn-small" href="https://wa.me/${esc(util.toIntl(u.phone))}" target="_blank" rel="noopener">${esc(t('a_whatsapp'))}</a>

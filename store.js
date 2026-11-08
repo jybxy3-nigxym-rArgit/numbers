@@ -108,6 +108,7 @@ const SCHEMA = [
 const LISTING_SELECT = `
   SELECT l.*, u.name AS seller, u.banned AS seller_banned, u.suspended AS seller_suspended,
          u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified,
+         (u.featured_until != '' AND u.featured_until > datetime('now')) AS member_feat,
          (SELECT COUNT(*) FROM listing_likes k WHERE k.listing_id = l.id) AS likes,
          (SELECT ROUND(AVG(r.stars), 1) FROM seller_ratings r WHERE r.seller_id = l.user_id AND r.status = 'approved') AS seller_rating,
          (SELECT COUNT(*) FROM seller_ratings r WHERE r.seller_id = l.user_id AND r.status = 'approved') AS seller_rating_n
@@ -142,6 +143,7 @@ function createStore(d) {
     if (!ucols.includes('role')) await addCol('users', 'role', "TEXT NOT NULL DEFAULT 'user'");
     if (!ucols.includes('suspended')) await addCol('users', 'suspended', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('verified')) await addCol('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+    if (!ucols.includes('featured_until')) await addCol('users', 'featured_until', "TEXT NOT NULL DEFAULT ''");
     if (!ucols.includes('ad_limit')) await addCol('users', 'ad_limit', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('banned_rank')) await addCol('users', 'banned_rank', 'INTEGER NOT NULL DEFAULT 0');
     if (!ucols.includes('note')) await addCol('users', 'note', "TEXT NOT NULL DEFAULT ''");
@@ -305,7 +307,7 @@ function createStore(d) {
         : f.sort === 'price_desc'
           ? '(l.price IS NULL), l.price DESC, l.id DESC'
           : 'l.created_at DESC, l.id DESC';
-    const pinnedFirst = f.pinFirst === false ? '' : 'l.pinned DESC, l.featured DESC, ';
+    const pinnedFirst = f.pinFirst === false ? '' : "l.pinned DESC, (l.featured = 1 OR (u.featured_until != '' AND u.featured_until > datetime('now'))) DESC, ";
 
     const [count, list] = await d.batch([
       { sql: `SELECT COUNT(*) AS c FROM listings l WHERE ${w}`, params },
@@ -658,6 +660,13 @@ function createStore(d) {
     return r.changes;
   }
 
+  // All of a member's ads show as featured for some days (days = 0 removes it). Ending is automatic: the date is compared on every read.
+  const setMemberFeatured = (id, days) =>
+    d.run(`UPDATE users SET featured_until = ${days > 0 ? `datetime('now', '+${Math.floor(days)} days')` : "''"} WHERE id = ?`, [id]).then((r) => {
+      dropCounts();
+      return r;
+    });
+
   async function maintenance() {
     await ready();
     const renewed = (await autoRenew()) + (await ownerRenew());
@@ -666,6 +675,7 @@ function createStore(d) {
     await d.run('DELETE FROM listing_likes WHERE EXISTS (SELECT 1 FROM listings l WHERE l.id = listing_likes.listing_id AND l.user_id = listing_likes.user_id)');
     const unpinned = (await d.run("UPDATE listings SET pinned = 0, pinned_until = '' WHERE pinned = 1 AND pinned_until != '' AND pinned_until <= datetime('now')")).changes;
     if (unpinned) dropCounts();
+    await d.run("UPDATE users SET featured_until = '' WHERE featured_until != '' AND featured_until <= datetime('now')");
     return { renewed, removed };
   }
 
@@ -709,10 +719,10 @@ function createStore(d) {
       { sql: `SELECT COUNT(*) AS c FROM listings l JOIN users u ON u.id = l.user_id WHERE ${w}`, params },
       {
         sql: `SELECT l.*, u.name AS seller, u.phone AS seller_phone, u.banned AS seller_banned, u.suspended AS seller_suspended,
-                     u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified, ${REPORT_COUNT_SQL} AS report_count
+                     u.is_admin AS seller_is_admin, u.role AS seller_role, u.verified AS seller_verified, (u.featured_until != '' AND u.featured_until > datetime('now')) AS member_feat, ${REPORT_COUNT_SQL} AS report_count
               FROM listings l JOIN users u ON u.id = l.user_id
               WHERE ${w}
-              ORDER BY l.pinned DESC, l.featured DESC, l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
+              ORDER BY l.pinned DESC, (l.featured = 1 OR (u.featured_until != '' AND u.featured_until > datetime('now'))) DESC, l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
         params: [...params, limit, offset],
       },
     ]);
@@ -1105,6 +1115,7 @@ function createStore(d) {
     maintenance,
     setFeatured,
     setVerified,
+    setMemberFeatured,
     setUserNote,
     setAdLimit,
     penaltyDaysLeft,
