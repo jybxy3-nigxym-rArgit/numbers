@@ -157,6 +157,39 @@ const strongPassword = (p) => {
   return p.length >= 10 && /[A-Za-z\u0600-\u06FF]/.test(p) && /[0-9\u0660-\u0669]/.test(p) && /[^A-Za-z0-9\u0600-\u06FF\u0660-\u0669\s]/.test(p);
 };
 
+// ---- Moving banner (written by the owner) ----
+const ANN_MAX = 160;
+const ANN_COUNT = 10;
+const safeLink = (s) => {
+  s = String(s || '').trim();
+  if (/^\/(?![/\\])[^\s]*$/.test(s) || /^https?:\/\/[^\s<>"']+$/i.test(s)) return s;
+  return '';
+};
+const parseAnnouncements = (raw) => {
+  let d;
+  try {
+    d = JSON.parse(raw || 'null');
+  } catch {
+    d = null;
+  }
+  if (!d || !Array.isArray(d.items)) d = { items: [] };
+  return { items: d.items, speed: ['slow', 'mid', 'fast'].includes(d.speed) ? d.speed : 'slow', off: !!d.off };
+};
+// What one reader sees: only the live messages meant for visitors or members, in the page language (Arabic when no English text was written).
+const pickAnnouncements = (raw, loggedIn, lang) => {
+  const d = parseAnnouncements(raw);
+  if (d.off) return null;
+  const items = d.items
+    .filter((x) => x.on && (x.aud === 'all' || (loggedIn ? x.aud === 'member' : x.aud === 'guest')))
+    .map((x) => ({ id: x.id, text: (lang === 'en' ? x.en || x.ar : x.ar || x.en) || '', link: x.link || '', label: x.label || '' }))
+    .filter((x) => x.text);
+  if (!items.length) return null;
+  const sig = items.map((x) => x.id + x.text + x.link).join('|');
+  let h = 0;
+  for (let i = 0; i < sig.length; i++) h = (h * 31 + sig.charCodeAt(i)) | 0;
+  return { items, speed: d.speed, v: String(h >>> 0) };
+};
+
 const canActOn = (actor, target) => !!actor && !!target && (actor.id === target.id || rankOf(actor) > rankOf(target));
 
 // Numbers that need a staff look before they go live.
@@ -181,6 +214,11 @@ module.exports = {
   hasOutsideContact,
   rankOf,
   canActOn,
+  ANN_MAX,
+  ANN_COUNT,
+  safeLink,
+  parseAnnouncements,
+  pickAnnouncements,
   strongPassword,
   esc,
   toWestern,

@@ -114,6 +114,19 @@ function jsonLd(list) {
     .join('\n');
 }
 
+// The moving banner: without JavaScript the first message just stays; ann.js moves one message at a time and lets the visitor close it.
+function bannerHtml(ctx) {
+  const b = ctx.ann;
+  if (!b || ctx.noBanner) return '';
+  const items = b.items
+    .map((x) => {
+      const link = x.link ? ` <a href="${esc(x.link)}"${/^https?:/i.test(x.link) ? ' rel="nofollow noopener" target="_blank"' : ''}>${esc(x.label || ctx.t('ban_more'))}</a>` : '';
+      return `<span class="ann-item">${esc(x.text)}${link}</span>`;
+    })
+    .join('');
+  return `<div class="ann" id="ann" role="region" aria-label="${esc(ctx.t('ban_label'))}" data-v="${esc(b.v)}" data-speed="${esc(b.speed)}"><div class="ann-track">${items}</div><button class="ann-x" type="button" aria-label="${esc(ctx.t('ban_close'))}" hidden>×</button></div>`;
+}
+
 function layout(ctx, { title, fullTitle: fullOverride, desc, body, hero = '', canonical, noindex, robots, ld = [], promo = false, liveJs = false }) {
   const { t, lang, user } = ctx;
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -191,6 +204,7 @@ ${gtm ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${es
     ${user ? `<a class="who" href="/profile" title="${esc(t('account_title'))}">${ICON.user}<span>${esc(user.name)}</span></a>` : ''}
   </div>
 </header>
+${bannerHtml(ctx)}
 ${hero}
 <main id="main" class="wrap">
 ${flash}
@@ -221,6 +235,7 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
   ${isStaff ? `<a href="/admin">${ICON.shield}<span>${esc(t('admin'))}${alerts}</span></a>` : `<a href="/faq">${ICON.help}<span>${esc(t('page_faq'))}</span></a>`}
   ${user ? `<form method="post" action="/logout" class="tab-out">${csrfInput(ctx)}<button type="submit">${ICON.logout}<span>${esc(t('logout'))}</span></button></form>` : ''}
 </nav>
+${ctx.ann ? `<script src="/ann.js?v=${esc(ASSET_V)}" defer></script>` : ''}
 ${liveJs || !(ctx.ack || noindex) ? `<script src="/live.js?v=${esc(ASSET_V)}" defer></script>` : ''}
 </body>
 </html>`;
@@ -1279,6 +1294,53 @@ function syncPage(ctx, v = {}) {
   return layout(ctx, { title: t('sync_title'), body, noindex: true });
 }
 
+function bannerPage(ctx, d) {
+  const { t } = ctx;
+  const audLabel = { all: t('ban_aud_all'), guest: t('ban_aud_guest'), member: t('ban_aud_member') };
+  const btn = (action, id, label, cls = 'btn btn-ghost') =>
+    `<form method="post" action="/admin/banner" class="inline">${csrfInput(ctx)}<input type="hidden" name="action" value="${action}"><input type="hidden" name="id" value="${esc(id)}"><button class="${cls}" type="submit">${esc(label)}</button></form>`;
+  const rows = d.items
+    .map(
+      (x) => `<li class="ban-row${x.on ? '' : ' ban-off'}">
+        <p dir="auto">${esc(x.ar || x.en)}${x.en && x.ar ? `<br><small dir="auto">${esc(x.en)}</small>` : ''}</p>
+        <p class="hint">${esc(audLabel[x.aud] || audLabel.all)}${x.link ? ` · ${esc(x.link)}` : ''}${x.on ? '' : ` · ${esc(t('ban_stopped'))}`}</p>
+        <div class="form-actions">${btn('toggle', x.id, x.on ? t('ban_stop') : t('ban_start'))}${btn('delete', x.id, t('delete'))}</div>
+      </li>`
+    )
+    .join('');
+  const speedOpts = [
+    { value: 'slow', label: t('ban_speed_slow') },
+    { value: 'mid', label: t('ban_speed_mid') },
+    { value: 'fast', label: t('ban_speed_fast') },
+  ];
+  const body = `
+  <section class="narrow">
+    <h1>${esc(t('ban_title'))}</h1>
+    <p class="lede">${esc(t('ban_intro'))}</p>
+    <form method="post" action="/admin/banner" class="form" novalidate>
+      ${csrfInput(ctx)}<input type="hidden" name="action" value="toggleall">
+      <p>${esc(d.off ? t('ban_all_off') : t('ban_all_on'))} <button class="btn btn-ghost" type="submit">${esc(d.off ? t('ban_start_all') : t('ban_stop_all'))}</button></p>
+    </form>
+    ${rows ? `<ul class="ban-list">${rows}</ul>` : `<p class="hint">${esc(t('ban_none'))}</p>`}
+    <h2>${esc(t('ban_add'))}</h2>
+    <form method="post" action="/admin/banner" class="form" novalidate>
+      ${csrfInput(ctx)}<input type="hidden" name="action" value="add">
+      ${field(ctx, { id: 'ar', name: 'ar', label: t('ban_text_ar'), attrs: `maxlength="${util.ANN_MAX}"` })}
+      ${field(ctx, { id: 'en', name: 'en', label: t('ban_text_en'), hint: t('ban_text_en_hint'), attrs: `maxlength="${util.ANN_MAX}" dir="ltr"` })}
+      ${selectField(ctx, { id: 'aud', name: 'aud', label: t('ban_aud'), options: [{ value: 'all', label: audLabel.all }, { value: 'guest', label: audLabel.guest }, { value: 'member', label: audLabel.member }], value: 'all' })}
+      ${field(ctx, { id: 'link', name: 'link', label: t('ban_link'), hint: t('ban_link_hint'), attrs: 'dir="ltr" maxlength="300"' })}
+      ${field(ctx, { id: 'label', name: 'label', label: t('ban_link_label'), attrs: 'maxlength="40"' })}
+      <div class="form-actions"><button class="btn" type="submit">${esc(t('ban_add_btn'))}</button></div>
+    </form>
+    <form method="post" action="/admin/banner" class="form" novalidate>
+      ${csrfInput(ctx)}<input type="hidden" name="action" value="speed">
+      ${selectField(ctx, { id: 'speed', name: 'speed', label: t('ban_speed'), options: speedOpts, value: d.speed })}
+      <div class="form-actions"><button class="btn btn-ghost" type="submit">${esc(t('ban_speed_save'))}</button></div>
+    </form>
+  </section>`;
+  return layout(ctx, { title: t('ban_title'), body, noindex: true });
+}
+
 function profilePage(ctx, v = {}, errors = {}, ads = 0) {
   const { t } = ctx;
   const u = ctx.user;
@@ -1355,7 +1417,7 @@ function adminPage(ctx, tab, data) {
       ? grp(t('a_grp_general'), [tl('stats'), tl('log')]) +
         grp(t('a_grp_ads'), [tl('pending'), tl('review'), tl('reported'), tl('all'), tl('sold'), tl('ratings')]) +
         grp(t('a_grp_members'), [tl('users'), tl('blocked')]) +
-        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users')), pl('/admin/export/sold.csv', t('export_sold'))].concat(rank >= 3 ? [pl('/admin/export/backup.json', t('a_backup'))] : []))
+        grp(t('a_grp_tools'), [pl('/admin/import', t('a_import')), pl('/admin/sync', t('a_sync')), pl('/admin/banner', t('a_banner')), pl('/admin/export/numbers.csv', t('a_export_numbers')), pl('/admin/export/users.csv', t('a_export_users')), pl('/admin/export/sold.csv', t('export_sold'))].concat(rank >= 3 ? [pl('/admin/export/backup.json', t('a_backup'))] : []))
       : grp(t('admin'), [tl('pending'), tl('reported'), tl('all'), tl('sold'), tl('ratings'), tl('users')])
   }</nav>`;
 
@@ -1738,6 +1800,7 @@ function errorPage(ctx, status) {
 
 module.exports = {
   syncPage,
+  bannerPage,
   legalPage,
   homePage,
   listingPage,

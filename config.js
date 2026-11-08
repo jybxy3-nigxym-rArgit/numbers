@@ -64,7 +64,7 @@ function apply(env = {}) {
     pbkdf2Iterations: Math.min(100000, Number(env.PBKDF2_ITERATIONS) || 30000),
 
     sessionSecret: env.SESSION_SECRET || '',
-    assetVersion: env.ASSET_V || '65',
+    assetVersion: env.ASSET_V || '67',
   });
   return config;
 }

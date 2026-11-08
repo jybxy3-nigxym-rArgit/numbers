@@ -200,6 +200,8 @@ async function buildContext(request, url, ip, store, waitUntil) {
     theme: cookies.theme === 'dark' ? 'dark' : 'light',
     ack: cookies.ack === '1',
   });
+  // The moving banner under the header: what the owner wrote, for visitors and/or members.
+  if (request.method === 'GET') ctx.ann = util.pickAnnouncements(await store.metaGet('announcements'), !!user, session.lang);
   if (user && util.rankOf(user) >= 1) {
     const a = await store.adminAlerts();
     ctx.alertsRatings = a.ratings;
@@ -1443,6 +1445,54 @@ route('POST', '/admin/sync', async (ctx) => {
   await audit(ctx, 'import', `${r.added}`, `${r.skipped}`);
   flash(ctx, 'ok', 'import_done', { added: r.added, skipped: r.skipped, bad });
   redirect(ctx, '/admin?tab=all');
+});
+
+// Banner: the owner writes short messages for visitors, members or both. They move across the top of every page.
+route('GET', '/admin/banner', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  html(ctx, 200, views.bannerPage(ctx, util.parseAnnouncements(await ctx.store.metaGet('announcements'))));
+});
+
+route('POST', '/admin/banner', async (ctx) => {
+  if (!requireAdmin(ctx)) return;
+  const data = util.parseAnnouncements(await ctx.store.metaGet('announcements'));
+  const action = str(ctx.body.action, 10);
+  const id = str(ctx.body.id, 12);
+  if (action === 'add') {
+    const ar = str(ctx.body.ar, util.ANN_MAX).trim();
+    const en = str(ctx.body.en, util.ANN_MAX).trim();
+    if (!ar && !en) {
+      flash(ctx, 'error', 'ban_empty');
+      return redirect(ctx, '/admin/banner');
+    }
+    if (data.items.length >= util.ANN_COUNT) {
+      flash(ctx, 'error', 'ban_full');
+      return redirect(ctx, '/admin/banner');
+    }
+    const link = util.safeLink(str(ctx.body.link, 300));
+    data.items.push({
+      id: Math.random().toString(36).slice(2, 10),
+      ar,
+      en,
+      link,
+      label: link ? str(ctx.body.label, 40).trim() : '',
+      aud: ['all', 'guest', 'member'].includes(ctx.body.aud) ? ctx.body.aud : 'all',
+      on: true,
+    });
+  } else if (action === 'toggle') {
+    const it = data.items.find((x) => x.id === id);
+    if (it) it.on = !it.on;
+  } else if (action === 'delete') {
+    data.items = data.items.filter((x) => x.id !== id);
+  } else if (action === 'speed') {
+    data.speed = ['slow', 'mid', 'fast'].includes(ctx.body.speed) ? ctx.body.speed : 'slow';
+  } else if (action === 'toggleall') {
+    data.off = !data.off;
+  }
+  await ctx.store.metaSet('announcements', JSON.stringify(data));
+  await audit(ctx, 'banner', action, id);
+  flash(ctx, 'ok', 'ban_saved');
+  redirect(ctx, '/admin/banner');
 });
 
 // ---- Static pages and SEO files ----

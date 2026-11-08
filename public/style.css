@@ -2502,3 +2502,23 @@ html:not([data-theme="dark"]) .sc-role {
   border-color: #b9add3;
   color: #fff;
 }
+
+/* Moving banner under the header */
+.ann{position:relative;overflow:hidden;min-height:38px;display:flex;align-items:center;justify-content:center;background:#efe6d2;color:#3d2b5c;border-bottom:1px solid #dccfae;font-size:.95rem;line-height:1.4}
+.ann-track{padding:.35rem 2.8rem;text-align:center}
+.ann-item:not(:first-child){display:none}
+.ann a{color:#3d2b5c;font-weight:700;text-decoration:underline}
+.ann.ann-js{height:38px;justify-content:flex-start}
+.ann.ann-js .ann-track{position:absolute;left:0;top:0;bottom:0;display:flex;align-items:center;white-space:nowrap;padding:0;will-change:transform}
+.ann.ann-js .ann-item{display:inline}
+.ann.ann-static .ann-track{position:static;transform:none!important}
+.ann-x{position:absolute;inset-inline-end:0;top:0;bottom:0;width:38px;border:0;background:#efe6d2;color:inherit;font-size:1.15rem;cursor:pointer;box-shadow:0 0 8px 8px #efe6d2;z-index:1}
+[data-theme="dark"] .ann,[data-theme="dark"] .ann-x{background:#2b2236;color:#f0e4c0}
+[data-theme="dark"] .ann{border-bottom-color:#3b3049}
+[data-theme="dark"] .ann-x{box-shadow:0 0 8px 8px #2b2236}
+[data-theme="dark"] .ann a{color:#f0c96a}
+@media (max-width:600px){.ann{font-size:.82rem;min-height:34px}.ann.ann-js{height:34px}}
+.ban-list{list-style:none;padding:0;margin:1rem 0}
+.ban-row{border:1px solid var(--line,#ddd);border-radius:10px;padding:.7rem .9rem;margin-bottom:.6rem}
+.ban-row.ban-off{opacity:.55}
+form.inline{display:inline}
