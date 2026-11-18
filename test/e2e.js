@@ -767,6 +767,10 @@ async function main() {
     check('faq page has FAQPage data', rr.status === 200 && rr.text.includes('FAQPage'));
     check('articles list and article page work', (await anon.get('/articles')).status === 200 && (await anon.get('/articles/sawa-packages')).text.includes('2120') && (await anon.get('/articles/nope')).status === 404);
     check('about and contact pages work', (await anon.get('/about')).status === 200 && (await anon.get('/contact')).text.includes('wa.me'));
+    rr = await anon.get('/articles/number-0575-which-company');
+    check('the 0575 article exists with its title and is in the sitemap', rr.status === 200 && rr.text.includes('0575') && rr.text.includes('ريد بل') && (await anon.get('/sitemap.xml')).text.includes('/articles/number-0575-which-company'));
+    rr = await anon.get('/articles/what-is-my-number');
+    check('the my-number article is long and has the codes', rr.status === 200 && rr.text.includes('*150#') && rr.text.includes('*222#') && rr.text.length > 9000);
     rr = await anon.get('/sitemap.xml');
     check('sitemap lists info pages, articles and the under-price page', rr.text.includes('/faq') && rr.text.includes('/articles/sawa-packages') && rr.text.includes('/under/500'));
     check('promo banner shows for visitors, not for members', (await anon.get('/faq')).text.includes('class="promo"') && !(await nora.get('/faq')).text.includes('class="promo"'));
