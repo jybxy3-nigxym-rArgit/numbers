@@ -1650,7 +1650,8 @@ async function handle(request, { store, ip, waitUntil }) {
     const cookie = ctx.dirty ? await sessionCookie(ctx) : '';
     return toResponse(request, ctx.out, cookie, ctx.secure, ctx.extraCookies, ctx.gtmNonce);
   } catch (err) {
-    console.error(err);
+    // The path is logged so the Cloudflare log shows which page failed and why.
+    console.error('request failed:', request.method, url.pathname, (err && err.stack) || err);
     try {
       return await fail(request, url, 500);
     } catch {

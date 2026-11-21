@@ -107,6 +107,27 @@ function sqliteDriver(db, counter) {
   try { await s2.__driverForTest.run('UPDATE x SET y = 1'); } catch { writeFailed = true; }
   check('a failed write is not repeated', writeFailed && tries === 1, tries);
 
+  // 6) the upkeep runs at most once per interval unless it is forced, and one failing step does not stop the others
+  config.maintMinMs = 600000;
+  const c6 = { n: 0 };
+  const st3 = createStore(sqliteDriver(db, c6));
+  await st3.ready();
+  const m1 = await st3.maintenance();
+  const afterM1 = c6.n;
+  const m2 = await st3.maintenance();
+  check('upkeep started twice in a row runs once', !m1.skipped && m2.skipped && c6.n === afterM1, [m1, m2]);
+  const m3 = await st3.maintenance({ force: true });
+  check('the hourly job always runs the upkeep', !m3.skipped && c6.n > afterM1, m3);
+  let boom = true;
+  const base7 = sqliteDriver(db, { n: 0 });
+  const flaky7 = { ...base7, async run(sql, p) { if (boom && /DELETE FROM listing_likes/.test(sql)) throw new Error('D1_ERROR: overloaded'); return base7.run(sql, p); } };
+  const st4 = createStore(flaky7);
+  await st4.ready();
+  const origErr = console.error; console.error = () => {};
+  const m4 = await st4.maintenance({ force: true });
+  console.error = origErr;
+  check('a failing upkeep step is counted and the others still run', m4.errors === 1 && !m4.skipped, m4);
+
   if (failures) { console.log(failures + ' check(s) failed'); process.exit(1); }
   console.log('\nAll checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

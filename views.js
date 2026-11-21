@@ -1562,7 +1562,7 @@ function adminPage(ctx, tab, data) {
         <button class="btn btn-small" type="submit">${esc(t('search'))}</button>
         ${filtered ? `<a class="btn btn-ghost btn-small" href="/admin?tab=log">${esc(t('clear'))}</a>` : ''}
       </form>
-      <p class="hint-line">${esc(t('a_found', { n: formatPrice(data.total || 0) }))}${util.rankOf(ctx.user) >= 3 ? ` · <a href="${esc('/admin/export/log.csv' + qs({ q: f.q, actor: f.actor, action: f.action, from: f.from, to: f.to, sort: f.sort, dir: f.dir }))}">${esc(t('log_export'))}</a>` : ''}</p>
+      <p class="hint-line">${esc(t('a_found', { n: formatPrice(data.total || 0) }))}${util.rankOf(ctx.user) >= 3 ? ` · <a href="${esc('/admin/export/log.csv' + qs({ q: f.q, actor: f.actor, action: f.action, from: f.from, to: f.to, sort: f.sort, dir: f.dir }))}">${esc(t('log_export_btn'))}</a>` : ''}</p>
       ${
         data.log.length
           ? `<div class="table-wrap"><table class="log-table"><thead><tr>${th('when', t('a_col_when'))}${th('by', t('a_col_by'))}${th('action', t('a_col_action'))}${th('target', t('a_col_target'))}${th('detail', t('a_col_detail'))}</tr></thead><tbody>${data.log

@@ -137,7 +137,7 @@ if (require.main === module) {
     if (!config.adminLocal) console.log('Tip: set ADMIN_PHONE to choose the admin account.');
   });
   // Upkeep (automatic refresh for verified advertisers, removal of year-old ads): once an hour.
-  const upkeep = () => Promise.all([store.maintenance(), weekly(store)]).catch((e) => console.error('upkeep failed', e.message));
+  const upkeep = () => Promise.all([store.maintenance({ force: true }), weekly(store)]).catch((e) => console.error('upkeep failed', e.message));
   setTimeout(upkeep, 5000).unref();
   setInterval(upkeep, 3600 * 1000).unref();
   const stop = () => {

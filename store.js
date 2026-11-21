@@ -705,16 +705,36 @@ function createStore(d) {
       return r;
     });
 
-  async function maintenance() {
+  // Upkeep (automatic renewal, removal of year-old ads, expired pins and featured members).
+  // The hourly scheduled job passes { force: true }. A page visit or the sitemap may also start it, but a server instance runs it at most
+  // once every MAINT_MIN_MS (10 minutes), so a crowd of visitors can never start dozens of copies at the same moment.
+  // Every step is separate: one failing step is logged and the others still run.
+  let lastMaint = 0;
+  async function maintenance({ force = false } = {}) {
+    if (!force && Date.now() - lastMaint < config.maintMinMs) return { renewed: 0, removed: 0, skipped: true };
+    lastMaint = Date.now();
     await ready();
-    const renewed = (await autoRenew()) + (await ownerRenew());
-    const removed = await purgeStale();
+    let renewed = 0;
+    let removed = 0;
+    let errors = 0;
+    const step = async (name, fn) => {
+      try {
+        return await fn();
+      } catch (e) {
+        errors++;
+        console.error('maintenance step failed:', name, e && e.message);
+        return 0;
+      }
+    };
+    renewed += await step('autoRenew', autoRenew);
+    renewed += await step('ownerRenew', ownerRenew);
+    removed = await step('purgeStale', purgeStale);
     // Likes members gave to their own numbers (not allowed) are removed.
-    await d.run('DELETE FROM listing_likes WHERE EXISTS (SELECT 1 FROM listings l WHERE l.id = listing_likes.listing_id AND l.user_id = listing_likes.user_id)');
-    const unpinned = (await d.run("UPDATE listings SET pinned = 0, pinned_until = '' WHERE pinned = 1 AND pinned_until != '' AND pinned_until <= datetime('now')")).changes;
+    await step('selfLikes', () => d.run('DELETE FROM listing_likes WHERE EXISTS (SELECT 1 FROM listings l WHERE l.id = listing_likes.listing_id AND l.user_id = listing_likes.user_id)'));
+    const unpinned = await step('unpin', async () => (await d.run("UPDATE listings SET pinned = 0, pinned_until = '' WHERE pinned = 1 AND pinned_until != '' AND pinned_until <= datetime('now')")).changes);
     if (unpinned) dropCounts();
-    await d.run("UPDATE users SET featured_until = '' WHERE featured_until != '' AND featured_until <= datetime('now')");
-    return { renewed, removed };
+    await step('featuredEnd', () => d.run("UPDATE users SET featured_until = '' WHERE featured_until != '' AND featured_until <= datetime('now')"));
+    return { renewed, removed, errors };
   }
 
   // ---- Reports ----

@@ -12,11 +12,11 @@ export default {
   async scheduled(event, env, execCtx) {
     config.apply(env);
     const store = d1.storeFor(env.DB);
-    execCtx.waitUntil(store.maintenance());
-    execCtx.waitUntil(app.weekly(store).catch(() => {}));
+    execCtx.waitUntil(store.maintenance({ force: true }).catch((e) => console.error('scheduled maintenance failed:', e && e.message)));
+    execCtx.waitUntil(app.weekly(store).catch((e) => console.error('weekly report failed:', e && e.message)));
     // Twice a day (09:00 and 21:00 Riyadh = SHEET_FEED_HOURS_UTC, default 6,18): pull the owner's sheet list (does nothing unless SHEET_FEED_URL is set; changes ads only when SHEET_FEED_APPLY is true).
     const hour = new Date(event && event.scheduledTime ? event.scheduledTime : Date.now()).getUTCHours();
-    if (config.sheetFeedHoursUtc.includes(hour)) execCtx.waitUntil(sheetfeed.run(store, config).catch(() => {}));
+    if (config.sheetFeedHoursUtc.includes(hour)) execCtx.waitUntil(sheetfeed.run(store, config).catch((e) => console.error('sheet feed failed:', e && e.message)));
   },
 
   async fetch(request, env, execCtx) {

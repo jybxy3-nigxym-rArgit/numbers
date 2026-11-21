@@ -18,6 +18,8 @@ function apply(env = {}) {
     dataDir: env.DATA_DIR || (typeof __dirname !== 'undefined' ? __dirname + '/data' : './data'),
     baseUrl: (env.BASE_URL || '').replace(/\/+$/, ''),
     // Ad views are written to the database in groups, at most this often (milliseconds). 0 = at once.
+    // A server instance runs the upkeep at most this often (milliseconds) when a visit or the sitemap starts it. The hourly job always runs it.
+    maintMinMs: env.MAINT_MIN_MS !== undefined && env.MAINT_MIN_MS !== '' ? Math.max(0, Number(env.MAINT_MIN_MS) || 0) : 600000,
     viewFlushMs: env.VIEW_FLUSH_MS !== undefined && env.VIEW_FLUSH_MS !== '' ? Math.max(0, Number(env.VIEW_FLUSH_MS) || 0) : 30000,
 
     // How many reverse proxies sit in front of the Node server (Caddy, Render...).
