@@ -128,6 +128,25 @@ function sqliteDriver(db, counter) {
   console.error = origErr;
   check('a failing upkeep step is counted and the others still run', m4.errors === 1 && !m4.skipped, m4);
 
+  // 7) identical searches within a few seconds are answered from memory; a write clears them
+  config.searchCacheMs = 15000;
+  const c8 = { n: 0 };
+  const st5 = createStore(sqliteDriver(db, c8));
+  await st5.ready();
+  const q = { sort: 'new', limit: 24, offset: 0 };
+  const r1 = await st5.searchListings(q);
+  const n1 = c8.n;
+  const r2 = await st5.searchListings(q);
+  check('a repeated search does not touch the database', c8.n === n1 && r2.total === r1.total, [n1, c8.n]);
+  r2.rows.length && (r2.rows[0].number = 'changed');
+  const r3 = await st5.searchListings(q);
+  check('the cached result cannot be changed by a caller', !r3.rows.length || r3.rows[0].number !== 'changed');
+  await st5.setMemberFeatured(1, 0);
+  const n2 = c8.n;
+  await st5.searchListings(q);
+  check('a write clears the cached searches', c8.n > n2, [n2, c8.n]);
+  config.searchCacheMs = 0;
+
   if (failures) { console.log(failures + ' check(s) failed'); process.exit(1); }
   console.log('\nAll checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

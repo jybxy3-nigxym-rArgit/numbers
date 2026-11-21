@@ -125,7 +125,11 @@ function createStore(d) {
   let secretCache = null;
   // Counts for the landing pages change slowly: keep them for a minute, and drop them when this server writes an ad.
   let countsCache = null;
+  // Search results (public ads only) are kept for a few seconds per server, so a crowd opening the same page does not make the
+  // database read the whole ads table again for every visitor. Any write that calls dropCounts() clears them at once.
+  const searchCache = new Map();
   const dropCounts = () => {
+    searchCache.clear();
     countsCache = null;
   };
 
@@ -328,22 +332,41 @@ function createStore(d) {
           : 'l.created_at DESC, l.id DESC';
     const pinnedFirst = f.pinFirst === false ? '' : "l.pinned DESC, (l.featured = 1 OR (u.featured_until != '' AND u.featured_until > datetime('now'))) DESC, ";
 
+    // The inner query only picks the ids of the page (a cheap scan); the heavy columns (likes, ratings) are then read for those few ads only.
+    // Before this, every ad of the site paid for 3 sub-queries on every visit, which is what used up the free daily read limit.
+    const cacheKey = config.searchCacheMs > 0 ? JSON.stringify(f) : '';
+    if (cacheKey) {
+      const hit = searchCache.get(cacheKey);
+      if (hit && Date.now() - hit.at < config.searchCacheMs) return structuredClone(hit.value);
+    }
     const [count, list] = await d.batch([
       { sql: `SELECT COUNT(*) AS c FROM listings l WHERE ${w}`, params },
       {
-        sql: `${LISTING_SELECT} WHERE ${w} ORDER BY ${pinnedFirst}${order} LIMIT ? OFFSET ?`,
+        sql: `${LISTING_SELECT} WHERE l.id IN (
+                SELECT l.id FROM listings l JOIN users u ON u.id = l.user_id WHERE ${w} ORDER BY ${pinnedFirst}${order} LIMIT ? OFFSET ?
+              ) ORDER BY ${pinnedFirst}${order}`,
         params: [...params, f.limit, f.offset],
       },
     ]);
-    return { total: count.rows[0].c, rows: list.rows };
+    const value = { total: count.rows[0].c, rows: list.rows };
+    if (cacheKey) {
+      if (searchCache.size >= 200) searchCache.clear();
+      searchCache.set(cacheKey, { at: Date.now(), value: structuredClone(value) });
+    }
+    return value;
   }
 
   // Numbers close to this one: same network first, then the same last four digits, then the same city.
   async function similarListings(l, limit = 6) {
+    const order = '(substr(l.number, -4) = ?) DESC, (substr(l.number, -3) = ?) DESC, (l.city = ?) DESC, l.pinned DESC, l.created_at DESC, l.id DESC';
+    const last4 = String(l.number).slice(-4);
+    const last3 = String(l.number).slice(-3);
     return d.all(
-      `${LISTING_SELECT} WHERE l.status = 'active' AND ${VISIBLE_SELLER} AND l.id != ? AND l.network = ?
-       ORDER BY (substr(l.number, -4) = ?) DESC, (substr(l.number, -3) = ?) DESC, (l.city = ?) DESC, l.pinned DESC, l.created_at DESC, l.id DESC LIMIT ?`,
-      [l.id, l.network, String(l.number).slice(-4), String(l.number).slice(-3), l.city, limit]
+      `${LISTING_SELECT} WHERE l.id IN (
+         SELECT l.id FROM listings l WHERE l.status = 'active' AND ${VISIBLE_SELLER} AND l.id != ? AND l.network = ?
+         ORDER BY ${order} LIMIT ?
+       ) ORDER BY ${order}`,
+      [l.id, l.network, last4, last3, l.city, limit, last4, last3, l.city]
     );
   }
 

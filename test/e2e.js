@@ -24,7 +24,7 @@ async function startServer(port, env = {}) {
     process.execPath,
     ['--disable-warning=ExperimentalWarning', path.join(__dirname, process.env.TARGET === 'worker' ? 'worker-sim.js' : '../server.js')],
     {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', REGISTER_PER_HOUR: '100', POST_PER_HOUR: '500', VIEW_FLUSH_MS: '0', MAINT_MIN_MS: '0', ...env },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ADMIN_PHONE: '0500000001', REGISTER_PER_HOUR: '100', POST_PER_HOUR: '500', VIEW_FLUSH_MS: '0', MAINT_MIN_MS: '0', SEARCH_CACHE_MS: '0', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   );
