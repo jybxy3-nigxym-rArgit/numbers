@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
-    "test": "node --disable-warning=ExperimentalWarning test/e2e.js"
+    "test": "node --disable-warning=ExperimentalWarning test/e2e.js && node --disable-warning=ExperimentalWarning test/resilience.js"
   },
   "engines": {
     "node": ">=22.13"

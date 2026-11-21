@@ -132,9 +132,31 @@ function createStore(d) {
   // Creates the tables if they are missing and promotes the admin phone. Runs once per process.
   // The check is idempotent. Each request runs its own copy until one finishes: a promise created by one request is never
   // awaited by another, because Cloudflare Workers can leave such a request hanging.
+  const sigOf = (text) => {
+    let h = 5381;
+    for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+    return String(h >>> 0);
+  };
   let isReady = false;
   async function ready() {
     if (isReady) return;
+    // The tables and columns are checked in full only when this code's schema changed (a short signature is kept in the database).
+    // Otherwise a new server instance costs 2 queries instead of about 25, which matters when many visitors arrive at once.
+    const sig = sigOf(SCHEMA.join('\n') + ready.toString());
+    let upToDate = false;
+    try {
+      const row = await d.first("SELECT v FROM meta WHERE k = 'schema_sig'");
+      upToDate = !!row && row.v === sig;
+    } catch {
+      upToDate = false;
+    }
+    if (!upToDate) await migrate(sig);
+    if (config.adminNational) {
+      await d.run('UPDATE users SET is_admin = 1 WHERE phone = ? AND is_admin = 0', [config.adminNational]);
+    }
+    isReady = true;
+  }
+  async function migrate(sig) {
     await d.batch(SCHEMA.map((sql) => ({ sql, params: [] })));
     // Columns added after the first release: add them to databases that already exist.
     const cols = (await d.all('PRAGMA table_info(listings)')).map((c) => c.name);
@@ -157,10 +179,7 @@ function createStore(d) {
     if (!cols.includes('prev_price')) await addCol('listings', 'prev_price', 'INTEGER');
     if (!cols.includes('price_drop_at')) await addCol('listings', 'price_drop_at', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('pinned')) await addCol('listings', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
-    if (config.adminNational) {
-      await d.run('UPDATE users SET is_admin = 1 WHERE phone = ?', [config.adminNational]);
-    }
-    isReady = true;
+    await d.run("INSERT OR REPLACE INTO meta (k, v) VALUES ('schema_sig', ?)", [sig]);
   }
 
   // Secret used to sign session cookies. Set SESSION_SECRET, or one is generated and kept in the database.
@@ -460,14 +479,33 @@ function createStore(d) {
   async function setFeatured(id, on) {
     return (await d.run('UPDATE listings SET featured = ? WHERE id = ?', [on ? 1 : 0, id])).changes;
   }
+  // Ad views are counted in memory and written together at most once per VIEW_FLUSH_MS, so a crowd of visitors costs a few writes, not
+  // two per visit, and a database hiccup can never break the ad page (the caller does not wait for this and ignores its errors).
+  const viewBuf = new Map();
+  let viewFlushAt = 0;
+  async function flushViews() {
+    if (!viewBuf.size) return;
+    const entries = [...viewBuf];
+    viewBuf.clear();
+    viewFlushAt = Date.now();
+    const total = entries.reduce((n, e) => n + e[1], 0);
+    try {
+      await d.batch([
+        ...entries.map(([id, n]) => ({ sql: 'UPDATE listings SET views = views + ? WHERE id = ?', params: [n, id] })),
+        {
+          sql: "INSERT INTO views_daily (day, views) VALUES (date('now'), ?) ON CONFLICT (day) DO UPDATE SET views = views + ?",
+          params: [total, total],
+        },
+      ]);
+    } catch (e) {
+      // keep the counts for the next try (bounded, so memory cannot grow without limit)
+      if (viewBuf.size < 500) for (const [id, n] of entries) viewBuf.set(id, (viewBuf.get(id) || 0) + n);
+      throw e;
+    }
+  }
   async function bumpViews(id) {
-    await d.batch([
-      { sql: 'UPDATE listings SET views = views + 1 WHERE id = ?', params: [id] },
-      {
-        sql: "INSERT INTO views_daily (day, views) VALUES (date('now'), 1) ON CONFLICT (day) DO UPDATE SET views = views + 1",
-        params: [],
-      },
-    ]);
+    viewBuf.set(id, (viewBuf.get(id) || 0) + 1);
+    if (Date.now() - viewFlushAt >= config.viewFlushMs) await flushViews();
   }
 
   // Verified advertiser switches the automatic refresh on again for one more month.

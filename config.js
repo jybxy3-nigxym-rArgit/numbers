@@ -17,6 +17,8 @@ function apply(env = {}) {
     host: env.HOST || '0.0.0.0',
     dataDir: env.DATA_DIR || (typeof __dirname !== 'undefined' ? __dirname + '/data' : './data'),
     baseUrl: (env.BASE_URL || '').replace(/\/+$/, ''),
+    // Ad views are written to the database in groups, at most this often (milliseconds). 0 = at once.
+    viewFlushMs: env.VIEW_FLUSH_MS !== undefined && env.VIEW_FLUSH_MS !== '' ? Math.max(0, Number(env.VIEW_FLUSH_MS) || 0) : 30000,
 
     // How many reverse proxies sit in front of the Node server (Caddy, Render...).
     // Used to read the real visitor IP from X-Forwarded-For. Not used on Cloudflare Workers.

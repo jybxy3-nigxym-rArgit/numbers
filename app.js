@@ -518,7 +518,7 @@ route('GET', '/n/:id', async (ctx) => {
   if (l.status === 'active' && !isBot && !(ctx.user && ctx.user.id === l.user_id)) {
     const seen = Array.isArray(ctx.session.seen) ? ctx.session.seen : [];
     if (!seen.includes(l.id)) {
-      await ctx.store.bumpViews(l.id);
+      later(ctx, ctx.store.bumpViews(l.id));
       l.views += 1;
       ctx.session.seen = [...seen, l.id].slice(-20);
       ctx.dirty = true;
