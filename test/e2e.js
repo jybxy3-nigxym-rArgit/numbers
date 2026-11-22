@@ -382,6 +382,11 @@ async function main() {
     check('network landing page', r.status === 200 && r.text.includes('<h1>') && r.text.includes('rel="canonical" href="' + base + '/network/stc"'));
     check('city landing page', (await anon.get('/city/riyadh')).status === 200);
     check('pattern landing page', (await anon.get('/type/triple')).status === 200);
+    for (const k of ['quint', 'quad', 'triple_triple', 'four_pairs', 'hundreds', 'tens']) {
+      const tp = await anon.get('/type/' + k);
+      check('style page /type/' + k, tp.status === 200 && /<title>[^<]*\(/.test(tp.text) && !tp.text.includes('typeseo'), tp.status);
+    }
+    check('unknown style page is 404', (await anon.get('/type/nothing')).status === 404);
     check('unknown landing page is 404', (await anon.get('/network/nope')).status === 404);
     r = await anon.get('/');
     check('home has JSON-LD, canonical and links to landing pages', r.text.includes('application/ld+json') && r.text.includes('/network/stc') && r.text.includes('rel="canonical"'));

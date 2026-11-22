@@ -10,7 +10,7 @@
 //   batch([{sql, params}]) -> [{ rows, changes, lastId }] (all or nothing)
 
 const config = require('./config');
-const { patternTags, parseDbDate } = require('./util');
+const { patternTags, parseDbDate, PATTERN_LIST, TAGS_VERSION } = require('./util');
 const { UNDER_PRICES } = require('./data');
 const { randomToken } = require('./webcrypto');
 
@@ -146,7 +146,7 @@ function createStore(d) {
     if (isReady) return;
     // The tables and columns are checked in full only when this code's schema changed (a short signature is kept in the database).
     // Otherwise a new server instance costs 2 queries instead of about 25, which matters when many visitors arrive at once.
-    const sig = sigOf(SCHEMA.join('\n') + ready.toString());
+    const sig = sigOf(SCHEMA.join('\n') + ready.toString() + TAGS_VERSION + PATTERN_LIST.join(','));
     let upToDate = false;
     try {
       const row = await d.first("SELECT v FROM meta WHERE k = 'schema_sig'");
@@ -183,7 +183,20 @@ function createStore(d) {
     if (!cols.includes('prev_price')) await addCol('listings', 'prev_price', 'INTEGER');
     if (!cols.includes('price_drop_at')) await addCol('listings', 'price_drop_at', "TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('pinned')) await addCol('listings', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
+    await retagListings();
     await d.run("INSERT OR REPLACE INTO meta (k, v) VALUES ('schema_sig', ?)", [sig]);
+  }
+
+  // Gives every stored ad its pattern tags again (a new pattern was added, or one changed). Only ads whose tags differ are
+  // written, and in one statement per 150 ads (a CASE with fixed ids and tags, since a free-plan D1 allows few queries per request).
+  async function retagListings() {
+    const rows = await d.all('SELECT id, number, pats FROM listings');
+    const changed = rows.filter((r) => patternTags(r.number) !== r.pats);
+    for (let i = 0; i < changed.length; i += 150) {
+      const part = changed.slice(i, i + 150);
+      const cases = part.map((r) => `WHEN ${Number(r.id)} THEN '${patternTags(r.number)}'`).join(' ');
+      await d.run(`UPDATE listings SET pats = CASE id ${cases} END WHERE id IN (${part.map((r) => Number(r.id)).join(',')})`);
+    }
   }
 
   // Secret used to sign session cookies. Set SESSION_SECRET, or one is generated and kept in the database.
@@ -986,7 +999,9 @@ function createStore(d) {
       { sql: `SELECT ${unders} FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
       { sql: `SELECT network || '/' || city AS k, COUNT(*) AS c FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER} GROUP BY network, city`, params: [] },
       { sql: `SELECT COUNT(*) AS c, MAX(COALESCE(NULLIF(renewed_at, ''), created_at)) AS latest FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
+      { sql: `SELECT ${PATTERN_LIST.map((k, i) => `SUM(CASE WHEN instr(l.pats, ' ${k} ') > 0 THEN 1 ELSE 0 END) AS p${i}`).join(', ')} FROM listings l WHERE status = 'active' AND ${VISIBLE_SELLER}`, params: [] },
     ]);
+    const pc = rs[5].rows[0] || {};
     const toMap = (rows) => Object.fromEntries(rows.map((r) => [r.k, r.c]));
     const u = rs[2].rows[0] || {};
     const value = {
@@ -994,6 +1009,7 @@ function createStore(d) {
       city: toMap(rs[1].rows),
       under: Object.fromEntries(UNDER_PRICES.map((n) => [n, Number(u['u' + n] || 0)])),
       combo: toMap(rs[3].rows),
+      type: Object.fromEntries(PATTERN_LIST.map((k, i) => [k, Number(pc['p' + i] || 0)])),
       total: Number((rs[4].rows[0] || {}).c || 0),
       latest: (rs[4].rows[0] || {}).latest || '',
     };

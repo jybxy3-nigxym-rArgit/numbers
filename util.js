@@ -45,7 +45,12 @@ const RE = {
   ends_same: /(\d)\1{2}$/,
   mirror: /(\d)(\d)\2\1$/,
   pairs: /(\d)\1(\d)\2$|(\d)(\d)\3\4$/,
+  quint: /(\d)\1{4}/, // 55555 anywhere in the number
+  four_pairs: /(\d)\1(\d)\2(\d)\3(\d)\4/, // 11223344 or 55990066: four pairs in a row
+  hundreds: /00[1-9]00/, // 00200: two zeros, a digit, two zeros
 };
+// 0 + digit + 0 (e.g. 0503050602). The first digit is skipped, otherwise every number starting with 050 would count.
+const TENS_RE = /0[1-9]0/;
 
 function hasSequence(n, len = 4) {
   for (let i = 0; i + len <= n.length; i++) {
@@ -62,14 +67,25 @@ function hasSequence(n, len = 4) {
   return false;
 }
 
+// Two triples that do not overlap: 333 and 000, or 555 and 555 (six in a row also counts, as two triples).
+function twoTriples(n) {
+  const m = /(\d)\1{2}/.exec(n);
+  if (!m) return false;
+  return /(\d)\1{2}/.test(n.slice(m.index + 3));
+}
+
 function matchesPattern(number, key) {
   const n = String(number);
   if (key === 'sequence') return hasSequence(n);
+  if (key === 'tens') return TENS_RE.test(n.slice(1));
+  if (key === 'triple_triple') return twoTriples(n);
   const re = RE[key];
   return re ? re.test(n) : false;
 }
 
-const PATTERN_LIST = ['triple', 'quad', 'ends_same', 'mirror', 'sequence', 'pairs'];
+const PATTERN_LIST = ['quint', 'quad', 'triple_triple', 'four_pairs', 'triple', 'hundreds', 'tens', 'ends_same', 'mirror', 'sequence', 'pairs'];
+// Bump when a pattern's meaning changes or a new one is added: every stored ad is then re-tagged once.
+const TAGS_VERSION = 'tags-2';
 
 // Stored with each ad so searches can filter in plain SQL, e.g. " triple quad ".
 function patternTags(number) {
@@ -239,6 +255,8 @@ module.exports = {
   intlToLocal,
   matchesPattern,
   patternTags,
+  PATTERN_LIST,
+  TAGS_VERSION,
   hasSequence,
   hitMask,
   plateDigits,

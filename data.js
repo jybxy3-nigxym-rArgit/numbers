@@ -44,7 +44,7 @@ const CITIES = [
   { key: 'other', en: 'Other', ar: 'مدينة أخرى' },
 ];
 
-const PATTERN_KEYS = ['triple', 'quad', 'ends_same', 'mirror', 'sequence', 'pairs'];
+const PATTERN_KEYS = ['quint', 'quad', 'triple_triple', 'four_pairs', 'triple', 'hundreds', 'tens', 'ends_same', 'mirror', 'sequence', 'pairs'];
 const REPORT_REASONS = ['scam', 'sold', 'price', 'spam', 'other'];
 
 // Price ceilings that get their own indexed page ("numbers under 500 riyals").

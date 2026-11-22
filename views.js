@@ -432,8 +432,13 @@ function landingInfo(ctx, landing) {
   }
   const name = landing.type === 'network' ? netName(ctx, key) : landing.type === 'city' ? cityName(ctx, key) : t('pat_' + key);
   const prefix = landing.type;
-  const title = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_title`, { name });
-  const desc = t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_desc`, { name });
+  // A number style may have its own title and description (better for Google); the others use the general wording.
+  const own = (part) => {
+    const k = `typeseo_${key}_${part}`;
+    return prefix === 'type' && t(k) !== k ? t(k) : null;
+  };
+  const title = own('title') || t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_title`, { name });
+  const desc = own('desc') || t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_desc`, { name });
   return { path: `/${landing.type}/${key}`, h1: title, fullTitle: `${title} | ${t('site_name')}`, desc, lede: desc, name };
 }
 

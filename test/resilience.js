@@ -147,6 +147,26 @@ function sqliteDriver(db, counter) {
   check('a write clears the cached searches', c8.n > n2, [n2, c8.n]);
   config.searchCacheMs = 0;
 
+  // 8) number styles: the new ones match what the owner described, and old ads are tagged again after an update
+  const util = require('../util');
+  const has = (n, k) => util.patternTags(n).includes(` ${k} `);
+  check('five of a kind', has('0555551234', 'quint') && !has('0555512345', 'quint'));
+  check('double triple (333 ... 000, not next to each other)', has('0533367000', 'triple_triple') && has('0533312000', 'triple_triple') && !has('0533312300', 'triple_triple'));
+  check('a plain four of a kind is not a double triple', !has('0555512345', 'triple_triple'));
+  check('four pairs in a row', has('0599009966', 'four_pairs') && has('0511223344', 'four_pairs') && !has('0511223345', 'four_pairs'));
+  check('tens: 0 digit 0, but not just the 050 start', has('0503050602', 'tens') && !has('0501234567', 'tens') && !has('0555123456', 'tens'));
+  check('hundreds: 00 digit 00', has('0512300200', 'hundreds') && !has('0512300000', 'hundreds'));
+  const db9 = new DatabaseSync(':memory:');
+  db9.exec('PRAGMA foreign_keys = ON');
+  const st9 = createStore(sqliteDriver(db9, { n: 0 }));
+  await st9.ready();
+  db9.exec("INSERT INTO users (name, phone, pass_hash) VALUES ('t', '500000099', 'x')");
+  db9.exec("INSERT INTO listings (user_id, number, network, city, price, contact, description, status, pats) VALUES (1, '0533367000', 'stc', 'riyadh', 100, '966500000099', '', 'active', ' triple ')");
+  db9.exec("DELETE FROM meta WHERE k = 'schema_sig'");
+  await createStore(sqliteDriver(db9, { n: 0 })).ready();
+  const tagged = db9.prepare('SELECT pats FROM listings WHERE id = 1').get().pats;
+  check('stored ads get the new tags after the update', tagged.includes(' triple_triple ') && tagged === util.patternTags('0533367000'), tagged);
+
   if (failures) { console.log(failures + ' check(s) failed'); process.exit(1); }
   console.log('\nAll checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });
