@@ -102,7 +102,7 @@ function selectField(ctx, o) {
   </div>`;
 }
 
-const networkOptions = (ctx) => NETWORKS.map((n) => ({ value: n.key, label: n[ctx.lang] }));
+const networkOptions = (ctx) => NETWORKS.map((n) => ({ value: n.key, label: n.key === 'other' ? ctx.t('net_other_pick') : n[ctx.lang] }));
 const cityOptions = (ctx) => CITIES.map((c) => ({ value: c.key, label: c[ctx.lang] }));
 
 // ---- Layout ----------------------------------------------------------------
@@ -434,8 +434,8 @@ function landingInfo(ctx, landing) {
   const prefix = landing.type;
   // A number style may have its own title and description (better for Google); the others use the general wording.
   const own = (part) => {
-    const k = `typeseo_${key}_${part}`;
-    return prefix === 'type' && t(k) !== k ? t(k) : null;
+    const k = prefix === 'type' ? `typeseo_${key}_${part}` : prefix === 'network' && key === 'other' ? `netother_${part}` : '';
+    return k && t(k) !== k ? t(k) : null;
   };
   const title = own('title') || t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_title`, { name });
   const desc = own('desc') || t(`${prefix === 'type' ? 'type' : prefix === 'network' ? 'net' : 'city'}_desc`, { name });
@@ -781,7 +781,7 @@ function listingPage(ctx, l, { canManage, similar = [], more = { total: 0, rows:
   const plain = formatNumberPlain(shownNumber(ctx, l));
   const priceText = l.price != null ? `${formatPrice(l.price)} ${t('sar')}` : '';
   // Keep the whole page title within about 60 characters (the city stays in the description and the heading).
-  const baseTitle = `${t('listing_title_word', { n: plain })} | ${netName(ctx, l.network)}`;
+  const baseTitle = l.network === 'other' ? t('listing_title_word', { n: plain }) : `${t('listing_title_word', { n: plain })} | ${netName(ctx, l.network)}`;
   const withPrice = priceText ? `${baseTitle} | ${priceText}` : baseTitle;
   const title = `${withPrice} | ${t('site_name')}`.length <= 60 ? withPrice : baseTitle;
   const desc = t('listing_desc', {
@@ -804,7 +804,7 @@ function listingPage(ctx, l, { canManage, similar = [], more = { total: 0, rows:
       description: desc,
       category: 'Phone number',
       image: [`${ctx.base}/og.png`],
-      brand: { '@type': 'Brand', name: netName(ctx, l.network) },
+      ...(l.network === 'other' ? {} : { brand: { '@type': 'Brand', name: netName(ctx, l.network) } }),
       url,
       offers: {
         '@type': 'Offer',

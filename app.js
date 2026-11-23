@@ -10,7 +10,7 @@ const util = require('./util');
 const wc = require('./webcrypto');
 const notifier = require('./notify');
 const content = require('./content');
-const { NETWORK_BY_KEY, CITY_BY_KEY, PATTERN_KEYS, REPORT_REASONS, UNDER_PRICES, PRICE_TYPES } = require('./data');
+const { NETWORK_BY_KEY, CITY_BY_KEY, NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, UNDER_PRICES, PRICE_TYPES } = require('./data');
 
 const SESSION_MAX_AGE = 30 * 24 * 3600; // seconds
 const MAX_BODY = 20000;
@@ -314,6 +314,30 @@ function parsePrice(raw) {
   return /^\d{1,8}$/.test(d) ? Number(d) : null;
 }
 
+// The search box also understands a city or network name ("الخرج", "Jeddah", "زين"): the matching filter is applied.
+const normName = (x) =>
+  String(x || '')
+    .toLowerCase()
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/(^|\s)(مدينه|محافظه|منطقه|city|governorate)\s+/g, '$1')
+    .replace(/(^|\s)ال(?=\S)/g, '$1')
+    .replace(/^al[- ]/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+function findByName(list, text, skipOther) {
+  const q = normName(text);
+  if (q.length < 2) return '';
+  const items = list.filter((x) => !(skipOther && x.key === 'other')).map((x) => ({ key: x.key, names: [normName(x.ar), normName(x.en)] }));
+  const exact = items.find((x) => x.names.includes(q));
+  if (exact) return exact.key;
+  if (q.length < 3) return '';
+  const starts = items.filter((x) => x.names.some((n) => n.startsWith(q)));
+  return starts.length === 1 ? starts[0].key : '';
+}
+
 function parseFilters(query) {
   const qRaw = str(query.q, 30).trim();
   const startsRaw = str(query.starts, 15).trim();
@@ -325,6 +349,12 @@ function parseFilters(query) {
   if (starts.startsWith('966')) starts = '0' + starts.slice(3);
   else if (starts.startsWith('5')) starts = '0' + starts;
 
+  // Letters in the search box (no digits at all) are a place or network name, not part of a number.
+  const nameHit = { city: '', network: '' };
+  if (qRaw && !/\d/.test(util.toWestern(qRaw))) {
+    nameHit.city = findByName(CITIES, qRaw, true);
+    if (!nameHit.city) nameHit.network = findByName(NETWORKS, qRaw, true);
+  }
   return {
     qRaw,
     q: util.digitsOnly(qRaw).slice(0, 10),
@@ -336,8 +366,8 @@ function parseFilters(query) {
     min: minRaw ? parsePrice(minRaw) : null,
     maxRaw,
     max: maxRaw ? parsePrice(maxRaw) : null,
-    network: NETWORK_BY_KEY[query.network] ? query.network : '',
-    city: CITY_BY_KEY[query.city] ? query.city : '',
+    network: NETWORK_BY_KEY[query.network] ? query.network : nameHit.network,
+    city: CITY_BY_KEY[query.city] ? query.city : nameHit.city,
     pattern: PATTERN_KEYS.includes(query.pattern) ? query.pattern : '',
     sort: ['price_asc', 'price_desc'].includes(query.sort) ? query.sort : 'new',
     page: Math.max(1, parseInt(query.page, 10) || 1),
@@ -1359,6 +1389,7 @@ const NET_WORDS = {
   virgin: 'virgin', 'فيرجن': 'virgin', 'فيرجن موبايل': 'virgin',
   lebara: 'lebara', 'ليبارا': 'lebara',
   salam: 'salam', 'سلام': 'salam',
+  other: 'other', 'اخرى': 'other', 'أخرى': 'other', 'غير محدد': 'other',
 };
 const CITY_WORDS = {};
 for (const c of Object.values(CITY_BY_KEY)) {
@@ -1548,7 +1579,7 @@ route('GET', '/sitemap.xml', async (ctx) => {
   const counts = await ctx.store.landingCounts();
   for (const k of Object.keys(NETWORK_BY_KEY)) if (counts.network[k]) urls.push({ loc: `${ctx.base}/network/${k}` });
   for (const k of Object.keys(CITY_BY_KEY)) if (counts.city[k]) urls.push({ loc: `${ctx.base}/city/${k}` });
-  for (const n of Object.keys(NETWORK_BY_KEY)) for (const c of Object.keys(CITY_BY_KEY)) if (c !== 'other' && counts.combo[`${n}/${c}`]) urls.push({ loc: `${ctx.base}/network/${n}/${c}` });
+  for (const n of Object.keys(NETWORK_BY_KEY)) for (const c of Object.keys(CITY_BY_KEY)) if (n !== 'other' && c !== 'other' && counts.combo[`${n}/${c}`]) urls.push({ loc: `${ctx.base}/network/${n}/${c}` });
   // Only type pages that have ads: an empty one is marked noindex, and Google complains about noindex pages in a sitemap.
   for (const k of PATTERN_KEYS) if (counts.type[k] > 0) urls.push({ loc: `${ctx.base}/type/${k}` });
   for (const n of UNDER_PRICES) if (counts.under[n]) urls.push({ loc: `${ctx.base}/under/${n}` });

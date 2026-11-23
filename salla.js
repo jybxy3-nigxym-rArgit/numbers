@@ -25,7 +25,8 @@ const REGION_ALIASES = [
 
 function cityOf(text) {
   const s = String(text || '');
-  for (const c of CITIES) if (c.key !== 'other' && s.includes(c.ar)) return c.key;
+  for (const c of CITIES) if (c.key !== 'other' && !c.extra && s.includes(c.ar)) return c.key;
+  for (const c of CITIES) if (c.extra && new RegExp(`(^|[^\\p{L}])${c.ar}($|[^\\p{L}])`, 'u').test(s)) return c.key;
   for (const [w, k] of REGION_ALIASES) if (s.includes(w)) return k;
   return 'other';
 }

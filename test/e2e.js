@@ -382,6 +382,15 @@ async function main() {
     check('network landing page', r.status === 200 && r.text.includes('<h1>') && r.text.includes('rel="canonical" href="' + base + '/network/stc"'));
     check('city landing page', (await anon.get('/city/riyadh')).status === 200);
     check('pattern landing page', (await anon.get('/type/triple')).status === 200);
+    for (const [word, key] of [['الخرج', 'kharj'], ['محافظة الخرج', 'kharj'], ['jeddah', 'jeddah'], ['مكة', 'makkah'], ['وادي الدواسر', 'wadi_dawasir']]) {
+      const sr = await anon.get('/?q=' + encodeURIComponent(word));
+      check('searching the name "' + word + '" picks the city', sr.status === 200 && new RegExp('value="' + key + '"[^>]*selected').test(sr.text), sr.status);
+    }
+    const sn = await anon.get('/?q=' + encodeURIComponent('زين'));
+    check('searching a network name picks the network', /value="zain"[^>]*selected/.test(sn.text));
+    const so = await anon.get('/?q=0555');
+    check('searching digits is still a number search', !/value="[a-z_]+" selected/.test(so.text.split('name="city"')[1] ? so.text.split('name="city"')[1].slice(0, 400) : ''));
+    check('the network list has an "other" choice', (await anon.get('/post')).text.includes('value="other"') || (await anon.get('/')).text.includes('value="other"'));
     for (const k of ['quint', 'quad', 'triple_triple', 'four_pairs', 'hundreds', 'tens']) {
       const tp = await anon.get('/type/' + k);
       check('style page /type/' + k, tp.status === 200 && /<title>[^<]*\(/.test(tp.text) && !tp.text.includes('typeseo'), tp.status);
