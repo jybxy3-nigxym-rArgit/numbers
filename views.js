@@ -1491,6 +1491,7 @@ function adminPage(ctx, tab, data) {
             return `<li class="adm-ad">
           <div class="adm-ad-top"><a class="adm-num" href="/n/${l.id}" dir="ltr">${esc(formatNumberPlain(l.number))}</a><bdi class="adm-time" dir="ltr">${esc(util.riyadhStamp(l.created_at, ctx.lang))}</bdi><span class="adm-badges">${badges}</span></div>
           <p class="adm-meta">${esc(netName(ctx, l.network))} · ${esc(cityName(ctx, l.city))} · ${l.price == null ? esc(t('price_ask')) : esc(formatPrice(l.price)) + ' ' + esc(t('sar'))}${l.hidden_by > 0 ? ` · ${esc(t('hidden_by_mod'))}` : ''}${l.hidden_by === -2 ? ` · ${esc(t('held_badge'))}` : ''}</p>
+          <p class="adm-meta adm-details"><b>${esc(t('details'))}:</b> ${l.description ? esc(l.description) : `<em>${esc(t('adm_no_details'))}</em>`}</p>
           ${l.likers && l.likers.length ? `<p class="adm-meta adm-likes">${esc(t('a_likes', { n: l.likers.length }))} ${l.likers.map((k) => `<a href="/admin/u/${k.uid}">${esc(k.name)}</a> <bdi dir="ltr">0${esc(k.phone)}</bdi>`).join(' · ')}</p>` : ''}
           <p class="adm-meta adm-seller">${esc(l.seller)} · <bdi dir="ltr">0${esc(l.seller_phone)}</bdi>${l.seller_banned ? ` ${statusBadge(ctx, 'hidden')}` : ''}${l.seller_suspended ? ` <span class="badge badge-pending">${esc(t('suspended_badge'))}</span>` : ''}</p>
           ${acts.length ? `<form method="post" action="/admin/l/${l.id}/hide" class="adm-acts">${csrfInput(ctx)}<input type="hidden" name="tab" value="${esc(tab)}">${acts.join('')}</form>` : ''}

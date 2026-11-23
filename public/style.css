@@ -2534,3 +2534,5 @@ html:not([data-theme="dark"]) .sc-role {
 .ban-row.ban-off{opacity:.55}
 form.inline{display:inline}
 .days-in{width:6.5rem;padding:.3rem .5rem;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.85rem}
+.adm-details { color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.adm-details em { color: var(--muted); }

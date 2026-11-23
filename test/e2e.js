@@ -266,6 +266,7 @@ async function main() {
     check('admin registers', r.status === 303);
     r = await admin.get('/admin?tab=reported');
     check('admin sees reported ad', r.status === 200 && r.text.includes('0555 777 888'));
+    check('admin ad rows have their own details line', r.text.includes('class="adm-meta adm-details"'));
     r = await admin.post('/admin/l/1/restore', { tab: 'reported' });
     check('admin keeps a reported ad (reports cleared)', r.status === 303 && (await anon.get('/n/1')).status === 200 && !(await admin.get('/admin?tab=reported')).text.includes('0555 777 888'));
     r = await admin.get('/admin?tab=users');

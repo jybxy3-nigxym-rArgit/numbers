@@ -805,8 +805,8 @@ function createStore(d) {
       where.push('(l.number LIKE ? OR u.phone LIKE ?)');
       params.push('%' + digits + '%', '%' + digits + '%');
     } else if (likeSafe(q)) {
-      where.push('u.name LIKE ?');
-      params.push('%' + likeSafe(q) + '%');
+      where.push('(u.name LIKE ? OR l.description LIKE ?)');
+      params.push('%' + likeSafe(q) + '%', '%' + likeSafe(q) + '%');
     }
     const w = where.join(' AND ');
     const rs = await d.batch([
