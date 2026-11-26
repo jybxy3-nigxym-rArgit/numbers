@@ -2536,3 +2536,36 @@ form.inline{display:inline}
 .days-in{width:6.5rem;padding:.3rem .5rem;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.85rem}
 .adm-details { color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .adm-details em { color: var(--muted); }
+/* City search box */
+.cp { position: relative; min-width: 0; }
+.cp > .cp-input { width: 100%; }
+.cp-list {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 0.3rem);
+  z-index: 30;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 19rem;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1.5px solid var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(28, 18, 48, 0.18);
+}
+.cp-list[hidden] { display: none; }
+.cp-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.cp-list li b { font-size: 1rem; font-weight: 800; }
+.cp-list li small { color: var(--muted); font-size: 0.82rem; text-align: end; }
+.cp-list li.on { background: color-mix(in srgb, var(--gold) 16%, var(--card)); }
+.cp-list li.cp-none { color: var(--muted); font-size: 0.9rem; cursor: default; }

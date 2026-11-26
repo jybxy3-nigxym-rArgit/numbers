@@ -1,6 +1,6 @@
 'use strict';
 
-const { NETWORKS, CITIES, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY, UNDER_PRICES, PRICE_TYPES, LINKS, BANNER } = require('./data');
+const { NETWORKS, CITIES, REGIONS, PATTERN_KEYS, REPORT_REASONS, NETWORK_BY_KEY, CITY_BY_KEY, UNDER_PRICES, PRICE_TYPES, LINKS, BANNER } = require('./data');
 const util = require('./util');
 const { PAGES, UPDATED } = require('./pages');
 const { esc, plateDigits, formatNumberPlain, intlToLocal, daysSince, formatPrice } = require('./util');
@@ -89,12 +89,12 @@ function selectField(ctx, o) {
   return `
   <div class="field${error ? ' has-error' : ''}">
     <label for="${id}">${esc(label)}</label>
-    <select id="${id}" name="${name}" ${error ? `aria-invalid="true" aria-describedby="${errId}"` : ''}>
+    <select id="${id}" name="${name}" ${error ? `aria-invalid="true" aria-describedby="${errId}"` : ''}${o.picker ? ` data-cp data-ph="${esc(ctx.t('city_search_ph'))}" data-none="${esc(ctx.t('city_search_none'))}" aria-label="${esc(label)}"` : ''}>
       ${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ''}
       ${options
         .map(
           (opt) =>
-            `<option value="${esc(opt.value)}"${String(opt.value) === String(value) ? ' selected' : ''}>${esc(opt.label)}</option>`
+            `<option value="${esc(opt.value)}"${opt.region ? ` data-r="${esc(opt.region)}"` : ''}${String(opt.value) === String(value) ? ' selected' : ''}>${esc(opt.label)}</option>`
         )
         .join('')}
     </select>
@@ -103,7 +103,7 @@ function selectField(ctx, o) {
 }
 
 const networkOptions = (ctx) => NETWORKS.map((n) => ({ value: n.key, label: n.key === 'other' ? ctx.t('net_other_pick') : n[ctx.lang] }));
-const cityOptions = (ctx) => CITIES.map((c) => ({ value: c.key, label: c[ctx.lang] }));
+const cityOptions = (ctx) => CITIES.map((c) => ({ value: c.key, label: c[ctx.lang], region: c.r && REGIONS[c.r] ? REGIONS[c.r][ctx.lang] : '' }));
 
 // ---- Layout ----------------------------------------------------------------
 
@@ -240,6 +240,7 @@ ${promo && !user ? `<aside class="promo"><div><strong>${esc(t('promo_title'))}</
 </nav>
 ${ctx.ann ? `<script src="/ann.js?v=${esc(ASSET_V)}" defer></script>` : ''}
 ${liveJs || !(ctx.ack || noindex) ? `<script src="/live.js?v=${esc(ASSET_V)}" defer></script>` : ''}
+${`${body}${hero}`.includes('data-cp') ? `<script src="/citypicker.js?v=${esc(ASSET_V)}" defer></script>` : ''}
 </body>
 </html>`;
 }
@@ -518,9 +519,9 @@ function homePage(ctx, { filters, rows, total, page, pages, siteEmpty, landing, 
         <option value="">${esc(t('all_types'))}</option>
         ${PATTERN_KEYS.map((k) => `<option value="${esc(k)}"${k === f.pattern && (!landing || landing.type === 'type') ? ' selected' : ''}>${esc(t('pat_' + k))}</option>`).join('')}
       </select>
-      <select id="f-city" name="city" aria-label="${esc(t('city'))}">
+      <select id="f-city" name="city" aria-label="${esc(t('city'))}" data-cp data-ph="${esc(t('city_search_ph'))}" data-none="${esc(t('city_search_none'))}">
         <option value="">${esc(t('all_cities'))}</option>
-        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.value === f.city && (!landing || landing.type === 'city') ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
+        ${cityOptions(ctx).map((o) => `<option value="${esc(o.value)}"${o.region ? ` data-r="${esc(o.region)}"` : ''}${o.value === f.city && (!landing || landing.type === 'city') ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
       </select>
       <input id="f-max" name="max" type="text" inputmode="numeric" autocomplete="off" dir="auto"
         aria-label="${esc(t('max_price'))}" value="${esc(f.maxRaw)}" placeholder="${esc(t('max_price'))}">
@@ -885,7 +886,7 @@ function postPage(ctx, v = {}, errors = {}) {
       ${csrfInput(ctx)}
       ${field(ctx, { id: 'number', name: 'number', label: t('post_number_label'), value: v.number, error: errors.number, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx" required' })}
       ${selectField(ctx, { id: 'network', name: 'network', label: t('f_network'), options: networkOptions(ctx), value: v.network, error: errors.network, placeholder: t('f_choose') })}
-      ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose') })}
+      ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose'), picker: true })}
       ${field(ctx, { id: 'price', name: 'price', label: t('f_price'), hint: t('f_price_hint'), value: v.price, error: errors.price, attrs: 'inputmode="numeric" autocomplete="off"' })}
       ${priceExtra(ctx, v, errors)}
       ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx"' })}
@@ -913,7 +914,7 @@ function editPage(ctx, l, v = {}, errors = {}) {
     <form method="post" action="/n/${l.id}/edit" class="form" novalidate>
       ${csrfInput(ctx)}
       ${selectField(ctx, { id: 'network', name: 'network', label: t('f_network'), options: networkOptions(ctx), value: v.network, error: errors.network, placeholder: t('f_choose') })}
-      ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose') })}
+      ${selectField(ctx, { id: 'city', name: 'city', label: t('f_city'), options: cityOptions(ctx), value: v.city, error: errors.city, placeholder: t('f_choose'), picker: true })}
       ${field(ctx, { id: 'price', name: 'price', label: t('f_price'), hint: t('f_price_hint'), value: v.price, error: errors.price, attrs: 'inputmode="numeric" autocomplete="off"' })}
       ${priceExtra(ctx, v, errors)}
       ${field(ctx, { id: 'contact', name: 'contact', label: t('f_contact'), hint: t('f_contact_hint'), value: v.contact, error: errors.contact, attrs: 'inputmode="numeric" autocomplete="off" maxlength="10" placeholder="05xxxxxxxx"' })}

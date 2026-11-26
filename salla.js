@@ -23,10 +23,13 @@ const REGION_ALIASES = [
   ['حائل', 'hail'], ['تبوك', 'tabuk'],
 ];
 
+// Longest names first, so "بدر الجنوب" is tried before "بدر".
+const EXTRA_BY_LENGTH = CITIES.filter((c) => c.extra).sort((a, b) => b.ar.length - a.ar.length);
+
 function cityOf(text) {
   const s = String(text || '');
   for (const c of CITIES) if (c.key !== 'other' && !c.extra && s.includes(c.ar)) return c.key;
-  for (const c of CITIES) if (c.extra && new RegExp(`(^|[^\\p{L}])${c.ar}($|[^\\p{L}])`, 'u').test(s)) return c.key;
+  for (const c of EXTRA_BY_LENGTH) if (new RegExp(`(^|[^\\p{L}])${c.ar}($|[^\\p{L}])`, 'u').test(s)) return c.key;
   for (const [w, k] of REGION_ALIASES) if (s.includes(w)) return k;
   return 'other';
 }

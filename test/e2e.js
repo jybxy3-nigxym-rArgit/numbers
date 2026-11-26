@@ -123,7 +123,7 @@ async function main() {
     check('default language is Arabic and RTL', r.text.includes('dir="rtl"') && r.text.includes('بصمة عميل'));
     check('empty site message shown', r.text.includes('ما فيه إعلانات للحين'));
     check('CSP header set', (r.headers.get('content-security-policy') || '').includes("script-src 'self'") && !(r.headers.get('content-security-policy') || '').includes('unsafe-inline'));
-    check('no external or inline scripts in page', !/<script(?![^>]*(application\/ld\+json|src="\/live\.js))/i.test(r.text));
+    check('no external or inline scripts in page', !/<script(?![^>]*(application\/ld\+json|src="\/(live|citypicker)\.js))/i.test(r.text));
     r = await anon.get('/lang/en?next=/');
     check('language switch redirects', r.status === 302 && r.location === '/');
     r = await anon.get('/');
@@ -397,6 +397,11 @@ async function main() {
       check('style page /type/' + k, tp.status === 200 && /<title>[^<]*\(/.test(tp.text) && !tp.text.includes('typeseo'), tp.status);
     }
     check('unknown style page is 404', (await anon.get('/type/nothing')).status === 404);
+    const home0 = await anon.get('/');
+    check('the city box script is served and loaded by the page', (await anon.get('/citypicker.js')).status === 200 && home0.text.includes('/citypicker.js') && home0.text.includes('data-cp'));
+    check('city options carry their region', /<option value="kharj" data-r="[^"]+"/.test(home0.text));
+    const art = await anon.get('/articles/saudi-mobile-number-prefixes');
+    check('prefix guide article opens and is in the sitemap', art.status === 200 && (await anon.get('/sitemap.xml')).text.includes('saudi-mobile-number-prefixes'));
     check('unknown landing page is 404', (await anon.get('/network/nope')).status === 404);
     r = await anon.get('/');
     check('home has JSON-LD, canonical and links to landing pages', r.text.includes('application/ld+json') && r.text.includes('/network/stc') && r.text.includes('rel="canonical"'));
